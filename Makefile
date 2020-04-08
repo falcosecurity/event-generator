@@ -8,7 +8,7 @@ main ?= .
 output ?= event-generator
 
 .PHONY: build
-build: clean ${output}
+build: clean events/k8saudit/yaml ${output}
 
 .PHONY: ${output}
 ${output}:
@@ -22,3 +22,8 @@ clean:
 test:
 	$(GO) vet ./...
 	$(GO) test ${TEST_FLAGS} ./...
+
+
+.PHONY: events/k8saudit/yaml
+events/k8saudit/yaml:
+	go run ./tools/file-bundler/ events/k8saudit/yaml
