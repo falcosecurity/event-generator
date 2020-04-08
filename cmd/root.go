@@ -14,7 +14,7 @@ import (
 func init() {
 	logger.SetFormatter(&logger.TextFormatter{
 		ForceColors:            true,
-		DisableLevelTruncation: true,
+		DisableLevelTruncation: false,
 		DisableTimestamp:       true,
 	})
 }
@@ -53,9 +53,13 @@ func New(configOptions *ConfigOptions) *cobra.Command {
 		},
 	}
 
+	// Global flags
 	flags := rootCmd.PersistentFlags()
 	flags.StringVarP(&configOptions.ConfigFile, "config", "c", configOptions.ConfigFile, "config file path (default $HOME/.falco-event-generator.yaml if exists)")
 	flags.StringVarP(&configOptions.LogLevel, "loglevel", "l", configOptions.LogLevel, "log level")
+
+	// Commands
+	rootCmd.AddCommand(NewRun())
 
 	return rootCmd
 }
@@ -135,6 +139,7 @@ func initFlags(flags *pflag.FlagSet, exclude map[string]bool) {
 		if exclude[f.Name] {
 			return
 		}
+		viper.SetDefault(f.Name, f.DefValue)
 		if v := viper.GetString(f.Name); v != f.DefValue {
 			flags.Set(f.Name, v)
 		}
