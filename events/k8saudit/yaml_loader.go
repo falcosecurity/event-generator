@@ -3,25 +3,28 @@ package k8saudit
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/falcosecurity/event-generator/events"
 	"github.com/falcosecurity/event-generator/events/k8saudit/yaml"
+	"github.com/iancoleman/strcase"
 	"k8s.io/cli-runtime/pkg/resource"
 )
 
 func init() {
-	for name, b := range yaml.Bundle {
-		count := 0
+	for n, b := range yaml.Bundle {
+		fileName := n
+		// todo(leogr): use labels
+		name := strcase.ToCamel(strings.TrimSuffix(fileName, filepath.Ext(fileName)))
+		reader := bytes.NewReader(b)
 		events.RegisterWithName(func(h events.Helper) error {
+			count := 0
 			r := h.ResourceBuilder().
 				Unstructured().
 				// Schema(schema).
 				// ContinueOnError().
-
-				// NamespaceParam(cmdNamespace).DefaultNamespace().
-				// FilenameParam(enforceNamespace, &o.FilenameOptions).
-				// LabelSelectorParam(o.Selector).
-				Stream(bytes.NewReader(b), name).
+				Stream(reader, fileName).
 				Flatten().
 				Do()
 			if err := r.Err(); err != nil {
