@@ -10,13 +10,24 @@ import (
 var registry = make(map[string]Action, 0)
 
 func Register(f Action) map[string]Action {
-	registry[getFuncName(f)] = f
-	return registry
+	n := getFuncName(f)
+	checkName(n)
+	return RegisterWithName(f, n)
 }
 
 func RegisterWithName(f Action, name string) map[string]Action {
+	checkName(name)
 	registry[name] = f
 	return registry
+}
+
+func checkName(n string) {
+	if n == "" { // todo(leogr): check name format too
+		panic("event name cannot be empty")
+	}
+	if _, ok := registry[n]; ok {
+		panic("event name already registered: " + n)
+	}
 }
 
 func getFuncName(f interface{}) string {
