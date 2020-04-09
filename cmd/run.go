@@ -5,8 +5,8 @@ import (
 	"regexp"
 
 	"github.com/falcosecurity/event-generator/events"
-	_ "github.com/falcosecurity/event-generator/events/k8saudit"
-	_ "github.com/falcosecurity/event-generator/events/syscall"
+	_ "github.com/falcosecurity/event-generator/events/k8saudit" // needs a comment justifying it
+	_ "github.com/falcosecurity/event-generator/events/syscall"  // needs a comment justifying it
 	"github.com/falcosecurity/event-generator/pkg/runner"
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -14,14 +14,16 @@ import (
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
+// DefaultNamespace const contains the name of the default Kubernetes namespace.
 const DefaultNamespace = "default"
 
+// NewRun instantiates the run subcommand.
 func NewRun() *cobra.Command {
-
 	c := &cobra.Command{
-		Use:   "run [regexp]",
-		Short: "Run actions",
-		Args:  cobra.MaximumNArgs(1),
+		Use:               "run [regexp]",
+		Short:             "Run actions",
+		Args:              cobra.MaximumNArgs(1),
+		DisableAutoGenTag: true,
 	}
 
 	flags := c.Flags()

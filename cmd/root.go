@@ -27,6 +27,7 @@ func New(configOptions *ConfigOptions) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "event-generator",
 		Short: "A command line tool to perform a variety of suspect actions.",
+		DisableAutoGenTag: true,
 		PersistentPreRun: func(c *cobra.Command, args []string) {
 			// PersistentPreRun runs before flags validation but after args validation.
 			// Do not assume initialization completed during args validation.
