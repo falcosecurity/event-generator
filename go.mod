@@ -14,6 +14,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.5.1
+	golang.org/x/sys v0.0.0-20191026070338-33540a1f6037 // indirect
 	k8s.io/cli-runtime v0.17.3
 	k8s.io/kubectl v0.17.3
 )
