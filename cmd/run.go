@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"regexp"
 
+	// register event categories
+	_ "github.com/falcosecurity/event-generator/events/k8saudit"
+	_ "github.com/falcosecurity/event-generator/events/syscall"
+
 	"github.com/falcosecurity/event-generator/events"
-	_ "github.com/falcosecurity/event-generator/events/k8saudit" // needs a comment justifying it
-	_ "github.com/falcosecurity/event-generator/events/syscall"  // needs a comment justifying it
 	"github.com/falcosecurity/event-generator/pkg/runner"
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -51,7 +53,7 @@ func NewRun() *cobra.Command {
 		}
 
 		if len(args) == 0 {
-			return r.RunMany(events.All())
+			return r.Run(events.All())
 		}
 
 		reg, err := regexp.Compile(args[0])
@@ -64,7 +66,7 @@ func NewRun() *cobra.Command {
 			return fmt.Errorf(`no events matching '%s'`, args[0])
 		}
 
-		return r.RunMany(evts)
+		return r.Run(evts)
 
 	}
 

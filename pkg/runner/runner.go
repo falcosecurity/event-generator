@@ -16,6 +16,7 @@ type Runner struct {
 type helper struct {
 	log     *logger.Entry
 	builder *resource.Builder
+	cleanup func()
 }
 
 func (h *helper) Log() *logger.Entry {
@@ -27,12 +28,27 @@ func (h *helper) ResourceBuilder() *resource.Builder {
 	return h.builder
 }
 
-func (r *Runner) Run(f events.Action, n string) (err error) {
+// Cleanup registers a function to be called when the action complete or later.
+// Cleanup functions registered from within the same action will be called in last added,
+// first called order.
+func (h *helper) Cleanup(f func(), args ...interface{}) {
+	oldCleanup := h.cleanup
+	h.cleanup = func() {
+		if oldCleanup != nil {
+			defer oldCleanup()
+		}
+		args = append([]interface{}{"clenaup "}, args...)
+		h.Log().Info(args...)
+		f()
+	}
+}
+
+func (r *Runner) trigger(n string, f events.Action) (cleanup func(), err error) {
 	fields := logger.Fields{
 		"action": n,
 	}
 	log := r.log.WithFields(fields)
-	log.Info("running action")
+	log.Info("trigger")
 
 	h := &helper{
 		log: log,
@@ -48,12 +64,25 @@ func (r *Runner) Run(f events.Action, n string) (err error) {
 		log.WithError(err).Error("action error")
 	}
 
-	return nil
+	return h.cleanup, nil
 }
 
-func (r *Runner) RunMany(m map[string]events.Action) error {
+func (r *Runner) Run(m map[string]events.Action) error {
+
+	var cList []func()
+	teardown := func() {
+		for _, c := range cList {
+			c()
+		}
+	}
+	defer teardown()
+
 	for n, f := range m {
-		if err := r.Run(f, n); err != nil {
+		cleanup, err := r.trigger(n, f)
+		if cleanup != nil {
+			cList = append(cList, cleanup)
+		}
+		if err != nil {
 			return err
 		}
 	}
