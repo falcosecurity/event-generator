@@ -1,57 +1,36 @@
 package runner
 
 import (
+	"os"
+	"path/filepath"
+
 	"github.com/falcosecurity/event-generator/events"
 	logger "github.com/sirupsen/logrus"
-	"k8s.io/cli-runtime/pkg/resource"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
 type Runner struct {
-	log *logger.Logger
-	kf  cmdutil.Factory
-	kn  string
-}
-
-type helper struct {
-	log     *logger.Entry
-	builder *resource.Builder
-	cleanup func()
-}
-
-func (h *helper) Log() *logger.Entry {
-	return h.log
-}
-
-func (h *helper) ResourceBuilder() *resource.Builder {
-	// todo(leogr): handle nil case
-	return h.builder
-}
-
-// Cleanup registers a function to be called when the action complete or later.
-// Cleanup functions registered from within the same action will be called in last added,
-// first called order.
-func (h *helper) Cleanup(f func(), args ...interface{}) {
-	oldCleanup := h.cleanup
-	h.cleanup = func() {
-		if oldCleanup != nil {
-			defer oldCleanup()
-		}
-		args = append([]interface{}{"clenaup "}, args...)
-		h.Log().Info(args...)
-		f()
-	}
+	log     *logger.Logger
+	kf      cmdutil.Factory
+	kn      string
+	exePath string
+	exeArgs []string
+	alias   string
 }
 
 func (r *Runner) trigger(n string, f events.Action) (cleanup func(), err error) {
 	fields := logger.Fields{
 		"action": n,
 	}
+	if r.alias != "" {
+		fields["as"] = r.alias
+	}
 	log := r.log.WithFields(fields)
 	log.Info("trigger")
 
 	h := &helper{
-		log: log,
+		runner: r,
+		log:    log,
 	}
 	if r.kf != nil {
 		h.builder = r.kf.NewBuilder().RequireNamespace()
@@ -89,6 +68,16 @@ func (r *Runner) Run(m map[string]events.Action) error {
 	return nil
 }
 
+func procAlias() string {
+	procPath, _ := os.Executable()
+	procName := filepath.Base(procPath)
+	calledAs := filepath.Base(os.Args[0])
+	if procName != calledAs {
+		return calledAs
+	}
+	return ""
+}
+
 func New(options ...Option) (*Runner, error) {
 	r := &Runner{}
 
@@ -99,6 +88,16 @@ func New(options ...Option) (*Runner, error) {
 	if r.log == nil {
 		r.log = logger.New()
 	}
+
+	if r.exePath == "" {
+		path, err := os.Executable()
+		if err != nil {
+			return nil, err
+		}
+		r.exePath = path
+	}
+
+	r.alias = procAlias()
 
 	return r, nil
 }
@@ -120,6 +119,14 @@ func WithKubeFactory(factory cmdutil.Factory) Option {
 func WithKubeNamespace(namespace string) Option {
 	return func(r *Runner) error {
 		r.kn = namespace
+		return nil
+	}
+}
+
+func WithExecutable(path string, args ...string) Option {
+	return func(r *Runner) error {
+		r.exePath = path
+		r.exeArgs = args
 		return nil
 	}
 }

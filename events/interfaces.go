@@ -17,6 +17,8 @@ type Helper interface {
 	// first called order.
 	Cleanup(f func(), args ...interface{})
 
+	SpawnAs(name string, action string) error
+
 	// ResourceBuilder returns a k8s' resource.Builder.
 	ResourceBuilder() *resource.Builder
 }

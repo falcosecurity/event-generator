@@ -43,10 +43,13 @@ func NewRun() *cobra.Command {
 		if err != nil {
 			return err
 		}
+		l := logger.StandardLogger()
+
 		r, err := runner.New(
-			runner.WithLogger(logger.StandardLogger()),
+			runner.WithLogger(l),
 			runner.WithKubeFactory(cmdutil.NewFactory(matchVersionKubeConfigFlags)),
 			runner.WithKubeNamespace(ns),
+			runner.WithExecutable("", "--loglevel", l.GetLevel().String(), "run"),
 		)
 		if err != nil {
 			return err
