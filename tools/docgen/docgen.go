@@ -9,6 +9,7 @@ import (
 
 	"github.com/falcosecurity/event-generator/cmd"
 	logger "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 )
 
@@ -38,6 +39,15 @@ var (
 	}
 )
 
+// fixme(leogr): we must not expose the local home dir / temp workaround here
+func fixDefaults(c *cobra.Command) {
+	for _, cc := range c.Commands() {
+		if f := cc.Flags().Lookup("cache-dir"); f != nil {
+			f.DefValue = "$HOME/.kube/http-cache"
+		}
+	}
+}
+
 // docgen
 func main() {
 	// Get mode
@@ -46,6 +56,7 @@ func main() {
 
 	// Get root command
 	evtgen := cmd.New(nil)
+	fixDefaults(evtgen)
 	num := len(evtgen.Commands()) + 1
 
 	// Setup prepender hook
