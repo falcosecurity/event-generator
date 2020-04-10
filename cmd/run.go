@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
-	// register event categories
+	// register event collections
 	_ "github.com/falcosecurity/event-generator/events/k8saudit"
 	_ "github.com/falcosecurity/event-generator/events/syscall"
 
