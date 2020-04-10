@@ -26,7 +26,6 @@ func (r *Runner) trigger(n string, f events.Action) (cleanup func(), err error) 
 		fields["as"] = r.alias
 	}
 	log := r.log.WithFields(fields)
-	log.Info("trigger")
 
 	h := &helper{
 		name:   n,
@@ -42,6 +41,8 @@ func (r *Runner) trigger(n string, f events.Action) (cleanup func(), err error) 
 
 	if err := f(h); err != nil {
 		log.WithError(err).Error("action error")
+	} else if !h.hasLog {
+		log.Info("action executed")
 	}
 
 	return h.cleanup, nil

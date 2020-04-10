@@ -23,11 +23,13 @@ type helper struct {
 	name    string
 	runner  *Runner
 	log     *logger.Entry
+	hasLog  bool
 	builder *resource.Builder
 	cleanup func()
 }
 
 func (h *helper) Log() *logger.Entry {
+	h.hasLog = true
 	return h.log
 }
 
@@ -42,8 +44,15 @@ func (h *helper) Cleanup(f func(), args ...interface{}) {
 		if oldCleanup != nil {
 			defer oldCleanup()
 		}
-		args = append([]interface{}{"clenaup "}, args...)
-		h.Log().Info(args...)
+		log := h.Log()
+		if len(args) > 0 {
+			if l, ok := args[0].(*logger.Entry); ok {
+				log = l
+				args = args[1:]
+			}
+		}
+		args = append([]interface{}{"cleanup "}, args...)
+		log.Info(args...)
 		f()
 	}
 }
