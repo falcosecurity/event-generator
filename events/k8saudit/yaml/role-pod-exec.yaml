@@ -5,8 +5,7 @@ metadata:
   labels:
     app.kubernetes.io/name: pod-exec-role
     app.kubernetes.io/part-of: falco-event-generator
-    falco.rules: ClusterRole-With-Pod-Exec-Created
-    message: Creating-role-that-can-exec-to-pods
+    falco.org/rule: ClusterRole-With-Pod-Exec-Created
 rules:
 - apiGroups:
     - ""

@@ -5,8 +5,7 @@ metadata:
   labels:
     app.kubernetes.io/name: private-creds-configmap
     app.kubernetes.io/part-of: falco-event-generator
-    falco.rules: Create.Modify-Configmap-With-Private-Credentials
-    message: Creating-configmap-with-private-credentials
+    falco.org/rule: Create.Modify-Configmap-With-Private-Credentials
 data:
   ui.properties: |
     color.good=purple

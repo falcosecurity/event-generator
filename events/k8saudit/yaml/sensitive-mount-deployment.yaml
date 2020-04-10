@@ -5,8 +5,7 @@ metadata:
   labels:
     app.kubernetes.io/name: sensitive-mount-deployment
     app.kubernetes.io/part-of: falco-event-generator
-    falco.rules: Create-Sensitive-Mount-Pod
-    message: Creating-deployment-with-pod-mounting-sensitive-path-from-host
+    falco.org/rule: Create-Sensitive-Mount-Pod
 spec:
   replicas: 1
   selector:

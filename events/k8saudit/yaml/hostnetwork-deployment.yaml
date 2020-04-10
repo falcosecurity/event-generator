@@ -5,8 +5,7 @@ metadata:
   labels:
     app.kubernetes.io/name: hostnetwork-deployment
     app.kubernetes.io/part-of: falco-event-generator
-    falco.rules: Create-HostNetwork-Pod
-    message: Creating-deployment-with-hostNetwork-true-pod
+    falco.org/rule: Create-HostNetwork-Pod
 spec:
   replicas: 1
   selector:

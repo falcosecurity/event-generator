@@ -9,6 +9,8 @@ import (
 	"github.com/falcosecurity/event-generator/events"
 	"github.com/falcosecurity/event-generator/events/k8saudit/yaml"
 	"github.com/iancoleman/strcase"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/resource"
 )
 
@@ -20,10 +22,12 @@ func init() {
 		reader := bytes.NewReader(b)
 		events.RegisterWithName(func(h events.Helper) error {
 			count := 0
+			// uidMap := cmdwait.UIDMap{}
+			// infos := []*resource.Info{}
 			r := h.ResourceBuilder().
 				Unstructured().
 				// Schema(schema).
-				// ContinueOnError().
+				ContinueOnError().
 				Stream(reader, fileName).
 				Flatten().
 				Do()
@@ -35,10 +39,25 @@ func init() {
 				if err != nil {
 					return err
 				}
-				// if err := util.CreateOrUpdateAnnotation(cmdutil.GetFlagBool(cmd, cmdutil.ApplyAnnotationsFlag), info.Object, scheme.DefaultJSONEncoder()); err != nil {
-				// 	return cmdutil.AddSourceToErr("creating", info.Source, err)
-				// }
 
+				log := h.Log().WithField("resource", info.Name)
+
+				h.Cleanup(func() {
+					if _, err := resource.
+						NewHelper(info.Client, info.Mapping).
+						DeleteWithOptions(info.Namespace, info.Name, &metav1.DeleteOptions{}); err != nil {
+						log.WithError(err).Error("delete k8s resource")
+					}
+				}, log)
+
+				if uo, ok := info.Object.(*unstructured.Unstructured); ok {
+					labels := uo.GetLabels()
+					if rule, ok := labels["falco.org/rule"]; ok {
+						log = log.WithField("rule", rule)
+					}
+				}
+
+				log.Info("create k8s resource")
 				obj, err := resource.
 					NewHelper(info.Client, info.Mapping).
 					Create(info.Namespace, true, info.Object, nil)
@@ -48,7 +67,6 @@ func init() {
 				info.Refresh(obj, true)
 
 				count++
-
 				return nil
 			})
 			if err != nil {

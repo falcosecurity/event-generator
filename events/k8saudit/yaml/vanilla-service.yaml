@@ -5,8 +5,7 @@ metadata:
   labels:
     app.kubernetes.io/name: vanilla-service
     app.kubernetes.io/part-of: falco-event-generator
-    falco.rules: K8s-Service-Created
-    message: Creating-service
+    falco.org/rule: K8s-Service-Created
 spec:
   type: ClusterIP
   ports:

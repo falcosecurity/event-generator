@@ -5,8 +5,7 @@ metadata:
   labels:
     app.kubernetes.io/name: wildcard-resources-role
     app.kubernetes.io/part-of: falco-event-generator
-    falco.rules: ClusterRole-With-Write-Privileges-Created
-    message: Creating-role-with-wildcard-resources
+    falco.org/rule: ClusterRole-With-Write-Privileges-Created
 rules:
 - apiGroups:
     - ""
