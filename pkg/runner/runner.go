@@ -29,6 +29,7 @@ func (r *Runner) trigger(n string, f events.Action) (cleanup func(), err error) 
 	log.Info("trigger")
 
 	h := &helper{
+		name:   n,
 		runner: r,
 		log:    log,
 	}

@@ -1,16 +1,26 @@
 package runner
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 
+	"github.com/falcosecurity/event-generator/events"
 	logger "github.com/sirupsen/logrus"
 	"k8s.io/cli-runtime/pkg/resource"
 )
 
+var _ events.Helper = &helper{}
+
+// Helper errors
+var (
+	ErrSelfSpawnAs = errors.New("cannot spawn the same action")
+)
+
 type helper struct {
+	name    string
 	runner  *Runner
 	log     *logger.Entry
 	builder *resource.Builder
@@ -26,9 +36,6 @@ func (h *helper) ResourceBuilder() *resource.Builder {
 	return h.builder
 }
 
-// Cleanup registers a function to be called when the action complete or later.
-// Cleanup functions registered from within the same action will be called in last added,
-// first called order.
 func (h *helper) Cleanup(f func(), args ...interface{}) {
 	oldCleanup := h.cleanup
 	h.cleanup = func() {
@@ -43,6 +50,9 @@ func (h *helper) Cleanup(f func(), args ...interface{}) {
 
 func (h *helper) SpawnAs(name string, action string) error {
 	h.Log().WithField("arg", action).Infof(`spawn as "%s"`, name)
+	if name == h.name {
+		return ErrSelfSpawnAs
+	}
 	tmpDir, err := ioutil.TempDir(os.TempDir(), "falco-event-generator")
 	if err != nil {
 		return err
