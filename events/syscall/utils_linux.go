@@ -9,6 +9,7 @@ import (
 	sys "syscall"
 
 	"github.com/falcosecurity/event-generator/events"
+	"golang.org/x/sys/unix"
 )
 
 func becameUser(h events.Helper, username string) error {
@@ -25,7 +26,20 @@ func becameUser(h events.Helper, username string) error {
 		return err
 	}
 
-	return sys.Setuid(uid)
+	h.Log().WithField("uid", sys.Getuid()).
+		WithField("euid", sys.Geteuid()).Debug("pre setuid")
+
+	uuid := uint(uid)
+	_, _, errno := unix.RawSyscall(unix.SYS_SETUID, uintptr(uuid), 0, 0)
+
+	h.Log().WithError(errno).
+		WithField("uid", sys.Getuid()).
+		WithField("euid", sys.Geteuid()).Debug("post setuid")
+
+	if errno != 0 {
+		return errno
+	}
+	return nil
 }
 
 func runAsUser(h events.Helper, username string, cmdName string, cmdArgs ...string) error {
