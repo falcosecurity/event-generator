@@ -3,6 +3,7 @@ package runner
 import (
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/falcosecurity/event-generator/events"
 	logger "github.com/sirupsen/logrus"
@@ -16,6 +17,7 @@ type Runner struct {
 	exePath string
 	exeArgs []string
 	alias   string
+	sleep   time.Duration
 }
 
 func (r *Runner) trigger(n string, f events.Action) (cleanup func(), err error) {
@@ -37,6 +39,10 @@ func (r *Runner) trigger(n string, f events.Action) (cleanup func(), err error) 
 		if r.kn != "" {
 			h.builder.NamespaceParam(r.kn).DefaultNamespace()
 		}
+	}
+
+	if r.sleep > 0 {
+		h.Sleep(r.sleep)
 	}
 
 	if err := f(h); err != nil {
@@ -107,6 +113,13 @@ func New(options ...Option) (*Runner, error) {
 func WithLogger(l *logger.Logger) Option {
 	return func(r *Runner) error {
 		r.log = l
+		return nil
+	}
+}
+
+func WithSleep(d time.Duration) Option {
+	return func(r *Runner) error {
+		r.sleep = d
 		return nil
 	}
 }

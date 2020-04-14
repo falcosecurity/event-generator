@@ -2,10 +2,13 @@ package runner
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/falcosecurity/event-generator/events"
 	logger "github.com/sirupsen/logrus"
@@ -33,6 +36,11 @@ func (h *helper) Log() *logger.Entry {
 	return h.log
 }
 
+func (h *helper) Sleep(d time.Duration) {
+	h.log.Infof("sleep for %s", d) // do not set hasLog
+	time.Sleep(d)
+}
+
 func (h *helper) ResourceBuilder() *resource.Builder {
 	// todo(leogr): handle nil case
 	return h.builder
@@ -57,8 +65,9 @@ func (h *helper) Cleanup(f func(), args ...interface{}) {
 	}
 }
 
-func (h *helper) SpawnAs(name string, action string) error {
-	h.Log().WithField("arg", action).Infof(`spawn as "%s"`, name)
+func (h *helper) SpawnAs(name string, action string, args ...string) error {
+	fullArgs := append([]string{fmt.Sprintf("^%s$", action)}, args...)
+	h.Log().WithField("args", strings.Join(fullArgs, " ")).Infof(`spawn as "%s"`, name)
 	if name == h.name {
 		return ErrSelfSpawnAs
 	}
@@ -73,7 +82,7 @@ func (h *helper) SpawnAs(name string, action string) error {
 		return err
 	}
 
-	cmd := exec.Command(name, append(h.runner.exeArgs, action)...)
+	cmd := exec.Command(name, append(h.runner.exeArgs, fullArgs...)...)
 
 	out := h.runner.log.Out
 	cmd.Stdout = out
