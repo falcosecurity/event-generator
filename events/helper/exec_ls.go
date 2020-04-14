@@ -1,4 +1,4 @@
-package syscall
+package helper
 
 import (
 	"os/exec"
