@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"regexp"
+	"time"
 
 	// register event collections
 	_ "github.com/falcosecurity/event-generator/events/k8saudit"
@@ -38,6 +39,9 @@ func NewRun() *cobra.Command {
 	ns.DefValue = DefaultNamespace
 	ns.Value.Set(DefaultNamespace)
 
+	var sleep time.Duration
+	flags.DurationVar(&sleep, "sleep", 0, "time to sleep prior to trigger an action")
+
 	c.RunE = func(c *cobra.Command, args []string) error {
 		ns, err := flags.GetString("namespace")
 		if err != nil {
@@ -50,10 +54,13 @@ func NewRun() *cobra.Command {
 			runner.WithKubeFactory(cmdutil.NewFactory(matchVersionKubeConfigFlags)),
 			runner.WithKubeNamespace(ns),
 			runner.WithExecutable("", "--loglevel", l.GetLevel().String(), "run"),
+			runner.WithSleep(sleep),
 		)
 		if err != nil {
 			return err
 		}
+
+		c.SilenceUsage = true
 
 		if len(args) == 0 {
 			return r.Run(events.All())
