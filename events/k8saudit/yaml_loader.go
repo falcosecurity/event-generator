@@ -16,17 +16,19 @@ import (
 
 func init() {
 	for n, b := range yaml.Bundle {
+
+		// The filename must be in the dash-case format,
+		// so it will be converted to CamelCase and used as action's name.
 		fileName := n
-		// todo(leogr): use labels
 		name := strcase.ToCamel(strings.TrimSuffix(fileName, filepath.Ext(fileName)))
+		actionName := "k8saudit." + name
+
 		reader := bytes.NewReader(b)
 		events.RegisterWithName(func(h events.Helper) error {
 			count := 0
-			// uidMap := cmdwait.UIDMap{}
-			// infos := []*resource.Info{}
 			r := h.ResourceBuilder().
 				Unstructured().
-				// Schema(schema).
+				// Schema(schema). // todo(leogr): do we need this?
 				ContinueOnError().
 				Stream(reader, fileName).
 				Flatten().
@@ -77,7 +79,7 @@ func init() {
 			}
 			return nil
 		},
-			"k8saudit."+name,
+			actionName,
 		)
 	}
 }
