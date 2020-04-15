@@ -23,8 +23,16 @@ const DefaultNamespace = "default"
 // NewRun instantiates the run subcommand.
 func NewRun() *cobra.Command {
 	c := &cobra.Command{
-		Use:               "run [regexp]",
-		Short:             "Run actions",
+		Use:   "run [regexp]",
+		Short: "Run actions",
+		Long: `Performs a variety of suspect actions.
+Without arguments it runs all actions, otherwise only those actions matching the given regular expression.
+
+Warning:
+  This command might alter your system. For example, some actions modify files and directories below
+  /bin, /etc, /dev, etc.
+  Make sure you fully understand what is the purpose of this tool before running any action.
+`,
 		Args:              cobra.MaximumNArgs(1),
 		DisableAutoGenTag: true,
 	}

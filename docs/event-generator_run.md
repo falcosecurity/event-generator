@@ -4,7 +4,14 @@ Run actions
 
 ### Synopsis
 
-Run actions
+Performs a variety of suspect actions.
+Without arguments it runs all actions, otherwise only those actions matching the given regular expression.
+
+Warning:
+  This command might alter your system. For example, some actions modify files and directories below
+  /bin, /etc, /dev, etc.
+  Make sure you fully understand what is the purpose of this tool before running any action.
+
 
 ```
 event-generator run [regexp] [flags]
@@ -28,6 +35,7 @@ event-generator run [regexp] [flags]
   -n, --namespace string               If present, the namespace scope for this CLI request (default "default")
       --request-timeout string         The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don't timeout requests. (default "0")
   -s, --server string                  The address and port of the Kubernetes API server
+      --sleep duration                 time to sleep prior to trigger an action
       --token string                   Bearer token for authentication to the API server
       --user string                    The name of the kubeconfig user to use
 ```
