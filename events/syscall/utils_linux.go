@@ -12,6 +12,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// becameUser calls looks up the username UID then calls "setuid" syscall.
+//
+// IMPORTANT NOTE: the behavior is unpredicatable when used with goroutes.
+// On linux, setuid only affects the current thread, not the process.
+// Thus, becameUser may or not affect other goroutines.
 func becameUser(h events.Helper, username string) error {
 	h.Log().WithField("user", username).
 		Info("became user")

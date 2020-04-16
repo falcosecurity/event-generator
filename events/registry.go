@@ -9,12 +9,14 @@ import (
 
 var registry = make(map[string]Action, 0)
 
+// Register register an action.
 func Register(f Action) map[string]Action {
 	n := getFuncName(f)
 	checkName(n)
 	return RegisterWithName(f, n)
 }
 
+// RegisterWithName registers an action with a given name.
 func RegisterWithName(f Action, name string) map[string]Action {
 	checkName(name)
 	registry[name] = f
@@ -37,10 +39,12 @@ func getFuncName(f interface{}) string {
 	return parts[len(parts)-1]
 }
 
+// All returns a map of all registered actions
 func All() map[string]Action {
 	return registry
 }
 
+// ByRegexp returns a map of actions whose name matches the given regular expression.
 func ByRegexp(r *regexp.Regexp) map[string]Action {
 	ret := make(map[string]Action, 0)
 	for n, f := range registry {
@@ -51,6 +55,7 @@ func ByRegexp(r *regexp.Regexp) map[string]Action {
 	return ret
 }
 
+// ByPackage returns a map of actions registerd in given package.
 func ByPackage(packageName string) map[string]Action {
 	ret := make(map[string]Action, 0)
 	for n, f := range registry {
