@@ -8,6 +8,7 @@ import (
 
 var _ = events.Register(ExecLs)
 
+// ExecLs executes /bin/ls.
 func ExecLs(h events.Helper) error {
 	return exec.Command("/bin/ls").Run()
 }
