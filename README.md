@@ -1,6 +1,7 @@
 
 # event-generator
 > Generate a variety of suspect actions that are detected by Falco rulesets.
+
 [![Release](https://img.shields.io/github/release/falcosecurity/event-generator.svg?style=flat-square)](https://github.com/falcosecurity/event-generator/releases/latest)
 [![License](https://img.shields.io/github/license/falcosecurity/event-generator?style=flat-square)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/falcosecurity/event-generator?style=flat-square)](https://goreportcard.com/report/github.com/falcosecurity/event-generator)
