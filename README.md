@@ -21,7 +21,30 @@ Without arguments it runs all actions, otherwise only those actions matching the
 The full command line documentation is [here](./docs/event-generator.md).
 
 ## Docker
-TODO
+
+### Run all events with the docker image locally
+
+```
+docker run -it --rm falcosecurity/event-generator run
+```
+
+### Run all events once using a kubernetes job
+
+```
+kubectl apply -f deployment/run-as-job.yaml
+```
+
+### Run all events in a loop using a kubernetes deployment
+
+```
+kubectl apply -f deployment/event-generator.yaml
+```
+
+## Rebuild the docker image
+
+```
+docker build -t myrepo/event-generator .
+```
 
 ## FAQ
 

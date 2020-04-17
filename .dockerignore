@@ -1,3 +1,4 @@
 event-generator
 dist/
 events/k8saudit/yaml/bundle.go
+evtgen-docgen
