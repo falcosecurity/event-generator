@@ -12,7 +12,4 @@ LABEL maintainer="cncf-falco-dev@lists.cncf.io"
 
 RUN make
 
-CMD ["./event-generator", "run", "syscall.Write"]
-
-
-
+CMD ["./event-generator"]

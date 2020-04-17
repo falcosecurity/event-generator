@@ -1,0 +1,13 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: falco-event-generator
+spec:
+  template:
+    spec:
+      containers:
+      - name: event-generator
+        image: falcosecurity/event-generator
+        command: ["./event-generator", "run"]
+      restartPolicy: Never
+  backoffLimit: 4
