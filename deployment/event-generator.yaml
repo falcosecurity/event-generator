@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: falco-event-generator-deployment
+  labels:
+    app: falco-event-generator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: falco-event-generator
+  template:
+    metadata:
+      labels:
+        app: falco-event-generator
+    spec:
+      containers:
+      - name: falco-event-generator
+        image: falcosecurity/event-generator
+        command: ["./event-generator", "run"]
+        imagePullPolicy: Always
