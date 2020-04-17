@@ -20,5 +20,6 @@ event-generator [flags]
 
 ### SEE ALSO
 
+* [event-generator list](event-generator_list.md)	 - List available actions
 * [event-generator run](event-generator_run.md)	 - Run actions
 
