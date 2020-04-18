@@ -12,4 +12,4 @@ LABEL maintainer="cncf-falco-dev@lists.cncf.io"
 
 RUN make
 
-CMD ["./event-generator"]
+ENTRYPOINT ["./event-generator"]
