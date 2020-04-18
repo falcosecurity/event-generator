@@ -1,6 +1,18 @@
 SHELL=/bin/bash -o pipefail
 
 GO ?= go
+DOCKER ?= docker
+
+COMMIT_NO := $(shell git rev-parse HEAD 2> /dev/null || true)
+GIT_COMMIT := $(if $(shell git status --porcelain --untracked-files=no),${COMMIT_NO}-dirty,${COMMIT_NO})
+GIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
+GIT_BRANCH_CLEAN := $(shell echo $(GIT_BRANCH) | sed -e "s/[^[:alnum:]]/-/g")
+
+IMAGE_NAME ?= docker.io/falcosecurity/event-generator
+
+IMAGE_NAME_BRANCH := $(IMAGE_NAME):$(GIT_BRANCH_CLEAN)
+IMAGE_NAME_COMMIT := $(IMAGE_NAME):$(GIT_COMMIT)
+IMAGE_NAME_LATEST := $(IMAGE_NAME):latest
 
 TEST_FLAGS ?= -v -race
 
@@ -38,3 +50,22 @@ docs: ${docgen}
 	$(RM) -R docs/*
 	@mkdir -p docs
 	${PWD}/${docgen}
+
+.PHONY: image
+image:
+	$(DOCKER) build \
+		-t "$(IMAGE_NAME_BRANCH)" \
+		-f Dockerfile .
+	$(DOCKER) tag $(IMAGE_NAME_BRANCH) $(IMAGE_NAME_COMMIT)
+	$(DOCKER) tag "$(IMAGE_NAME_BRANCH)" $(IMAGE_NAME_COMMIT)
+
+
+.PHONY: push
+push:
+	$(DOCKER) push $(IMAGE_NAME_BRANCH)
+	$(DOCKER) push $(IMAGE_NAME_COMMIT)
+
+.PHONY: push/latest
+push/latest:
+	$(DOCKER) tag $(IMAGE_NAME_COMMIT) $(IMAGE_NAME_LATEST)
+	$(DOCKER) push $(IMAGE_NAME_LATEST)
