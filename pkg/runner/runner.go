@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"time"
@@ -11,6 +12,7 @@ import (
 )
 
 type Runner struct {
+	ctx     context.Context
 	log     *logger.Logger
 	kf      cmdutil.Factory
 	kn      string
@@ -18,16 +20,22 @@ type Runner struct {
 	exeArgs []string
 	alias   string
 	sleep   time.Duration
+	loop    bool
+}
+
+func (r *Runner) logEntry() *logger.Entry {
+	l := r.log.WithContext(r.ctx)
+	if r.alias != "" {
+		l = l.WithField("as", r.alias)
+	}
+	return l
 }
 
 func (r *Runner) trigger(n string, f events.Action) (cleanup func(), err error) {
 	fields := logger.Fields{
 		"action": n,
 	}
-	if r.alias != "" {
-		fields["as"] = r.alias
-	}
-	log := r.log.WithFields(fields)
+	log := r.logEntry().WithFields(fields)
 
 	h := &helper{
 		name:   n,
@@ -54,7 +62,7 @@ func (r *Runner) trigger(n string, f events.Action) (cleanup func(), err error) 
 	return h.cleanup, nil
 }
 
-func (r *Runner) Run(m map[string]events.Action) error {
+func (r *Runner) runOnce(m map[string]events.Action) (err error, shutdown bool) {
 
 	var cList []func()
 	teardown := func() {
@@ -70,10 +78,29 @@ func (r *Runner) Run(m map[string]events.Action) error {
 			cList = append(cList, cleanup)
 		}
 		if err != nil {
-			return err
+			return err, false
+		}
+		select {
+		case <-r.ctx.Done():
+			return nil, true
+		default:
+			continue
 		}
 	}
-	return nil
+	return nil, false
+}
+
+func (r *Runner) Run(m map[string]events.Action) (err error) {
+	log := r.logEntry()
+	var shutdown bool
+	for err, shutdown = r.runOnce(m); r.loop && !shutdown; {
+		log.Debug("restart loop")
+		err, shutdown = r.runOnce(m)
+	}
+	if shutdown {
+		log.Info("shutdown completed")
+	}
+	return
 }
 
 func procAlias() string {
@@ -93,6 +120,10 @@ func New(options ...Option) (*Runner, error) {
 		return nil, err
 	}
 
+	if r.ctx == nil {
+		r.ctx = context.Background()
+	}
+
 	if r.log == nil {
 		r.log = logger.New()
 	}
@@ -110,6 +141,13 @@ func New(options ...Option) (*Runner, error) {
 	return r, nil
 }
 
+func WithContext(ctx context.Context) Option {
+	return func(r *Runner) error {
+		r.ctx = ctx
+		return nil
+	}
+}
+
 func WithLogger(l *logger.Logger) Option {
 	return func(r *Runner) error {
 		r.log = l
@@ -120,6 +158,13 @@ func WithLogger(l *logger.Logger) Option {
 func WithSleep(d time.Duration) Option {
 	return func(r *Runner) error {
 		r.sleep = d
+		return nil
+	}
+}
+
+func WithLoop(loop bool) Option {
+	return func(r *Runner) error {
+		r.loop = loop
 		return nil
 	}
 }
