@@ -17,5 +17,6 @@ require (
 	golang.org/x/sys v0.0.0-20191026070338-33540a1f6037
 	k8s.io/apimachinery v0.17.3
 	k8s.io/cli-runtime v0.17.3
+	k8s.io/client-go v0.17.3
 	k8s.io/kubectl v0.17.3
 )
