@@ -12,7 +12,6 @@ IMAGE_NAME ?= docker.io/falcosecurity/event-generator
 
 IMAGE_NAME_BRANCH := $(IMAGE_NAME):$(GIT_BRANCH_CLEAN)
 IMAGE_NAME_COMMIT := $(IMAGE_NAME):$(GIT_COMMIT)
-IMAGE_NAME_LATEST := $(IMAGE_NAME):latest
 
 TEST_FLAGS ?= -v -race
 
@@ -21,7 +20,10 @@ output ?= event-generator
 docgen ?= evtgen-docgen
 
 .PHONY: build
-build: clean events/k8saudit/yaml/bundle.go ${output}
+build: prepare ${output}
+
+.PHONY: prepare
+prepare: clean events/k8saudit/yaml/bundle.go
 
 .PHONY: ${output}
 ${output}:
@@ -64,8 +66,3 @@ image:
 push:
 	$(DOCKER) push $(IMAGE_NAME_BRANCH)
 	$(DOCKER) push $(IMAGE_NAME_COMMIT)
-
-.PHONY: push/latest
-push/latest:
-	$(DOCKER) tag $(IMAGE_NAME_COMMIT) $(IMAGE_NAME_LATEST)
-	$(DOCKER) push $(IMAGE_NAME_LATEST)
