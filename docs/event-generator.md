@@ -13,9 +13,9 @@ event-generator [flags]
 ### Options
 
 ```
-  -c, --config string     config file path (default $HOME/.falco-event-generator.yaml if exists)
+  -c, --config string     Config file path (default $HOME/.falco-event-generator.yaml if exists)
   -h, --help              help for event-generator
-  -l, --loglevel string   log level (default "info")
+  -l, --loglevel string   Log level (default "info")
 ```
 
 ### SEE ALSO
