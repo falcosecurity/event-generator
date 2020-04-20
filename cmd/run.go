@@ -47,8 +47,8 @@ Warning:
 	ns.DefValue = DefaultNamespace
 	ns.Value.Set(DefaultNamespace)
 
-	var sleep time.Duration
-	flags.DurationVar(&sleep, "sleep", 0, "Time to sleep prior to trigger an action")
+	sleep := time.Second
+	flags.DurationVar(&sleep, "sleep", sleep, "The length of time to wait before running an action. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means no sleep.")
 
 	var loop bool
 	flags.BoolVar(&loop, "loop", false, "Run in a loop")
