@@ -1,7 +1,11 @@
 package cmd
 
 import (
+	"context"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -35,6 +39,7 @@ func New(configOptions *ConfigOptions) *cobra.Command {
 			// at this stage configOptions is bound to command line flags only
 			validateConfig(*configOptions)
 			initLogger(configOptions.LogLevel)
+			logger.Debug("running with args: ", strings.Join(os.Args, " "))
 			initConfig(configOptions.ConfigFile)
 
 			// then bind all flags to ENV and config file
@@ -56,8 +61,8 @@ func New(configOptions *ConfigOptions) *cobra.Command {
 
 	// Global flags
 	flags := rootCmd.PersistentFlags()
-	flags.StringVarP(&configOptions.ConfigFile, "config", "c", configOptions.ConfigFile, "config file path (default $HOME/.falco-event-generator.yaml if exists)")
-	flags.StringVarP(&configOptions.LogLevel, "loglevel", "l", configOptions.LogLevel, "log level")
+	flags.StringVarP(&configOptions.ConfigFile, "config", "c", configOptions.ConfigFile, "Config file path (default $HOME/.falco-event-generator.yaml if exists)")
+	flags.StringVarP(&configOptions.LogLevel, "loglevel", "l", configOptions.LogLevel, "Log level")
 
 	// Commands
 	rootCmd.AddCommand(NewRun())
@@ -68,9 +73,35 @@ func New(configOptions *ConfigOptions) *cobra.Command {
 
 // Execute creates the root command and runs it.
 func Execute() {
-	if err := New(nil).Execute(); err != nil {
+	ctx := WithSignals(context.Background())
+	if err := New(nil).ExecuteContext(ctx); err != nil {
 		logger.WithError(err).Fatal("error executing event-generator")
 	}
+}
+
+// WithSignals returns a copy of ctx  a new context.
+// The returned context's Done channel is closed when a SIGKILL or SIGTERM signal is received.
+func WithSignals(ctx context.Context) context.Context {
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+
+	ctx, cancel := context.WithCancel(ctx)
+	go func() {
+		defer cancel()
+		select {
+		case <-ctx.Done():
+			return
+		case s := <-sigCh:
+			switch s {
+			case os.Interrupt:
+				logger.Infof("received SIGINT, shutting down")
+			case syscall.SIGTERM:
+				logger.Infof("received SIGTERM, shutting down")
+			}
+			return
+		}
+	}()
+	return ctx
 }
 
 // validateConfig
