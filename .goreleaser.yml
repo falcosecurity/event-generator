@@ -1,0 +1,44 @@
+project_name: event-generator
+before:
+  hooks:
+    - make prepare
+builds:
+  - id: "event-generator"
+    goos:
+    - linux
+    goarch:
+    - amd64
+    - 386
+    main: .
+    env:
+      - CGO_ENABLED=0
+    binary: event-generator
+
+dockers:
+  -
+    goos: linux
+    goarch: amd64
+    dockerfile: Dockerfile
+    image_templates:
+      - "falcosecurity/event-generator:latest"
+      - "falcosecurity/event-generator:{{ .Version }}"
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+    extra_files:
+      - .git
+      - cmd
+      - pkg
+      - events
+      - tools
+      - go.mod
+      - go.sum
+      - main.go
+      - Makefile
+
+release:
+  github:
+  prerelease: auto
