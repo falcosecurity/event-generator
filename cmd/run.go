@@ -48,7 +48,10 @@ Warning:
 	ns.Value.Set(DefaultNamespace)
 
 	var sleep time.Duration
-	flags.DurationVar(&sleep, "sleep", 0, "time to sleep prior to trigger an action")
+	flags.DurationVar(&sleep, "sleep", 0, "Time to sleep prior to trigger an action")
+
+	var loop bool
+	flags.BoolVar(&loop, "loop", false, "Run in a loop")
 
 	c.RunE = func(c *cobra.Command, args []string) error {
 		ns, err := flags.GetString("namespace")
@@ -58,11 +61,13 @@ Warning:
 		l := logger.StandardLogger()
 
 		r, err := runner.New(
+			runner.WithContext(c.Context()),
 			runner.WithLogger(l),
 			runner.WithKubeFactory(cmdutil.NewFactory(matchVersionKubeConfigFlags)),
 			runner.WithKubeNamespace(ns),
 			runner.WithExecutable("", "--loglevel", l.GetLevel().String(), "run"),
 			runner.WithSleep(sleep),
+			runner.WithLoop(loop),
 		)
 		if err != nil {
 			return err
