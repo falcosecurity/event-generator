@@ -79,7 +79,7 @@ func Execute() {
 	}
 }
 
-// WithSignals returns a copy of ctx  a new context.
+// WithSignals returns a copy of ctx with a new Done channel.
 // The returned context's Done channel is closed when a SIGKILL or SIGTERM signal is received.
 func WithSignals(ctx context.Context) context.Context {
 	sigCh := make(chan os.Signal, 1)
