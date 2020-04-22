@@ -5,46 +5,128 @@
 [![Release](https://img.shields.io/github/release/falcosecurity/event-generator.svg?style=flat-square)](https://github.com/falcosecurity/event-generator/releases/latest)
 [![License](https://img.shields.io/github/license/falcosecurity/event-generator?style=flat-square)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/falcosecurity/event-generator?style=flat-square)](https://goreportcard.com/report/github.com/falcosecurity/event-generator)
-<!-- [![Docker pulls](https://img.shields.io/docker/pulls/falcosecurity/event-generator?style=flat-square)](https://hub.docker.com/r/falcosecurity/event-generator) -->
+[![Docker pulls](https://img.shields.io/docker/pulls/falcosecurity/event-generator?style=flat-square)](https://hub.docker.com/r/falcosecurity/event-generator)
 
-**Status**: Under development
 
-**Warning** — We strongly recommend that you run the program within Docker (see below), as it modifies files and directories below /bin, /etc, /dev, etc.
+**Warning** — We strongly recommend that you run the program within Docker (see below), since some commands might alter your system. 
+    For example, some actions modify files and directories below /bin, /etc, /dev, etc.
+    Make sure you fully understand what is the purpose of this tool before running any action.
 
 ## Usage
-```
-$ make
-$ ./event-generator run [regexp]
-```
-Without arguments it runs all actions, otherwise only those actions matching the given regular expression.
 
 The full command line documentation is [here](./docs/event-generator.md).
 
-## Docker
+### List actions
 
-### Run all events with the docker image locally
+```shell
+$ event-generator list
 
+helper.ExecLs
+helper.NetworkActivity
+helper.RunShell
+k8saudit.ConfigmapPrivateCreds
+k8saudit.DisallowedPodDeployment
+k8saudit.HostnetworkDeployment
+k8saudit.NodeportService
+k8saudit.PrivilegedDeployment
+k8saudit.RolePodExec
+k8saudit.RoleWildcardResources
+k8saudit.RoleWritePrivileges
+k8saudit.SensitiveMountDeployment
+k8saudit.VanillaConfigmap
+k8saudit.VanillaDeployment
+k8saudit.VanillaRoleRolebindingServiceaccount
+k8saudit.VanillaService
+syscall.ChangeThreadNamespace
+syscall.CreateFilesBelowDev
+syscall.DbProgramSpawnProcess
+syscall.MkdirBinaryDirs
+syscall.ModifyBinaryDirs
+syscall.NonSudoSetuid
+syscall.ReadSensitiveFile
+syscall.ReadSensitiveFileAfterStartup
+syscall.RunShellUntrusted
+syscall.SystemProcsNetworkActivity
+syscall.SystemUserInteractive
+syscall.UserMgmtBinaries
+syscall.WriteBelowBinaryDir
+syscall.WriteBelowEtc
+syscall.WriteBelowRpmDatabase
 ```
+
+### Run actions
+```
+event-generator run [regexp]
+```
+Without arguments it runs all actions, otherwise only those actions matching the given regular expression.
+
+For example, to run `syscall.MkdirBinaryDirs` and
+`syscall.ModifyBinaryDirs` actions only:
+```shell
+$ sudo event-generator run syscall\.\*BinaryDirs
+
+INFO sleep for 1s                                  action=syscall.MkdirBinaryDirs
+INFO writing to /bin/directory-created-by-event-generator  action=syscall.MkdirBinaryDirs
+INFO sleep for 1s                                  action=syscall.ModifyBinaryDirs
+INFO modifying /bin/true to /bin/true.event-generator and back  action=syscall.ModifyBinaryDirs
+```
+
+Useful options:
+- `--loop` to run actions in a loop
+- `--sleep` to set the length of time to wait before running an action (default to `1s`)
+
+All other options are documented [here](./docs/event-generator_run.md).
+
+
+### With Docker
+
+Run all events with the Docker image locally:
+
+```shell
 docker run -it --rm falcosecurity/event-generator run
 ```
 
-### Run all events once using a kubernetes job
 
-```
+### With Kubernetes
+
+Run all events once using a Kubernetes job:
+
+```shell
 kubectl apply -f deployment/run-as-job.yaml
 ```
 
-### Run all events in a loop using a kubernetes deployment
+Run all events in a loop using a Kubernetes deployment:
 
 ```
 kubectl apply -f deployment/event-generator.yaml
 ```
 
-## Rebuild the docker image
+## Collections
 
+### Generate System Call activity
+The `syscall` collection performs a variety of suspect actions that are detected by the [default Falco ruleset](https://github.com/falcosecurity/falco/blob/master/rules/falco_rules.yaml).
+
+```shell
+$ docker run -it --rm falcosecurity/event-generator run syscall --loop
 ```
-docker build -t myrepo/event-generator .
+
+The above command loops forever, incessantly generating a sample event each second. 
+
+
+### Generate activity for the k8s audit rules
+The `k8saudit` collection generates activity that matches the [k8s audit event ruleset](https://github.com/falcosecurity/falco/blob/master/rules/k8s_audit_rules.yaml).
+
+
+```shell
+$ event-generator run k8saudit --loop --namespace `falco-eg-sandbox`
 ```
+> N.B.: the namespace must exist already.
+
+The above command loops forever, creating resources in the `falco-eg-sandbox` namespace and deleting the after each iteration.
+
+**N.B.**
+- the namespace must already exist
+- to produce any effect the Kubernetes audit log must be enabled, see [here](https://falco.org/docs/event-sources/kubernetes-audit/)
 
 ## FAQ
 
@@ -68,4 +150,4 @@ Feel free to use them as you like on your projects.
 
 ## Acknowledgments
 
-Special thanks to @mstemm — the author of the [first event generator](https://github.com/falcosecurity/falco/tree/2126616529e7015ff88653b7491dc1937d7e54e5/docker/event-generator).
+Special thanks to Mark Stemm (**@mstemm**) — the author of the [first event generator](https://github.com/falcosecurity/falco/tree/2126616529e7015ff88653b7491dc1937d7e54e5/docker/event-generator).
