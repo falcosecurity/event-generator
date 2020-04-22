@@ -36,7 +36,7 @@ clean:
 	$(RM) -R ${output} ${docgen}
 
 .PHONY: test
-test:
+test: events/k8saudit/yaml/bundle.go
 	$(GO) vet ./...
 	$(GO) test ${TEST_FLAGS} ./...
 
