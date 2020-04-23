@@ -17,5 +17,5 @@ spec:
       containers:
       - name: falco-event-generator
         image: falcosecurity/event-generator
-        command: ["./event-generator", "run", "--loop"]
+        command: ["/bin/event-generator", "run", "--loop"]
         imagePullPolicy: Always

@@ -8,6 +8,6 @@ spec:
       containers:
       - name: event-generator
         image: falcosecurity/event-generator
-        command: ["./event-generator", "run"]
+        command: ["/bin/event-generator", "run"]
       restartPolicy: Never
   backoffLimit: 4
