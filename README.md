@@ -89,6 +89,13 @@ docker run -it --rm falcosecurity/event-generator run
 
 ### With Kubernetes
 
+
+Run the following command to create the Service Account (`falco-event-generator`), Cluster Role, and Role that will allow the tool to create objects in the current namespace:
+
+```shell
+kubectl apply -f deployment/role-rolebinding-serviceaccount.yaml
+```
+
 Run all events once using a Kubernetes job:
 
 ```shell

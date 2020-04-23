@@ -5,6 +5,7 @@ metadata:
 spec:
   template:
     spec:
+      serviceAccount: falco-event-generator
       containers:
       - name: event-generator
         image: falcosecurity/event-generator
