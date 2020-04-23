@@ -14,6 +14,7 @@ spec:
       labels:
         app: falco-event-generator
     spec:
+      serviceAccount: falco-event-generator
       containers:
       - name: falco-event-generator
         image: falcosecurity/event-generator
