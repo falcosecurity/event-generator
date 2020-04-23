@@ -19,11 +19,11 @@ var _ events.Helper = &helper{}
 
 // Helper errors
 var (
-	ErrSelfSpawnAs = errors.New("cannot spawn the same action")
+	ErrChildSpawn = errors.New("cannot re-spawn a child process")
 )
 
 type helper struct {
-	name    string
+	action  string
 	runner  *Runner
 	log     *logger.Entry
 	hasLog  bool
@@ -68,8 +68,8 @@ func (h *helper) Cleanup(f func(), args ...interface{}) {
 func (h *helper) SpawnAs(name string, action string, args ...string) error {
 	fullArgs := append([]string{fmt.Sprintf("^%s$", action)}, args...)
 	h.Log().WithField("args", strings.Join(fullArgs, " ")).Infof(`spawn as "%s"`, name)
-	if name == h.name {
-		return ErrSelfSpawnAs
+	if h.Spawned() {
+		return ErrChildSpawn
 	}
 	tmpDir, err := ioutil.TempDir(os.TempDir(), "falco-event-generator")
 	if err != nil {
@@ -92,4 +92,8 @@ func (h *helper) SpawnAs(name string, action string, args ...string) error {
 	}
 
 	return nil
+}
+
+func (h *helper) Spawned() bool {
+	return h.runner.alias != ""
 }

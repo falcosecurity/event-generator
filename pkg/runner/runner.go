@@ -38,7 +38,7 @@ func (r *Runner) trigger(n string, f events.Action) (cleanup func(), err error) 
 	log := r.logEntry().WithFields(fields)
 
 	h := &helper{
-		name:   n,
+		action: n,
 		runner: r,
 		log:    log,
 	}
