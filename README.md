@@ -108,6 +108,9 @@ Run all events in a loop using a Kubernetes deployment:
 kubectl apply -f deployment/event-generator.yaml
 ```
 
+**N.B.**
+The above commands apply to the `default` namespace. Use the `--namespace` option to use a different namespace. Events will be generated in the same namespace.
+
 ## Collections
 
 ### Generate System Call activity

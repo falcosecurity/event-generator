@@ -18,5 +18,10 @@ spec:
       containers:
       - name: falco-event-generator
         image: falcosecurity/event-generator
-        command: ["/bin/event-generator", "run", "--loop"]
         imagePullPolicy: Always
+        command: ["/bin/event-generator", "run", "--loop"]
+        env:
+        - name: FALCO_EVENT_GENERATOR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
