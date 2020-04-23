@@ -66,6 +66,7 @@ Warning:
 			runner.WithLogger(l),
 			runner.WithKubeFactory(cmdutil.NewFactory(matchVersionKubeConfigFlags)),
 			runner.WithKubeNamespace(ns),
+			// todo(leogr): inherit other flags
 			runner.WithExecutable("", "--loglevel", l.GetLevel().String(), "run"),
 			runner.WithSleep(sleep),
 			runner.WithLoop(loop),
