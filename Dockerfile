@@ -11,6 +11,11 @@ RUN make
 
 FROM alpine:3.11
 COPY --from=builder /event-generator/event-generator /bin/event-generator
-# Need to have this for 'write below rpm db dir' event
+
+# Need to have this for helper.RunShell
+RUN apk add bash 
+
+# Need to have this for syscall.WriteBelowRpmDatabase
 RUN mkdir -p /var/lib/rpm/
+
 ENTRYPOINT ["/bin/event-generator"]
