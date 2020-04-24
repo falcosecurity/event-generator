@@ -20,17 +20,17 @@ func init() {
 		// The filename must be in the dash-case format,
 		// so it will be converted to CamelCase and used as action's name.
 		fileName := n
+		fileContent := b
 		name := strcase.ToCamel(strings.TrimSuffix(fileName, filepath.Ext(fileName)))
 		actionName := "k8saudit." + name
 
-		reader := bytes.NewReader(b)
 		events.RegisterWithName(func(h events.Helper) error {
 			count := 0
 			r := h.ResourceBuilder().
 				Unstructured().
 				// Schema(schema). // todo(leogr): do we need this?
 				ContinueOnError().
-				Stream(reader, fileName).
+				Stream(bytes.NewReader(fileContent), fileName).
 				Flatten().
 				Do()
 			if err := r.Err(); err != nil {
