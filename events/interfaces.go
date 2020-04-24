@@ -22,9 +22,12 @@ type Helper interface {
 	// first called order.
 	Cleanup(f func(), args ...interface{})
 
-	// SpawnAs respawns the process as name and run another action.
-	// An action must not spawn itself to avoid an infinite loop.
+	// SpawnAs starts a child process and waits for it to complete.
+	// The child runs the given action as a different program name.
 	SpawnAs(name string, action string, args ...string) error
+
+	// Spawned returns true if the action is running in a child process.
+	Spawned() bool
 
 	// ResourceBuilder returns a k8s' resource.Builder.
 	ResourceBuilder() *resource.Builder
