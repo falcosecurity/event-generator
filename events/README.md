@@ -73,7 +73,7 @@ reg, _ := regexp.Compile(`syscall.Write`)
 events.ByRegexp(reg)
 
 // return all registered actions within the k8saudit collection
-events.ByPackage("k8saudi")
+events.ByPackage("k8saudit")
 ```
 
 Finally, to call an *action* you need a runner. The default runner implementation is [here](https://github.com/falcosecurity/event-generator/tree/master/pkg/runner).
