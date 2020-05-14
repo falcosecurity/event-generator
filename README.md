@@ -46,6 +46,7 @@ syscall.NonSudoSetuid
 syscall.ReadSensitiveFile
 syscall.ReadSensitiveFileAfterStartup
 syscall.RunShellUntrusted
+syscall.ScheduleCronJobs
 syscall.SystemProcsNetworkActivity
 syscall.SystemUserInteractive
 syscall.UserMgmtBinaries
