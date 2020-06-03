@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+var nonAlphaNumericReg = regexp.MustCompile("[^a-zA-Z0-9]+")
+
 var registry = make(map[string]Action, 0)
 
 // Register register an action.
@@ -65,4 +67,15 @@ func ByPackage(packageName string) map[string]Action {
 		}
 	}
 	return ret
+}
+
+// MatchRule returns true if the name of an action matches a given rule.
+func MatchRule(name string, rule string) bool {
+	parts := strings.Split(name, ".")
+	l := len(parts)
+	if l == 0 {
+		return false
+	}
+
+	return strings.ToLower(parts[l-1]) == strings.ToLower(nonAlphaNumericReg.ReplaceAllString(rule, ""))
 }
