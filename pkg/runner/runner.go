@@ -12,7 +12,6 @@ import (
 )
 
 type Runner struct {
-	ctx     context.Context
 	log     *logger.Logger
 	kf      cmdutil.Factory
 	kn      string
@@ -23,19 +22,19 @@ type Runner struct {
 	loop    bool
 }
 
-func (r *Runner) logEntry() *logger.Entry {
-	l := r.log.WithContext(r.ctx)
+func (r *Runner) logEntry(ctx context.Context) *logger.Entry {
+	l := r.log.WithContext(ctx)
 	if r.alias != "" {
 		l = l.WithField("as", r.alias)
 	}
 	return l
 }
 
-func (r *Runner) trigger(n string, f events.Action) (cleanup func(), err error) {
+func (r *Runner) trigger(ctx context.Context, n string, f events.Action) (cleanup func(), err error) {
 	fields := logger.Fields{
 		"action": n,
 	}
-	log := r.logEntry().WithFields(fields)
+	log := r.logEntry(ctx).WithFields(fields)
 
 	h := &helper{
 		action: n,
@@ -62,7 +61,7 @@ func (r *Runner) trigger(n string, f events.Action) (cleanup func(), err error) 
 	return h.cleanup, nil
 }
 
-func (r *Runner) runOnce(m map[string]events.Action) (err error, shutdown bool) {
+func (r *Runner) runOnce(ctx context.Context, m map[string]events.Action) (err error, shutdown bool) {
 
 	var cList []func()
 	teardown := func() {
@@ -73,7 +72,7 @@ func (r *Runner) runOnce(m map[string]events.Action) (err error, shutdown bool) 
 	defer teardown()
 
 	for n, f := range m {
-		cleanup, err := r.trigger(n, f)
+		cleanup, err := r.trigger(ctx, n, f)
 		if cleanup != nil {
 			cList = append(cList, cleanup)
 		}
@@ -81,7 +80,7 @@ func (r *Runner) runOnce(m map[string]events.Action) (err error, shutdown bool) 
 			return err, false
 		}
 		select {
-		case <-r.ctx.Done():
+		case <-ctx.Done():
 			return nil, true
 		default:
 			continue
@@ -90,12 +89,12 @@ func (r *Runner) runOnce(m map[string]events.Action) (err error, shutdown bool) 
 	return nil, false
 }
 
-func (r *Runner) Run(m map[string]events.Action) (err error) {
-	log := r.logEntry()
+func (r *Runner) Run(ctx context.Context, m map[string]events.Action) (err error) {
+	log := r.logEntry(ctx)
 	var shutdown bool
-	for err, shutdown = r.runOnce(m); r.loop && !shutdown; {
+	for err, shutdown = r.runOnce(ctx, m); r.loop && !shutdown; {
 		log.Debug("restart loop")
-		err, shutdown = r.runOnce(m)
+		err, shutdown = r.runOnce(ctx, m)
 	}
 	if shutdown {
 		log.Info("shutdown completed")
@@ -120,10 +119,6 @@ func New(options ...Option) (*Runner, error) {
 		return nil, err
 	}
 
-	if r.ctx == nil {
-		r.ctx = context.Background()
-	}
-
 	if r.log == nil {
 		r.log = logger.New()
 	}
@@ -139,13 +134,6 @@ func New(options ...Option) (*Runner, error) {
 	r.alias = procAlias()
 
 	return r, nil
-}
-
-func WithContext(ctx context.Context) Option {
-	return func(r *Runner) error {
-		r.ctx = ctx
-		return nil
-	}
 }
 
 func WithLogger(l *logger.Logger) Option {
