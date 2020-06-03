@@ -62,7 +62,6 @@ Warning:
 		l := logger.StandardLogger()
 
 		r, err := runner.New(
-			runner.WithContext(c.Context()),
 			runner.WithLogger(l),
 			runner.WithKubeFactory(cmdutil.NewFactory(matchVersionKubeConfigFlags)),
 			runner.WithKubeNamespace(ns),
@@ -78,7 +77,7 @@ Warning:
 		c.SilenceUsage = true
 
 		if len(args) == 0 {
-			return r.Run(events.All())
+			return r.Run(c.Context(), events.All())
 		}
 
 		reg, err := regexp.Compile(args[0])
@@ -91,7 +90,7 @@ Warning:
 			return fmt.Errorf(`no events matching '%s'`, args[0])
 		}
 
-		return r.Run(evts)
+		return r.Run(c.Context(), evts)
 
 	}
 
