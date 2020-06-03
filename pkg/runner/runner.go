@@ -20,6 +20,7 @@ type Runner struct {
 	alias   string
 	sleep   time.Duration
 	loop    bool
+	plgn    Plugin
 }
 
 func (r *Runner) logEntry(ctx context.Context) *logger.Entry {
@@ -48,6 +49,12 @@ func (r *Runner) trigger(ctx context.Context, n string, f events.Action) (cleanu
 		}
 	}
 
+	if r.plgn != nil {
+		if err := r.plgn.PreRun(ctx, log, n, f); err != nil {
+			return h.cleanup, err
+		}
+	}
+
 	if r.sleep > 0 {
 		h.Sleep(r.sleep)
 	}
@@ -56,6 +63,12 @@ func (r *Runner) trigger(ctx context.Context, n string, f events.Action) (cleanu
 		log.WithError(err).Error("action error")
 	} else if !h.hasLog {
 		log.Info("action executed")
+	}
+
+	if r.plgn != nil {
+		if err := r.plgn.PostRun(ctx, log, n, f); err != nil {
+			return h.cleanup, err
+		}
 	}
 
 	return h.cleanup, nil
@@ -175,6 +188,13 @@ func WithExecutable(path string, args ...string) Option {
 	return func(r *Runner) error {
 		r.exePath = path
 		r.exeArgs = args
+		return nil
+	}
+}
+
+func WithPlugin(plugin Plugin) Option {
+	return func(r *Runner) error {
+		r.plgn = plugin
 		return nil
 	}
 }
