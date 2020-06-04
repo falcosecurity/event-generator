@@ -6,9 +6,9 @@ import (
 	"github.com/falcosecurity/event-generator/events"
 )
 
-var _ = events.Register(ReadSensitiveFile)
+var _ = events.Register(ReadSensitiveFileUntrusted)
 
-func ReadSensitiveFile(h events.Helper) error {
+func ReadSensitiveFileUntrusted(h events.Helper) error {
 	const filename = "/etc/shadow"
 	file, err := os.Open(filename)
 	defer file.Close()
