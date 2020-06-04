@@ -9,6 +9,10 @@ import (
 var _ = events.Register(UserMgmtBinaries)
 
 func UserMgmtBinaries(h events.Helper) error {
-	h.Log().Debug("does not result in a falco notification in containers")
+	if h.InContainer() {
+		return &events.ErrSkipped{
+			Reason: "'User mgmt binaries' is excluded in containers",
+		}
+	}
 	return h.SpawnAs("vipw", "helper.ExecLs")
 }
