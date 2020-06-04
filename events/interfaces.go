@@ -1,11 +1,21 @@
 package events
 
 import (
+	"fmt"
 	"time"
 
 	logger "github.com/sirupsen/logrus"
 	"k8s.io/cli-runtime/pkg/resource"
 )
+
+// ErrSkipped must be returned by an action when skipped for any reason.
+type ErrSkipped struct {
+	Reason string
+}
+
+func (e *ErrSkipped) Error() string {
+	return fmt.Sprintf("action skipped: %s", e.Reason)
+}
 
 // A Helper is passed to an Action as argument.
 type Helper interface {
@@ -31,6 +41,10 @@ type Helper interface {
 
 	// ResourceBuilder returns a k8s' resource.Builder.
 	ResourceBuilder() *resource.Builder
+
+	// InContainer returns true if the application is running in a container.
+	// Useful to skip actions which won't work within a container.
+	InContainer() bool
 }
 
 // An Action triggers an event.
