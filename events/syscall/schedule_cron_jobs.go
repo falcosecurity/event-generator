@@ -17,8 +17,9 @@ func ScheduleCronJobs(h events.Helper) error {
 	path, err := exec.LookPath("crontab")
 	if err != nil {
 		// if we don't have a crontab, just bail
-		h.Log().WithError(err).Debug("crontab utility not found in path")
-		return nil
+		return &events.ErrSkipped{
+			Reason: "crontab utility not found in path",
+		}
 	}
 	cmd := exec.Command(path, "-l")
 	err = cmd.Run()
