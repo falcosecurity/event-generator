@@ -66,6 +66,7 @@ func New(configOptions *ConfigOptions) *cobra.Command {
 
 	// Commands
 	rootCmd.AddCommand(NewRun())
+	rootCmd.AddCommand(NewTest())
 	rootCmd.AddCommand(NewList())
 
 	return rootCmd
