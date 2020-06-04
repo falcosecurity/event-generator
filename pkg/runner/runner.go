@@ -2,8 +2,11 @@ package runner
 
 import (
 	"context"
+	"errors"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/falcosecurity/event-generator/events"
@@ -17,6 +20,7 @@ type Runner struct {
 	kn      string
 	exePath string
 	exeArgs []string
+	inCnt   bool
 	alias   string
 	sleep   time.Duration
 	loop    bool
@@ -50,8 +54,8 @@ func (r *Runner) trigger(ctx context.Context, n string, f events.Action) (cleanu
 	}
 
 	if r.plgn != nil {
-		if err := r.plgn.PreRun(ctx, log, n, f); err != nil {
-			return h.cleanup, err
+		if plgnErr := r.plgn.PreRun(ctx, log, n, f); plgnErr != nil {
+			return h.cleanup, plgnErr
 		}
 	}
 
@@ -59,15 +63,21 @@ func (r *Runner) trigger(ctx context.Context, n string, f events.Action) (cleanu
 		h.Sleep(r.sleep)
 	}
 
-	if err := f(h); err != nil {
-		log.WithError(err).Error("action error")
+	var actErr error
+	if actErr = f(h); actErr != nil {
+		var skipErr *events.ErrSkipped
+		if errors.As(actErr, &skipErr) {
+			log.WithField("reason", skipErr.Reason).Warn("action skipped")
+		} else {
+			log.WithError(actErr).Error("action error")
+		}
 	} else if !h.hasLog {
 		log.Info("action executed")
 	}
 
 	if r.plgn != nil {
-		if err := r.plgn.PostRun(ctx, log, n, f); err != nil {
-			return h.cleanup, err
+		if plgnErr := r.plgn.PostRun(ctx, log, n, f, actErr); plgnErr != nil {
+			return h.cleanup, plgnErr
 		}
 	}
 
@@ -125,6 +135,14 @@ func procAlias() string {
 	return ""
 }
 
+func inContainer() bool {
+	b, err := ioutil.ReadFile("/proc/1/cmdline")
+	if err != nil {
+		return false
+	}
+	return strings.HasPrefix(string(b), os.Args[0])
+}
+
 func New(options ...Option) (*Runner, error) {
 	r := &Runner{}
 
@@ -145,6 +163,7 @@ func New(options ...Option) (*Runner, error) {
 	}
 
 	r.alias = procAlias()
+	r.inCnt = inContainer()
 
 	return r, nil
 }

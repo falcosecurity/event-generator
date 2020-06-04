@@ -97,3 +97,7 @@ func (h *helper) SpawnAs(name string, action string, args ...string) error {
 func (h *helper) Spawned() bool {
 	return h.runner.alias != ""
 }
+
+func (h *helper) InContainer() bool {
+	return h.runner.inCnt
+}

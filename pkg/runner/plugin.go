@@ -9,5 +9,5 @@ import (
 
 type Plugin interface {
 	PreRun(ctx context.Context, log *logger.Entry, n string, f events.Action) error
-	PostRun(ctx context.Context, log *logger.Entry, n string, f events.Action) error
+	PostRun(ctx context.Context, log *logger.Entry, n string, f events.Action, err error) error
 }
