@@ -12,16 +12,17 @@ var nonAlphaNumericReg = regexp.MustCompile("[^a-zA-Z0-9]+")
 var registry = make(map[string]Action, 0)
 
 // Register register an action.
-func Register(f Action) map[string]Action {
+func Register(f Action, opts ...Option) map[string]Action {
 	n := getFuncName(f)
 	checkName(n)
-	return RegisterWithName(f, n)
+	return RegisterWithName(f, n, opts...)
 }
 
 // RegisterWithName registers an action with a given name.
-func RegisterWithName(f Action, name string) map[string]Action {
+func RegisterWithName(f Action, name string, opts ...Option) map[string]Action {
 	checkName(name)
 	registry[name] = f
+	Options(opts).applyTo(name)
 	return registry
 }
 
