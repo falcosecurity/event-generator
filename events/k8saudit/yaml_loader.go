@@ -10,7 +10,6 @@ import (
 	"github.com/falcosecurity/event-generator/events/k8saudit/yaml"
 	"github.com/iancoleman/strcase"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/resource"
 )
 
@@ -23,6 +22,11 @@ func init() {
 		fileContent := b
 		name := strcase.ToCamel(strings.TrimSuffix(fileName, filepath.Ext(fileName)))
 		actionName := "k8saudit." + name
+
+		opts := make(events.Options, 0)
+		if disabled[fileName] {
+			opts = append(opts, events.WithDisabled())
+		}
 
 		events.RegisterWithName(func(h events.Helper) error {
 			count := 0
@@ -42,7 +46,9 @@ func init() {
 					return err
 				}
 
-				log := h.Log().WithField("resource", info.Name)
+				log := h.Log().
+					WithField("kind", info.Mapping.GroupVersionKind.Kind).
+					WithField("name", info.Name)
 
 				h.Cleanup(func() {
 					if _, err := resource.
@@ -51,13 +57,6 @@ func init() {
 						log.WithError(err).Error("delete k8s resource")
 					}
 				}, log)
-
-				if uo, ok := info.Object.(*unstructured.Unstructured); ok {
-					labels := uo.GetLabels()
-					if rule, ok := labels["falco.org/rule"]; ok {
-						log = log.WithField("rule", rule)
-					}
-				}
 
 				log.Info("create k8s resource")
 				obj, err := resource.
@@ -80,6 +79,7 @@ func init() {
 			return nil
 		},
 			actionName,
+			opts...,
 		)
 	}
 }
