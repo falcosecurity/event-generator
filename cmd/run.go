@@ -56,6 +56,7 @@ Without arguments it runs all actions, otherwise only those actions matching the
 
 	flags.Duration("sleep", time.Second, "The length of time to wait before running an action. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means no sleep.")
 	flags.Bool("loop", false, "Run in a loop")
+	flags.Bool("all", false, "Run all actions, including those disabled by default")
 
 	kubeConfigFlags := genericclioptions.NewConfigFlags(false)
 	kubeConfigFlags.AddFlags(flags)
@@ -81,6 +82,10 @@ Without arguments it runs all actions, otherwise only those actions matching the
 		if err != nil {
 			return err
 		}
+		all, err := flags.GetBool("all")
+		if err != nil {
+			return err
+		}
 
 		l := logger.StandardLogger()
 
@@ -92,6 +97,7 @@ Without arguments it runs all actions, otherwise only those actions matching the
 			runner.WithExecutable("", "--loglevel", l.GetLevel().String(), "run"),
 			runner.WithSleep(sleep),
 			runner.WithLoop(loop),
+			runner.WithAllEnabled(all),
 		)
 
 		r, err := runner.New(options...)
