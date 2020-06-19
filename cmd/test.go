@@ -3,6 +3,8 @@ package cmd
 import (
 
 	// register event collections
+	"time"
+
 	"github.com/falcosecurity/client-go/pkg/client"
 	_ "github.com/falcosecurity/event-generator/events/k8saudit"
 	_ "github.com/falcosecurity/event-generator/events/syscall"
@@ -26,17 +28,19 @@ Without arguments it runs all actions, otherwise only those actions matching the
 
 	flags := c.Flags()
 
-	grpcCfg := &client.Config{}
+	var testTimeout time.Duration
+	flags.DurationVar(&testTimeout, "test-timeout", tester.DefaultTestTimeout, "Test duration timeout")
 
+	grpcCfg := &client.Config{}
 	flags.StringVar(&grpcCfg.UnixSocketPath, "grpc-unix-socket", "unix:///var/run/falco.sock", "Unix socket path for connecting to a Falco gRPC server")
-	flags.StringVar(&grpcCfg.Hostname, "grpc-hostname", "localhost", "hostname for connecting to a Falco gRPC server")
-	flags.Uint16Var(&grpcCfg.Port, "grpc-port", 5060, "port for connecting to a Falco gRPC server")
-	flags.StringVar(&grpcCfg.CertFile, "grpc-cert", "/etc/falco/certs/client.crt", "cert file path for connecting to a Falco gRPC server")
-	flags.StringVar(&grpcCfg.KeyFile, "grpc-key", "/etc/falco/certs/client.key", "key file path for connecting to a Falco gRPC server")
+	flags.StringVar(&grpcCfg.Hostname, "grpc-hostname", "localhost", "Hostname for connecting to a Falco gRPC server")
+	flags.Uint16Var(&grpcCfg.Port, "grpc-port", 5060, "Port for connecting to a Falco gRPC server")
+	flags.StringVar(&grpcCfg.CertFile, "grpc-cert", "/etc/falco/certs/client.crt", "Cert file path for connecting to a Falco gRPC server")
+	flags.StringVar(&grpcCfg.KeyFile, "grpc-key", "/etc/falco/certs/client.key", "Key file path for connecting to a Falco gRPC server")
 	flags.StringVar(&grpcCfg.CARootFile, "grpc-ca", "/etc/falco/certs/ca.crt", "CA root file path for connecting to a Falco gRPC server")
 
 	c.RunE = func(c *cobra.Command, args []string) error {
-		t, err := tester.New(grpcCfg)
+		t, err := tester.New(grpcCfg, tester.WithTestTimeout(testTimeout))
 		if err != nil {
 			return err
 		}
