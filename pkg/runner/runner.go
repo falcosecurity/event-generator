@@ -24,6 +24,7 @@ type Runner struct {
 	alias   string
 	sleep   time.Duration
 	loop    bool
+	all     bool
 	plgn    Plugin
 }
 
@@ -46,6 +47,12 @@ func (r *Runner) trigger(ctx context.Context, n string, f events.Action) (cleanu
 		runner: r,
 		log:    log,
 	}
+
+	if !r.all && events.Disabled(n) {
+		log.Warn("action not enabled")
+		return nil, nil
+	}
+
 	if r.kf != nil {
 		h.builder = r.kf.NewBuilder().RequireNamespace()
 		if r.kn != "" {
@@ -214,6 +221,13 @@ func WithExecutable(path string, args ...string) Option {
 func WithPlugin(plugin Plugin) Option {
 	return func(r *Runner) error {
 		r.plgn = plugin
+		return nil
+	}
+}
+
+func WithAllEnabled(all bool) Option {
+	return func(r *Runner) error {
+		r.all = all
 		return nil
 	}
 }
