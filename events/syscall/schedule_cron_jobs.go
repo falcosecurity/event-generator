@@ -8,7 +8,10 @@ import (
 	"os/exec"
 )
 
-var _ = events.Register(ScheduleCronJobs)
+var _ = events.Register(
+	ScheduleCronJobs,
+	events.WithDisabled(), // the rule is not enabled by default, so disable the action too
+)
 
 func ScheduleCronJobs(h events.Helper) error {
 	// This just lists crons, but sufficies to trigger the event
