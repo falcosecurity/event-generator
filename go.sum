@@ -87,6 +87,8 @@ github.com/falcosecurity/client-go v0.1.1-0.20200529161230-8578c36af411 h1:gO3zd
 github.com/falcosecurity/client-go v0.1.1-0.20200529161230-8578c36af411/go.mod h1:woDCVHKkEfisBI7+dgVs8NnbnlMj8vLoZ4BQQImQQP4=
 github.com/falcosecurity/client-go v0.1.1-0.20200601150733-a51eea758626 h1:EkIthWxVXnF6jVfTaABarjiHbLUkcr7ZkISEVcze8nA=
 github.com/falcosecurity/client-go v0.1.1-0.20200601150733-a51eea758626/go.mod h1:SvXQr53AiNuSs4AJBm2ZzPjgUeoKbjIVQZA9NRUyW0E=
+github.com/falcosecurity/client-go v0.1.1-0.20200609153459-3b6f8eb9e49d h1:gzrFNkvzSgiCJxawjKTJvpkFEnTNj1+S0sv/jielspI=
+github.com/falcosecurity/client-go v0.1.1-0.20200609153459-3b6f8eb9e49d/go.mod h1:SvXQr53AiNuSs4AJBm2ZzPjgUeoKbjIVQZA9NRUyW0E=
 github.com/fatih/camelcase v1.0.0 h1:hxNvNX/xYBp0ovncs8WyWZrOrpBNub/JfaMvbURyft8=
 github.com/fatih/camelcase v1.0.0/go.mod h1:yN2Sb0lFhZJUdVvtELVWefmrXpuZESvPmqwoZc+/fpc=
 github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=

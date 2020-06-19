@@ -3,7 +3,6 @@ package tester
 import (
 	"context"
 	"errors"
-	"io"
 	"strings"
 	"time"
 
@@ -16,14 +15,16 @@ import (
 // ErrFailed is returned when a test fails
 var ErrFailed = errors.New("test failed")
 
+const DefaultTestTimeout = time.Minute
+
 // Tester is a plugin that tests the action outcome in a running Falco instance via the gRCP API.
 type Tester struct {
-	outs outputs.ServiceClient
-	sgc  outputs.Service_GetClient
+	outs    outputs.ServiceClient
+	timeout time.Duration
 }
 
 // New returns a new Tester instance.
-func New(config *client.Config) (*Tester, error) {
+func New(config *client.Config, options ...Option) (*Tester, error) {
 	c, err := client.NewForConfig(context.Background(), config)
 	if err != nil {
 		return nil, err
@@ -32,9 +33,14 @@ func New(config *client.Config) (*Tester, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Tester{
-		outs: outs,
-	}, nil
+	t := &Tester{
+		outs:    outs,
+		timeout: DefaultTestTimeout,
+	}
+	if err := Options(options).Apply(t); err != nil {
+		return nil, err
+	}
+	return t, nil
 }
 
 func (t *Tester) PreRun(ctx context.Context, log *logger.Entry, n string, f events.Action) (err error) {
@@ -56,29 +62,39 @@ func (t *Tester) PostRun(ctx context.Context, log *logger.Entry, n string, f eve
 		return ErrFailed
 	}
 
-	// fixme(leogr): it ensures that the gRPC server has enough time to internally fetch events
-	time.Sleep(time.Second)
+	ctxWithTimeout, cancelTimeout := context.WithTimeout(ctx, t.timeout)
+	defer cancelTimeout()
 
-	var err error
-	t.sgc, err = t.outs.Get(ctx, &outputs.Request{})
+	testCtx, cancel := context.WithCancel(ctxWithTimeout)
+	defer cancel()
+
+	fsc, err := t.outs.Sub(testCtx)
 	if err != nil {
 		return err
 	}
 
-	// Receive the accumulated events
-	for {
-		res, err := t.sgc.Recv()
-		if err != nil {
-			if err == io.EOF {
-				return ErrFailed
-			}
-			return err
-		}
-
+	err = client.OutputsWatch(testCtx, fsc, func(res *outputs.Response) error {
 		if events.MatchRule(n, res.Rule) {
 			log.WithField("rule", res.Rule).WithField("source", res.Source).Info("test passed")
-			return nil
+			cancel()
+		} else {
+			log.WithField("rule", res.Rule).WithField("source", res.Source).Debug("event skipped")
 		}
-		log.WithField("rule", res.Rule).WithField("source", res.Source).Debug("event skipped")
+		return nil
+	}, time.Millisecond*100)
+
+	if err == context.Canceled {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return ErrFailed
+}
+
+func WithTestTimeout(timeout time.Duration) Option {
+	return func(t *Tester) error {
+		t.timeout = timeout
+		return nil
 	}
 }
