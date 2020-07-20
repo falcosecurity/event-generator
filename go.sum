@@ -81,14 +81,8 @@ github.com/evanphx/json-patch v4.2.0+incompatible h1:fUDGZCv/7iAN7u0puUVhvKCcsR6
 github.com/evanphx/json-patch v4.2.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLiYLvXMP4fmwYFNcr97nuDLSk=
 github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d h1:105gxyaGwCFad8crR9dcMQWvV9Hvulu6hwUh4tWPJnM=
 github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d/go.mod h1:ZZMPRZwes7CROmyNKgQzC3XPs6L/G2EJLHddWejkmf4=
-github.com/falcosecurity/client-go v0.1.0 h1:YU97iUyb3VAmm7odzzUj0DKjCJPfIcihKlOc+1DTLfs=
-github.com/falcosecurity/client-go v0.1.0/go.mod h1:woDCVHKkEfisBI7+dgVs8NnbnlMj8vLoZ4BQQImQQP4=
-github.com/falcosecurity/client-go v0.1.1-0.20200529161230-8578c36af411 h1:gO3zdypleXkYtybtT3u/yZrwE3f9QGm6+8CiMZTKIfo=
-github.com/falcosecurity/client-go v0.1.1-0.20200529161230-8578c36af411/go.mod h1:woDCVHKkEfisBI7+dgVs8NnbnlMj8vLoZ4BQQImQQP4=
-github.com/falcosecurity/client-go v0.1.1-0.20200601150733-a51eea758626 h1:EkIthWxVXnF6jVfTaABarjiHbLUkcr7ZkISEVcze8nA=
-github.com/falcosecurity/client-go v0.1.1-0.20200601150733-a51eea758626/go.mod h1:SvXQr53AiNuSs4AJBm2ZzPjgUeoKbjIVQZA9NRUyW0E=
-github.com/falcosecurity/client-go v0.1.1-0.20200609153459-3b6f8eb9e49d h1:gzrFNkvzSgiCJxawjKTJvpkFEnTNj1+S0sv/jielspI=
-github.com/falcosecurity/client-go v0.1.1-0.20200609153459-3b6f8eb9e49d/go.mod h1:SvXQr53AiNuSs4AJBm2ZzPjgUeoKbjIVQZA9NRUyW0E=
+github.com/falcosecurity/client-go v0.2.0 h1:8XCWg04hRI34PaOhg1W2aBmAEQb7L6BmtT03fQdKqYs=
+github.com/falcosecurity/client-go v0.2.0/go.mod h1:SvXQr53AiNuSs4AJBm2ZzPjgUeoKbjIVQZA9NRUyW0E=
 github.com/fatih/camelcase v1.0.0 h1:hxNvNX/xYBp0ovncs8WyWZrOrpBNub/JfaMvbURyft8=
 github.com/fatih/camelcase v1.0.0/go.mod h1:yN2Sb0lFhZJUdVvtELVWefmrXpuZESvPmqwoZc+/fpc=
 github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=
@@ -135,7 +129,6 @@ github.com/golang/groupcache v0.0.0-20160516000752-02826c3e7903/go.mod h1:cIg4er
 github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
 github.com/golang/mock v1.1.1/go.mod h1:oTYuIxOrZwtPieC+H1uAHpcLFnEyAGVDL/k47Jfbm0A=
 github.com/golang/mock v1.2.0/go.mod h1:oTYuIxOrZwtPieC+H1uAHpcLFnEyAGVDL/k47Jfbm0A=
-github.com/golang/mock v1.4.0/go.mod h1:UOMv5ysSaYNkG+OFQykRIcU/QvvxJf3p21QfJ2Bt3cw=
 github.com/golang/mock v1.4.3 h1:GV+pQPG/EUUbkh47niozDcADz6go/dUwhVzdUQHIVRw=
 github.com/golang/mock v1.4.3/go.mod h1:UOMv5ysSaYNkG+OFQykRIcU/QvvxJf3p21QfJ2Bt3cw=
 github.com/golang/protobuf v0.0.0-20161109072736-4bd1920723d7/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
@@ -392,8 +385,6 @@ golang.org/x/sys v0.0.0-20190422165155-953cdadca894/go.mod h1:h1NjWce9XRLGQEsW7w
 golang.org/x/sys v0.0.0-20190616124812-15dcb6c0061f/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20190826190057-c7b8b68b1456 h1:ng0gs1AKnRRuEMZoTLLlbOd+C17zUDepwGQBb/n+JVg=
 golang.org/x/sys v0.0.0-20190826190057-c7b8b68b1456/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
-golang.org/x/sys v0.0.0-20191026070338-33540a1f6037 h1:YyJpGZS1sBuBCzLAR1VEpK193GlqGZbnPFnPV/5Rsb4=
-golang.org/x/sys v0.0.0-20191026070338-33540a1f6037/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200321134203-328b4cd54aae h1:3tcmuaB7wwSZtelmiv479UjUB+vviwABz7a133ZwOKQ=
 golang.org/x/sys v0.0.0-20200321134203-328b4cd54aae/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/text v0.0.0-20160726164857-2910a502d2bf/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=

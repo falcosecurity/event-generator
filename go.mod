@@ -4,12 +4,10 @@ go 1.14
 
 require (
 	github.com/creasty/defaults v1.3.0
-    // todo(leogr): update version once client-go with bidi support has been released
-	github.com/falcosecurity/client-go v0.1.1-0.20200609153459-3b6f8eb9e49d
+	github.com/falcosecurity/client-go v0.2.0
 	github.com/go-playground/locales v0.13.0
 	github.com/go-playground/universal-translator v0.17.0
 	github.com/go-playground/validator/v10 v10.2.0
-	github.com/gogo/protobuf v1.3.1
 	github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/sirupsen/logrus v1.5.0
