@@ -8,7 +8,7 @@ spec:
       serviceAccount: falco-event-generator
       containers:
       - name: falco-event-generator
-        image: falcosecurity/event-generator:new-tester
+        image: falcosecurity/event-generator:latest
         imagePullPolicy: IfNotPresent
         command: 
           - /bin/event-generator 
