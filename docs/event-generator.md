@@ -22,4 +22,5 @@ event-generator [flags]
 
 * [event-generator list](event-generator_list.md)	 - List available actions
 * [event-generator run](event-generator_run.md)	 - Run actions
+* [event-generator test](event-generator_test.md)	 - Run and test actions
 
