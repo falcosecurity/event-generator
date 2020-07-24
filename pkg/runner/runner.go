@@ -25,6 +25,7 @@ type Runner struct {
 	sleep   time.Duration
 	loop    bool
 	all     bool
+	quiet   bool
 	plgn    Plugin
 }
 
@@ -78,7 +79,7 @@ func (r *Runner) trigger(ctx context.Context, n string, f events.Action) (cleanu
 		} else {
 			log.WithError(actErr).Error("action error")
 		}
-	} else if !h.hasLog {
+	} else if !h.hasLog && !r.quiet {
 		log.Info("action executed")
 	}
 
@@ -228,6 +229,13 @@ func WithPlugin(plugin Plugin) Option {
 func WithAllEnabled(all bool) Option {
 	return func(r *Runner) error {
 		r.all = all
+		return nil
+	}
+}
+
+func WithQuiet(quiet bool) Option {
+	return func(r *Runner) error {
+		r.quiet = quiet
 		return nil
 	}
 }
