@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-	"regexp"
 	"time"
 
 	// register event collections
@@ -111,14 +109,9 @@ Without arguments it runs all actions, otherwise only those actions matching the
 			return r.Run(c.Context(), events.All())
 		}
 
-		reg, err := regexp.Compile(args[0])
+		evts, err := parseEventsArg(args[0])
 		if err != nil {
 			return err
-		}
-
-		evts := events.ByRegexp(reg)
-		if len(evts) == 0 {
-			return fmt.Errorf(`no events matching '%s'`, args[0])
 		}
 
 		return r.Run(c.Context(), evts)
