@@ -87,7 +87,7 @@ Without arguments it runs all actions, otherwise only those actions matching the
 
 		l := logger.StandardLogger()
 
-		options = append(options,
+		runOpts := []runner.Option{
 			runner.WithLogger(l),
 			runner.WithKubeNamespace(ns),
 			runner.WithKubeFactory(cmdutil.NewFactory(matchVersionKubeConfigFlags)),
@@ -96,7 +96,10 @@ Without arguments it runs all actions, otherwise only those actions matching the
 			runner.WithSleep(sleep),
 			runner.WithLoop(loop),
 			runner.WithAllEnabled(all),
-		)
+		}
+
+		// allow to override runOpts by appending given options
+		options = append(runOpts, options...)
 
 		r, err := runner.New(options...)
 		if err != nil {
