@@ -2,6 +2,7 @@ package counter
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -13,21 +14,26 @@ import (
 )
 
 type stat struct {
-	expected uint64
 	actual   uint64
+	expected uint64
 }
 
 // Counter is a plugin that
 type Counter struct {
-	log     *logger.Logger
-	ticker  *time.Ticker
-	tickD   time.Duration
-	lastT   time.Time
-	outs    outputs.ServiceClient
-	proc    *procfs.Proc
-	lastS   *procfs.ProcStat
-	actions []string
-	list    map[string]*stat
+	i        uint64
+	sleep    int64
+	loop     bool
+	log      *logger.Logger
+	ticker   *time.Ticker
+	tickD    time.Duration
+	lastT    time.Time
+	outs     outputs.ServiceClient
+	pTimeout time.Duration
+	proc     *procfs.Proc
+	lastS    *procfs.ProcStat
+	actions  []string
+	list     map[string]*stat
+	sync.RWMutex
 }
 
 // New returns a new Counter instance.
@@ -56,12 +62,13 @@ func New(ctx context.Context, config *client.Config, options ...Option) (*Counte
 		cntr.list[n] = &stat{}
 	}
 
-	fsc, err := cntr.outs.Sub(ctx)
+	fcs, err := cntr.outs.Sub(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	go cntr.watcher(ctx, fsc)
+	go cntr.watcher(ctx, fcs)
+
 	if cntr.tickD > 0 {
 		go cntr.clock(ctx, cntr.tickD)
 	}
@@ -69,8 +76,8 @@ func New(ctx context.Context, config *client.Config, options ...Option) (*Counte
 	return cntr, nil
 }
 
-func (c *Counter) watcher(ctx context.Context, fsc outputs.Service_SubClient) {
-	err := client.OutputsWatch(ctx, fsc, func(res *outputs.Response) error {
+func (c *Counter) watcher(ctx context.Context, fcs outputs.Service_SubClient) {
+	err := client.OutputsWatch(ctx, fcs, func(res *outputs.Response) error {
 		for n := range c.list {
 			if events.MatchRule(n, res.Rule) {
 				s := c.list[n]
@@ -79,7 +86,7 @@ func (c *Counter) watcher(ctx context.Context, fsc outputs.Service_SubClient) {
 			}
 		}
 		return nil
-	}, time.Millisecond*500)
+	}, c.pTimeout)
 	if err != nil {
 		c.log.WithError(err).Error("gRPC error")
 	}
@@ -91,9 +98,13 @@ func (c *Counter) clock(ctx context.Context, d time.Duration) {
 	for {
 		select {
 		case t := <-c.ticker.C:
+			c.Lock()
 			c.logStats()
-			c.lastT = t
+			c.reset(t)
+			c.Unlock()
 		case <-ctx.Done():
+			c.Lock()
+			defer c.Unlock()
 			c.ticker.Stop()
 			c.logStats()
 			return
@@ -101,14 +112,35 @@ func (c *Counter) clock(ctx context.Context, d time.Duration) {
 	}
 }
 
-func (c *Counter) statsByAction(n string) (expected, actual uint64) {
-	if s, ok := c.list[n]; ok {
-		return atomic.LoadUint64(&s.expected), atomic.LoadUint64(&s.actual)
+func (c *Counter) reset(t time.Time) {
+	c.lastT = t
+	c.i = 0
+
+	dirty := false
+	for _, s := range c.list {
+		dirty = dirty || atomic.LoadUint64(&s.actual) > atomic.LoadUint64(&s.expected)
+		atomic.StoreUint64(&s.expected, 0)
+		atomic.StoreUint64(&s.actual, 0)
 	}
-	return 0, 0
+
+	if dirty {
+		c.log.Warnf("unexpected events received, retrying with sleep=%s", time.Duration(c.sleep).String())
+	}
+
+	if c.loop && !dirty && c.sleep > 0 {
+		c.sleep = c.sleep / 2
+	}
 }
 
 func (c *Counter) PreRun(ctx context.Context, log *logger.Entry, n string, f events.Action) (err error) {
+	c.Lock()
+	c.i++
+	sleep := c.sleep
+	c.Unlock()
+
+	if sleep > 0 {
+		time.Sleep(time.Duration(sleep))
+	}
 	return nil
 }
 
@@ -138,9 +170,30 @@ func WithActions(actions map[string]events.Action) Option {
 	}
 }
 
+func WithLoop(loop bool) Option {
+	return func(c *Counter) error {
+		c.loop = loop
+		return nil
+	}
+}
+
+func WithInitialSleep(sleep time.Duration) Option {
+	return func(c *Counter) error {
+		c.sleep = int64(sleep)
+		return nil
+	}
+}
+
 func WithStatsInterval(interval time.Duration) Option {
 	return func(c *Counter) error {
 		c.tickD = interval
+		return nil
+	}
+}
+
+func WithPollingTimeout(timeout time.Duration) Option {
+	return func(c *Counter) error {
+		c.pTimeout = timeout
 		return nil
 	}
 }
