@@ -162,6 +162,17 @@ func New(options ...Option) (*Runner, error) {
 		r.log = logger.New()
 	}
 
+	if r.quiet {
+		r.log = &logger.Logger{
+			Out:          r.log.Out,
+			Hooks:        r.log.Hooks,
+			Formatter:    r.log.Formatter,
+			ReportCaller: r.log.ReportCaller,
+			ExitFunc:     r.log.ExitFunc,
+			Level:        logger.ErrorLevel,
+		}
+	}
+
 	if r.exePath == "" {
 		path, err := os.Executable()
 		if err != nil {

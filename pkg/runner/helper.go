@@ -37,9 +37,7 @@ func (h *helper) Log() *logger.Entry {
 }
 
 func (h *helper) Sleep(d time.Duration) {
-	if !h.runner.quiet {
-		h.log.Infof("sleep for %s", d) // do not set hasLog
-	}
+	h.log.Infof("sleep for %s", d) // do not set hasLog
 	time.Sleep(d)
 }
 
@@ -61,10 +59,8 @@ func (h *helper) Cleanup(f func(), args ...interface{}) {
 				args = args[1:]
 			}
 		}
-		if !h.runner.quiet {
-			args = append([]interface{}{"cleanup "}, args...)
-			log.Info(args...)
-		}
+		args = append([]interface{}{"cleanup "}, args...)
+		log.Info(args...)
 		f()
 	}
 }
