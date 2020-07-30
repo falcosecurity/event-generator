@@ -5,6 +5,7 @@ Run actions
 ### Synopsis
 
 Performs a variety of suspect actions.
+
 Without arguments it runs all actions, otherwise only those actions matching the given regular expression.
 
 
