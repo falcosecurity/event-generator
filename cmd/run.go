@@ -3,20 +3,13 @@ package cmd
 import (
 	"time"
 
-	// register event collections
-	_ "github.com/falcosecurity/event-generator/events/k8saudit"
-	_ "github.com/falcosecurity/event-generator/events/syscall"
-
-	"k8s.io/cli-runtime/pkg/genericclioptions"
-	cmdutil "k8s.io/kubectl/pkg/cmd/util"
-
-	// Initialize all k8s client auth plugins
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
 	"github.com/falcosecurity/event-generator/events"
 	"github.com/falcosecurity/event-generator/pkg/runner"
+
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
 // DefaultNamespace const contains the name of the default Kubernetes namespace.
@@ -43,6 +36,7 @@ func newRunTemplate() (c *cobra.Command, runE func(c *cobra.Command, args []stri
 		Use:   "run [regexp]",
 		Short: "Run actions",
 		Long: `Performs a variety of suspect actions.
+
 Without arguments it runs all actions, otherwise only those actions matching the given regular expression.
 
 ` + runWarningMessage,
