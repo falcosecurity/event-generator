@@ -30,9 +30,11 @@ N.B.:
 	- also, you may need to increase the "outputs.rate" and "outputs.max_burst" values within the Falco configuration,
 	otherwise EPS will be rate-limited by the throttling mechanism.
 	
-Without arguments it generates events using all actions, otherwise, only those actions matching the given regular expression.
+Since not all actions can be used for benchmarking, only those actions matching the given regular expression are used.
 
 ` + runWarningMessage
+
+	c.Args = cobra.ExactArgs(1)
 
 	flags := c.Flags()
 
