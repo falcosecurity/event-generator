@@ -5,13 +5,10 @@ import (
 	// register event collections
 	"time"
 
-	_ "github.com/falcosecurity/event-generator/events/k8saudit"
-	_ "github.com/falcosecurity/event-generator/events/syscall"
 	"github.com/falcosecurity/event-generator/pkg/runner"
 	"github.com/falcosecurity/event-generator/pkg/tester"
 
 	"github.com/spf13/cobra"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
 // NewTest instantiates the test subcommand.
@@ -21,7 +18,9 @@ func NewTest() *cobra.Command {
 	c.Use = "test [regexp]"
 	c.Short = "Run and test actions"
 	c.Long = `Performs a variety of suspect actions and test them against a running Falco instance.
-Without arguments it runs all actions, otherwise only those actions matching the given regular expression.
+
+Note that the Falco gRPC Output must be enabled to use this command.
+Without arguments it tests all actions, otherwise only those actions matching the given regular expression.
 
 ` + runWarningMessage
 
