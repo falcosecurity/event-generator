@@ -1,19 +1,13 @@
 package cmd
 
 import (
-
-	// register event collections
-
 	"time"
 
-	_ "github.com/falcosecurity/event-generator/events/k8saudit"
-	_ "github.com/falcosecurity/event-generator/events/syscall"
 	"github.com/falcosecurity/event-generator/pkg/counter"
 	"github.com/falcosecurity/event-generator/pkg/runner"
 
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
 // NewBench instantiates the bench subcommand.
@@ -21,9 +15,22 @@ func NewBench() *cobra.Command {
 	c, runEWithOpts := newRunTemplate()
 
 	c.Use = "bench [regexp]"
-	c.Short = "Benchmark actions"
-	c.Long = `
-Without arguments it runs all actions, otherwise only those actions matching the given regular expression.
+	c.Short = "Benchmark for Falco"
+	c.Long = `Benchmark a running Falco instance.
+
+This command generates a high number of Event Per Second (EPS), to test the events throughput allowed by Falco.
+The number of EPS is controlled by the "--sleep" option: reduce the sleeping duration to increase the EPS.
+If the "--loop" option is set, the sleeping duration is halved on each round.
+The "--pid" option can be used to monitor the Falco process. 
+The easiest way to get the PID is by appending the following snippet:
+--pid $(ps -ef | awk '$8=="falco" {print $2}')
+	
+N.B.:
+	- the Falco gRPC Output must be enabled to use this command
+	- also, you may need to increase the "outputs.rate" and "outputs.max_burst" values within the Falco configuration,
+	otherwise EPS will be rate-limited by the throttling mechanism.
+	
+Without arguments it generates events using all actions, otherwise, only those actions matching the given regular expression.
 
 ` + runWarningMessage
 
@@ -31,8 +38,10 @@ Without arguments it runs all actions, otherwise only those actions matching the
 
 	var pid int
 	flags.IntVar(&pid, "pid", 0, "A process PID to monitor while benchmarking (e.g. the falco process)")
-	var statsInterval time.Duration
-	flags.DurationVar(&statsInterval, "stats-interval", time.Second*2, "Output statistics every <stats-interval> duration")
+	var roundDuration time.Duration
+	flags.DurationVar(&roundDuration, "round-duration", time.Second*2, "Duration of a benchmark round")
+	var pollingTimeout time.Duration
+	flags.DurationVar(&pollingTimeout, "polling-interval", time.Millisecond*100, "Duration of gRPC APIs polling timeout")
 
 	grpcCfg := grpcFlags(flags)
 
@@ -45,10 +54,23 @@ Without arguments it runs all actions, otherwise only those actions matching the
 			return err
 		}
 
-		opts := append(make(counter.Options, 0),
+		loop, err := flags.GetBool("loop")
+		if err != nil {
+			return err
+		}
+
+		sleep, err := flags.GetDuration("sleep")
+		if err != nil {
+			return err
+		}
+
+		opts := append([]counter.Option(nil),
 			counter.WithActions(evts),
 			counter.WithLogger(l),
-			counter.WithStatsInterval(statsInterval),
+			counter.WithLoop(loop),
+			counter.WithInitialSleep(sleep),
+			counter.WithRoundDuration(roundDuration),
+			counter.WithPollingTimeout(pollingTimeout),
 		)
 		if pid != 0 {
 			opts = append(opts, counter.WithPid(pid))
@@ -58,7 +80,13 @@ Without arguments it runs all actions, otherwise only those actions matching the
 			return err
 		}
 
-		return runEWithOpts(c, args, runner.WithPlugin(p), runner.WithQuiet(true))
+		return runEWithOpts(c, args,
+			runner.WithPlugin(p),
+			// override runner options:
+			runner.WithQuiet(true),             // reduce runner verbosity
+			runner.WithSleep(time.Duration(0)), // no sleep, since sleeping will be controled by the plugin
+			runner.WithLoop(true),              // always loop
+		)
 	}
 
 	return c
