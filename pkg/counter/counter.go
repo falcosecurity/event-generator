@@ -184,9 +184,9 @@ func WithInitialSleep(sleep time.Duration) Option {
 	}
 }
 
-func WithStatsInterval(interval time.Duration) Option {
+func WithRoundDuration(duration time.Duration) Option {
 	return func(c *Counter) error {
-		c.tickD = interval
+		c.tickD = duration
 		return nil
 	}
 }
