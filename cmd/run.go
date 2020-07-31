@@ -46,7 +46,7 @@ Without arguments it runs all actions, otherwise only those actions matching the
 
 	flags := c.Flags()
 
-	flags.Duration("sleep", time.Second, "The length of time to wait before running an action. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means no sleep.")
+	flags.Duration("sleep", time.Millisecond*250, "The length of time to wait before running an action. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means no sleep.")
 	flags.Bool("loop", false, "Run in a loop")
 	flags.Bool("all", false, "Run all actions, including those disabled by default")
 
