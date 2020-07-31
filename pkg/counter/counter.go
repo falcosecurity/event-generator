@@ -177,7 +177,7 @@ func WithLoop(loop bool) Option {
 	}
 }
 
-func WithInitialSleep(sleep time.Duration) Option {
+func WithSleep(sleep time.Duration) Option {
 	return func(c *Counter) error {
 		c.sleep = int64(sleep)
 		return nil

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"time"
 
 	"github.com/falcosecurity/event-generator/pkg/counter"
@@ -9,6 +10,8 @@ import (
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
+
+var roundDurationMustBeLongerThanSleepErr = errors.New("--round-duration must be longer than --sleep")
 
 // NewBench instantiates the bench subcommand.
 func NewBench() *cobra.Command {
@@ -66,11 +69,15 @@ Since not all actions can be used for benchmarking, only those actions matching 
 			return err
 		}
 
+		if roundDuration <= sleep {
+			return roundDurationMustBeLongerThanSleepErr
+		}
+
 		opts := append([]counter.Option(nil),
 			counter.WithActions(evts),
 			counter.WithLogger(l),
 			counter.WithLoop(loop),
-			counter.WithInitialSleep(sleep),
+			counter.WithSleep(sleep),
 			counter.WithRoundDuration(roundDuration),
 			counter.WithPollingTimeout(pollingTimeout),
 		)
