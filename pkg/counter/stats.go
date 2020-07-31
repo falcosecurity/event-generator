@@ -52,7 +52,12 @@ func (c *Counter) logStats() {
 	stats := c.globalStats()
 	logStatsEntry := c.log.WithFields(logger.Fields(stats))
 
+	// take a rest to ensure events are being collected
+	//
+	// we assume the mutex is currently locked, so
+	// runner is blocked by the PreRun() hook and no events are generated for a while
 	time.Sleep(time.Second)
+
 	for _, n := range c.actions {
 		s := c.statsByAction(n)
 		logEntry := c.log.WithField("expected", s.Expected).WithField("actual", s.Actual)
