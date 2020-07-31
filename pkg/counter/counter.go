@@ -113,14 +113,27 @@ func (c *Counter) clock(ctx context.Context, d time.Duration) {
 }
 
 func (c *Counter) reset(t time.Time) {
+
 	c.lastT = t
 	c.i = 0
 
 	dirty := false
-	for _, s := range c.list {
-		dirty = dirty || atomic.LoadUint64(&s.actual) > atomic.LoadUint64(&s.expected)
+	invalid := false
+	for n, s := range c.list {
+		ac, ex := atomic.LoadUint64(&s.actual), atomic.LoadUint64(&s.expected)
 		atomic.StoreUint64(&s.expected, 0)
 		atomic.StoreUint64(&s.actual, 0)
+
+		dirty = dirty || ac > ex
+		if ex == 0 {
+			invalid = true
+			c.log.WithField("action", n).
+				Warn("cannot generate events")
+		}
+	}
+
+	if invalid {
+		c.log.Warn("some actions may be too slow, consider to use different actions")
 	}
 
 	if dirty {
