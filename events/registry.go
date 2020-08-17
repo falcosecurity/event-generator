@@ -58,7 +58,7 @@ func ByRegexp(r *regexp.Regexp) map[string]Action {
 	return ret
 }
 
-// ByPackage returns a map of actions registerd in given package.
+// ByPackage returns a map of actions registered in given package.
 func ByPackage(packageName string) map[string]Action {
 	ret := make(map[string]Action, 0)
 	for n, f := range registry {

@@ -93,7 +93,7 @@ Since not all actions can be used for benchmarking, only those actions matching 
 			runner.WithPlugin(p),
 			// override runner options:
 			runner.WithQuiet(true),             // reduce runner verbosity
-			runner.WithSleep(time.Duration(0)), // no sleep, since sleeping will be controled by the plugin
+			runner.WithSleep(time.Duration(0)), // no sleep, since sleeping will be controlled by the plugin
 			runner.WithLoop(true),              // always loop
 		)
 	}
