@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewRun instantiates the list subcommand.
+// NewList instantiates the list subcommand.
 func NewList() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "list [regexp]",
