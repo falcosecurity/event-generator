@@ -47,7 +47,7 @@ One commmon way to use this command is as following:
 	var pid int
 	flags.IntVar(&pid, "pid", 0, "A process PID to monitor while benchmarking (e.g. the falco process)")
 	var roundDuration time.Duration
-	flags.DurationVar(&roundDuration, "round-duration", time.Second*2, "Duration of a benchmark round")
+	flags.DurationVar(&roundDuration, "round-duration", time.Second*5, "Duration of a benchmark round")
 	var pollingTimeout time.Duration
 	flags.DurationVar(&pollingTimeout, "polling-interval", time.Millisecond*100, "Duration of gRPC APIs polling timeout")
 
