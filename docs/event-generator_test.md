@@ -46,7 +46,7 @@ event-generator test [regexp] [flags]
   -n, --namespace string               If present, the namespace scope for this CLI request (default "default")
       --request-timeout string         The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don't timeout requests. (default "0")
   -s, --server string                  The address and port of the Kubernetes API server
-      --sleep duration                 The length of time to wait before running an action. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means no sleep. (default 1s)
+      --sleep duration                 The length of time to wait before running an action. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means no sleep. (default 100ms)
       --test-timeout duration          Test duration timeout (default 1m0s)
       --token string                   Bearer token for authentication to the API server
       --user string                    The name of the kubeconfig user to use
