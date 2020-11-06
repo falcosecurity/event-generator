@@ -95,18 +95,33 @@ func (c *Counter) watcher(ctx context.Context, fcs outputs.Service_SubClient) {
 func (c *Counter) clock(ctx context.Context, d time.Duration) {
 	c.ticker = time.NewTicker(d)
 	c.lastT = time.Now()
+	running := true
+	round := 1
+	c.log.WithField("sleep", time.Duration(c.sleep)).Infof("round #%d", round)
 	for {
 		select {
 		case t := <-c.ticker.C:
-			c.Lock()
-			c.logStats()
-			c.reset(t)
-			c.Unlock()
+			if running {
+				// round completed, rest for a while before collecting stats
+				c.Lock()
+				c.log.Info("resting...")
+			} else {
+				// collecting stats (while still locked)
+				c.logStats()
+				c.reset(t)
+
+				// start a new round
+				c.Unlock()
+				round++
+				c.log.Info("") // empty line for improved readability
+				c.log.WithField("sleep", time.Duration(c.sleep)).Infof("round #%d", round)
+			}
+			running = !running
 		case <-ctx.Done():
-			c.Lock()
-			defer c.Unlock()
 			c.ticker.Stop()
-			c.logStats()
+			if !running {
+				c.Unlock()
+			}
 			return
 		}
 	}

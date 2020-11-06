@@ -41,22 +41,13 @@ func (c *Counter) globalStats() (stats map[string]interface{}) {
 		stats["virt_mem"] = humanize.Bytes(uint64(s.VirtualMemory()))
 		c.lastS = &s
 	}
-
-	stats["sleep"] = time.Duration(c.sleep)
 	stats["throughput"] = strconv.FormatFloat(float64(c.i)/c.tickD.Seconds(), 'f', 1, 64) + " EPS"
 	return
 }
 
 func (c *Counter) logStats() {
-	c.log.Info("collecting...")
 	stats := c.globalStats()
 	logStatsEntry := c.log.WithFields(logger.Fields(stats))
-
-	// take a rest to ensure events are being collected
-	//
-	// we assume the mutex is currently locked, so
-	// runner is blocked by the PreRun() hook and no events are generated for a while
-	time.Sleep(time.Second)
 
 	for _, n := range c.actions {
 		s := c.statsByAction(n)
