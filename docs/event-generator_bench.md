@@ -10,15 +10,18 @@ This command generates a high number of Event Per Second (EPS), to test the even
 The number of EPS is controlled by the "--sleep" option: reduce the sleeping duration to increase the EPS.
 If the "--loop" option is set, the sleeping duration is halved on each round.
 The "--pid" option can be used to monitor the Falco process. 
-The easiest way to get the PID is by appending the following snippet:
---pid $(ps -ef | awk '$8=="falco" {print $2}')
 	
 N.B.:
 	- the Falco gRPC Output must be enabled to use this command
-	- also, you may need to increase the "outputs.rate" and "outputs.max_burst" values within the Falco configuration,
-	otherwise EPS will be rate-limited by the throttling mechanism.
-	
-Since not all actions can be used for benchmarking, only those actions matching the given regular expression are used.
+	- "outputs.rate" and "outputs.max_burst" values within the Falco configuration must be increased,
+	  otherwise EPS will be rate-limited by the throttling mechanism
+	- since not all actions can be used for benchmarking, 
+	  only those actions matching the given regular expression are used
+
+One commmon way to use this command is as following:
+
+	event-generator bench "ChangeThreadNamespace|ReadSensitiveFileUntrusted" --loop --sleep 10ms --pid $(pidof -s falco) 
+
 
 
 Warning:
@@ -58,9 +61,9 @@ event-generator bench [regexp] [flags]
       --pid int                        A process PID to monitor while benchmarking (e.g. the falco process)
       --polling-interval duration      Duration of gRPC APIs polling timeout (default 100ms)
       --request-timeout string         The length of time to wait before giving up on a single server request. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don't timeout requests. (default "0")
-      --round-duration duration        Duration of a benchmark round (default 2s)
+      --round-duration duration        Duration of a benchmark round (default 5s)
   -s, --server string                  The address and port of the Kubernetes API server
-      --sleep duration                 The length of time to wait before running an action. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means no sleep. (default 1s)
+      --sleep duration                 The length of time to wait before running an action. Non-zero values should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means no sleep. (default 100ms)
       --token string                   Bearer token for authentication to the API server
       --user string                    The name of the kubeconfig user to use
 ```
