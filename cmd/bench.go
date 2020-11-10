@@ -50,6 +50,8 @@ One commmon way to use this command is as following:
 	flags.DurationVar(&roundDuration, "round-duration", time.Second*5, "Duration of a benchmark round")
 	var pollingTimeout time.Duration
 	flags.DurationVar(&pollingTimeout, "polling-interval", time.Millisecond*100, "Duration of gRPC APIs polling timeout")
+	var humanize bool
+	flags.BoolVar(&humanize, "humanize", true, "Humanize values when printing statistics")
 
 	grpcCfg := grpcFlags(flags)
 
@@ -83,6 +85,7 @@ One commmon way to use this command is as following:
 			counter.WithSleep(sleep),
 			counter.WithRoundDuration(roundDuration),
 			counter.WithPollingTimeout(pollingTimeout),
+			counter.WithHumanize(humanize),
 		)
 		if pid != 0 {
 			opts = append(opts, counter.WithPid(pid))
