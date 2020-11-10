@@ -13,6 +13,7 @@ import (
 type ConfigOptions struct {
 	ConfigFile string
 	LogLevel   string `validate:"logrus" name:"log level" default:"info"`
+	LogFormat  string `validate:"format" name:"log format" default:"text"`
 }
 
 // NewConfigOptions creates an instance of ConfigOptions.

@@ -30,8 +30,9 @@ func init() {
 		return name
 	})
 
-	V.RegisterValidation("logrus", isLogrusLevel)
 	V.RegisterValidation("filepath", isFilePath)
+	V.RegisterValidation("logrus", isLogrusLevel)
+	V.RegisterValidation("format", isFormat)
 
 	eng := en.New()
 	uni := ut.New(eng, eng)
@@ -59,6 +60,19 @@ func init() {
 		},
 		func(ut ut.Translator, fe validator.FieldError) string {
 			t, _ := ut.T("logrus", fe.Field())
+
+			return t
+		},
+	)
+
+	V.RegisterTranslation(
+		"format",
+		T,
+		func(ut ut.Translator) error {
+			return ut.Add("format", "{0} is an invalid log format", true)
+		},
+		func(ut ut.Translator, fe validator.FieldError) string {
+			t, _ := ut.T("format", fe.Field())
 
 			return t
 		},

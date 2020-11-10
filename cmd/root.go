@@ -45,7 +45,7 @@ func New(configOptions *ConfigOptions) *cobra.Command {
 
 			// at this stage configOptions is bound to command line flags only
 			validateConfig(*configOptions)
-			initLogger(configOptions.LogLevel)
+			initLogger(configOptions.LogLevel, configOptions.LogFormat)
 			logger.Debug("running with args: ", strings.Join(os.Args, " "))
 			initConfig(configOptions.ConfigFile)
 
@@ -54,9 +54,10 @@ func New(configOptions *ConfigOptions) *cobra.Command {
 			initEnv()
 			initFlags(flags, map[string]bool{
 				// exclude flags to be not bound to ENV and config file
-				"config":   true,
-				"loglevel": true,
-				"help":     true,
+				"config":    true,
+				"loglevel":  true,
+				"logformat": true,
+				"help":      true,
 			})
 			// validateConfig(*configOptions) // enable if other flags were bound to configOptions
 			debugFlags(flags)
@@ -70,6 +71,7 @@ func New(configOptions *ConfigOptions) *cobra.Command {
 	flags := rootCmd.PersistentFlags()
 	flags.StringVarP(&configOptions.ConfigFile, "config", "c", configOptions.ConfigFile, "Config file path (default $HOME/.falco-event-generator.yaml if exists)")
 	flags.StringVarP(&configOptions.LogLevel, "loglevel", "l", configOptions.LogLevel, "Log level")
+	flags.StringVar(&configOptions.LogFormat, "logformat", configOptions.LogFormat, `available formats: "text" or "json"`)
 
 	// Commands
 	rootCmd.AddCommand(NewRun())
@@ -131,7 +133,17 @@ func initEnv() {
 }
 
 // initLogger configures the logger
-func initLogger(logLevel string) {
+func initLogger(logLevel string, logFormat string) {
+	switch logFormat {
+	case "text":
+		// do nothing, default option
+	case "json":
+		logger.SetFormatter(&logger.JSONFormatter{
+			DisableTimestamp: true,
+		})
+	default:
+		logger.Fatalf(`"%s" log format is not supported`, logFormat)
+	}
 	lvl, err := logger.ParseLevel(logLevel)
 	if err != nil {
 		logger.Fatal(err)
