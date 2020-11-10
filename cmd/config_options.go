@@ -11,9 +11,9 @@ import (
 
 // ConfigOptions represent the persistent configuration flags of event-generator.
 type ConfigOptions struct {
-	ConfigFile string
-	LogLevel   string `validate:"logrus" name:"log level" default:"info"`
-	LogFormat  string `validate:"format" name:"log format" default:"text"`
+	ConfigFile string `validate:"filepath" name:"config"`
+	LogLevel   string `validate:"logrus" name:"loglevel" default:"info"`
+	LogFormat  string `validate:"format" name:"logformat" default:"text"`
 }
 
 // NewConfigOptions creates an instance of ConfigOptions.
