@@ -53,6 +53,7 @@ event-generator bench [regexp] [flags]
       --grpc-port uint16               Port for connecting to a Falco gRPC server (default 5060)
       --grpc-unix-socket string        Unix socket path for connecting to a Falco gRPC server (default "unix:///var/run/falco.sock")
   -h, --help                           help for bench
+      --humanize                       Humanize values when printing statistics (default true)
       --insecure-skip-tls-verify       If true, the server's certificate will not be checked for validity. This will make your HTTPS connections insecure
       --kubeconfig string              Path to the kubeconfig file to use for CLI requests.
       --loop                           Run in a loop
@@ -71,8 +72,9 @@ event-generator bench [regexp] [flags]
 ### Options inherited from parent commands
 
 ```
-  -c, --config string     Config file path (default $HOME/.falco-event-generator.yaml if exists)
-  -l, --loglevel string   Log level (default "info")
+  -c, --config string      Config file path (default $HOME/.falco-event-generator.yaml if exists)
+      --logformat string   available formats: "text" or "json" (default "text")
+  -l, --loglevel string    Log level (default "info")
 ```
 
 ### SEE ALSO
