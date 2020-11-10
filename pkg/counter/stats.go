@@ -37,12 +37,23 @@ func (c *Counter) globalStats() (stats map[string]interface{}) {
 	if c.proc != nil {
 		delta := time.Now().Sub(c.lastT)
 		s, _ := c.proc.NewStat()
-		stats["cpu"] = strconv.FormatFloat((s.CPUTime()-c.lastS.CPUTime())/delta.Seconds()*100, 'f', 1, 64) + "%"
-		stats["res_mem"] = humanize.Bytes(uint64(s.ResidentMemory()))
-		stats["virt_mem"] = humanize.Bytes(uint64(s.VirtualMemory()))
+		stats["cpu"] = float64((s.CPUTime() - c.lastS.CPUTime()) / delta.Seconds())
+		stats["res_mem"] = uint64(s.ResidentMemory())
+		stats["virt_mem"] = uint64(s.VirtualMemory())
+
+		if c.humanize {
+			stats["cpu"] = strconv.FormatFloat(stats["cpu"].(float64)*100, 'f', 1, 64) + "%"
+			stats["res_mem"] = humanize.Bytes(uint64(stats["res_mem"].(uint64)))
+			stats["virt_mem"] = humanize.Bytes(stats["virt_mem"].(uint64))
+		}
+
 		c.lastS = &s
+
 	}
-	stats["throughput"] = strconv.FormatFloat(float64(c.i)/c.tickD.Seconds(), 'f', 1, 64) + " EPS"
+	stats["throughput"] = float64(c.i) / c.tickD.Seconds()
+	if c.humanize {
+		stats["throughput"] = strconv.FormatFloat(stats["throughput"].(float64), 'f', 1, 64) + " EPS"
+	}
 	return
 }
 
@@ -59,5 +70,11 @@ func (c *Counter) logStats() {
 	}
 
 	lost = 1 - lost/float64(len(c.actions)) // lost average
-	logStatsEntry.WithField("lost", fmt.Sprintf("%d%%", int(lost*100))).Info("statistics")
+	if c.humanize {
+		logStatsEntry = logStatsEntry.WithField("lost", fmt.Sprintf("%d%%", int(lost*100)))
+	} else {
+		logStatsEntry = logStatsEntry.WithField("lost", lost)
+	}
+
+	logStatsEntry.Info("statistics")
 }
