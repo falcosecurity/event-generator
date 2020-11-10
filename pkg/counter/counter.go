@@ -23,6 +23,7 @@ type Counter struct {
 	i        uint64
 	sleep    int64
 	loop     bool
+	humanize bool
 	log      *logger.Logger
 	ticker   *time.Ticker
 	tickD    time.Duration
@@ -238,6 +239,13 @@ func WithPid(pid int) Option {
 			return err
 		}
 		c.lastS = &procStat
+		return nil
+	}
+}
+
+func WithHumanize(humanize bool) Option {
+	return func(c *Counter) error {
+		c.humanize = humanize
 		return nil
 	}
 }
