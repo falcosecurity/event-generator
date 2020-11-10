@@ -10,10 +10,10 @@ import (
 )
 
 type stats struct {
-	Action     string
-	Expected   uint64
-	Actual     uint64
-	Percentage int
+	Action   string
+	Expected uint64
+	Actual   uint64
+	Ratio    float64
 }
 
 func (c *Counter) statsByAction(n string) *stats {
@@ -25,7 +25,7 @@ func (c *Counter) statsByAction(n string) *stats {
 	}
 
 	if stats.Expected > 0 {
-		stats.Percentage = int(100 * stats.Actual / stats.Expected)
+		stats.Ratio = float64(stats.Actual) / float64(stats.Expected)
 	}
 
 	return stats
@@ -51,8 +51,8 @@ func (c *Counter) logStats() {
 
 	for _, n := range c.actions {
 		s := c.statsByAction(n)
-		logEntry := c.log.WithField("expected", s.Expected).WithField("actual", s.Actual)
-		logEntry.Infof("%s (%d%% lost)", s.Action, 100-s.Percentage)
+		logEntry := c.log.WithField("expected", s.Expected).WithField("actual", s.Actual).WithField("ratio", s.Ratio)
+		logEntry.Info(s.Action)
 	}
 	logStatsEntry.Info("statistics")
 }
