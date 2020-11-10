@@ -1,6 +1,7 @@
 package counter
 
 import (
+	"fmt"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -49,10 +50,14 @@ func (c *Counter) logStats() {
 	stats := c.globalStats()
 	logStatsEntry := c.log.WithFields(logger.Fields(stats))
 
+	var lost float64
 	for _, n := range c.actions {
 		s := c.statsByAction(n)
 		logEntry := c.log.WithField("expected", s.Expected).WithField("actual", s.Actual).WithField("ratio", s.Ratio)
 		logEntry.Info(s.Action)
+		lost += s.Ratio
 	}
-	logStatsEntry.Info("statistics")
+
+	lost = 1 - lost/float64(len(c.actions)) // lost average
+	logStatsEntry.WithField("lost", fmt.Sprintf("%d%%", int(lost*100))).Info("statistics")
 }
