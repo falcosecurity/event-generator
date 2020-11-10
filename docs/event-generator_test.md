@@ -55,8 +55,9 @@ event-generator test [regexp] [flags]
 ### Options inherited from parent commands
 
 ```
-  -c, --config string     Config file path (default $HOME/.falco-event-generator.yaml if exists)
-  -l, --loglevel string   Log level (default "info")
+  -c, --config string      Config file path (default $HOME/.falco-event-generator.yaml if exists)
+      --logformat string   available formats: "text" or "json" (default "text")
+  -l, --loglevel string    Log level (default "info")
 ```
 
 ### SEE ALSO

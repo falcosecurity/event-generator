@@ -2,10 +2,6 @@
 
 A command line tool to perform a variety of suspect actions.
 
-### Synopsis
-
-A command line tool to perform a variety of suspect actions.
-
 ```
 event-generator [flags]
 ```
@@ -13,9 +9,10 @@ event-generator [flags]
 ### Options
 
 ```
-  -c, --config string     Config file path (default $HOME/.falco-event-generator.yaml if exists)
-  -h, --help              help for event-generator
-  -l, --loglevel string   Log level (default "info")
+  -c, --config string      Config file path (default $HOME/.falco-event-generator.yaml if exists)
+  -h, --help               help for event-generator
+      --logformat string   available formats: "text" or "json" (default "text")
+  -l, --loglevel string    Log level (default "info")
 ```
 
 ### SEE ALSO
