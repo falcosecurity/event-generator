@@ -32,7 +32,7 @@ func init() {
 
 	V.RegisterValidation("filepath", isFilePath)
 	V.RegisterValidation("logrus", isLogrusLevel)
-	V.RegisterValidation("format", isFormat)
+	V.RegisterAlias("format", "eq=text|eq=json")
 
 	eng := en.New()
 	uni := ut.New(eng, eng)
