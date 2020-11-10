@@ -43,11 +43,10 @@ func init() {
 		"filepath",
 		T,
 		func(ut ut.Translator) error {
-			return ut.Add("filepath", "{0} must be a valid file path", true)
+			return ut.Add("filepath", `'{0}' must be a valid file path`, true)
 		},
 		func(ut ut.Translator, fe validator.FieldError) string {
 			t, _ := ut.T("filepath", fe.Field())
-
 			return t
 		},
 	)
@@ -56,11 +55,10 @@ func init() {
 		"logrus",
 		T,
 		func(ut ut.Translator) error {
-			return ut.Add("logrus", "{0} must be a valid logrus level", true)
+			return ut.Add("logrus", `'{0}' is not a valid log level`, true)
 		},
 		func(ut ut.Translator, fe validator.FieldError) string {
-			t, _ := ut.T("logrus", fe.Field())
-
+			t, _ := ut.T("logrus", fe.Value().(string))
 			return t
 		},
 	)
@@ -69,11 +67,10 @@ func init() {
 		"format",
 		T,
 		func(ut ut.Translator) error {
-			return ut.Add("format", "{0} is an invalid log format", true)
+			return ut.Add("format", `'{0}' is not a valid log format`, true)
 		},
 		func(ut ut.Translator, fe validator.FieldError) string {
-			t, _ := ut.T("format", fe.Field())
-
+			t, _ := ut.T("format", fe.Value().(string))
 			return t
 		},
 	)
