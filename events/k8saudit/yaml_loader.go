@@ -6,11 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/falcosecurity/event-generator/events"
-	"github.com/falcosecurity/event-generator/events/k8saudit/yaml"
 	"github.com/iancoleman/strcase"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/resource"
+
+	"github.com/falcosecurity/event-generator/events"
+	"github.com/falcosecurity/event-generator/events/k8saudit/yaml"
 )
 
 func init() {
@@ -61,7 +62,7 @@ func init() {
 				log.Info("create k8s resource")
 				obj, err := resource.
 					NewHelper(info.Client, info.Mapping).
-					Create(info.Namespace, true, info.Object, nil)
+					Create(info.Namespace, true, info.Object)
 				if err != nil {
 					return err
 				}
