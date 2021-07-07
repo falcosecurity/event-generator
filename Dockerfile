@@ -1,4 +1,4 @@
-FROM golang:1.16.5-alpine3.13 as builder
+FROM golang:1.16.5-alpine3.14 as builder
 
 LABEL maintainer="cncf-falco-dev@lists.cncf.io"
 
@@ -9,7 +9,7 @@ COPY . .
 
 RUN make
 
-FROM alpine:3.13
+FROM alpine:3.14
 
 COPY --from=builder /event-generator/event-generator /bin/event-generator
 
