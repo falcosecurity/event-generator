@@ -2,7 +2,7 @@ FROM golang:1.16.5-alpine3.13 as builder
 
 LABEL maintainer="cncf-falco-dev@lists.cncf.io"
 
-RUN apk add --no-cache make bash git
+RUN apk add --no-cache make bash git build-base
 
 WORKDIR /event-generator
 COPY . .
