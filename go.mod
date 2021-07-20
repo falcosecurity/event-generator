@@ -9,6 +9,7 @@ require (
 	github.com/go-playground/locales v0.13.0
 	github.com/go-playground/universal-translator v0.17.0
 	github.com/go-playground/validator/v10 v10.6.1
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/iancoleman/strcase v0.1.3
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/prometheus/procfs v0.6.0
