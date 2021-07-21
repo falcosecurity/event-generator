@@ -22,7 +22,7 @@ workflows:
 jobs:
   test:
     docker:
-      - image: docker.io/golang:1.16.5
+      - image: docker.io/golang:1.16.6
     steps:
       - checkout
       - run:
@@ -30,18 +30,21 @@ jobs:
           command: make test
   build:
     docker:
-      - image: docker.io/golang:1.16.5
+      - image: docker.io/circleci/golang:1.16.6
     steps:
       - checkout
+      - setup_remote_docker:
+          version: 20.10.6
       - run:
           name: Build
           command: make build
   release:
     docker:
-      - image: circleci/golang:1.16.5
+      - image: docker.io/circleci/golang:1.16.6
     steps:
       - checkout
-      - setup_remote_docker
+      - setup_remote_docker:
+          version: 20.10.6
       - run:
           name: Prepare env
           command: |
