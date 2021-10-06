@@ -69,11 +69,13 @@ func (c *Counter) logStats() {
 		lost += s.Ratio
 	}
 
-	lost = 1 - lost/float64(len(c.actions)) // lost average
-	if c.humanize {
-		logStatsEntry = logStatsEntry.WithField("lost", fmt.Sprintf("%d%%", int(lost*100)))
-	} else {
-		logStatsEntry = logStatsEntry.WithField("lost", lost)
+	if !c.dryRun {
+		lost = 1 - lost/float64(len(c.actions)) // lost average
+		if c.humanize {
+			logStatsEntry = logStatsEntry.WithField("lost", fmt.Sprintf("%d%%", int(lost*100)))
+		} else {
+			logStatsEntry = logStatsEntry.WithField("lost", lost)
+		}
 	}
 
 	logStatsEntry.Info("statistics")

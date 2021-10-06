@@ -52,6 +52,8 @@ One commmon way to use this command is as following:
 	flags.DurationVar(&pollingTimeout, "polling-interval", time.Millisecond*100, "Duration of gRPC APIs polling timeout")
 	var humanize bool
 	flags.BoolVar(&humanize, "humanize", true, "Humanize values when printing statistics")
+	var dryRun bool
+	flags.BoolVar(&dryRun, "dry-run", false, "Do not connect to Falco gRPC API")
 
 	grpcCfg := grpcFlags(flags)
 
@@ -86,6 +88,7 @@ One commmon way to use this command is as following:
 			counter.WithRoundDuration(roundDuration),
 			counter.WithPollingTimeout(pollingTimeout),
 			counter.WithHumanize(humanize),
+			counter.WithDryRun(dryRun),
 		)
 		if pid != 0 {
 			opts = append(opts, counter.WithPid(pid))
