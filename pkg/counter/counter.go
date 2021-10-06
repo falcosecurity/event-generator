@@ -24,6 +24,7 @@ type Counter struct {
 	sleep    int64
 	loop     bool
 	humanize bool
+	dryRun   bool
 	log      *logger.Logger
 	ticker   *time.Ticker
 	tickD    time.Duration
@@ -63,12 +64,14 @@ func New(ctx context.Context, config *client.Config, options ...Option) (*Counte
 		cntr.list[n] = &stat{}
 	}
 
-	fcs, err := cntr.outs.Sub(ctx)
-	if err != nil {
-		return nil, err
-	}
+	if !cntr.dryRun {
+		fcs, err := cntr.outs.Sub(ctx)
+		if err != nil {
+			return nil, err
+		}
 
-	go cntr.watcher(ctx, fcs)
+		go cntr.watcher(ctx, fcs)
+	}
 
 	if cntr.tickD > 0 {
 		go cntr.clock(ctx, cntr.tickD)
@@ -98,7 +101,11 @@ func (c *Counter) clock(ctx context.Context, d time.Duration) {
 	c.lastT = time.Now()
 	running := true
 	round := 1
-	c.log.WithField("sleep", time.Duration(c.sleep)).Infof("round #%d", round)
+	logEntry := c.log.WithField("sleep", time.Duration(c.sleep))
+	if c.dryRun {
+		logEntry = logEntry.WithField("dry-run", true)
+	}
+	logEntry.Infof("round #%d", round)
 	for {
 		select {
 		case t := <-c.ticker.C:
@@ -115,7 +122,7 @@ func (c *Counter) clock(ctx context.Context, d time.Duration) {
 				c.Unlock()
 				round++
 				c.log.Info("") // empty line for improved readability
-				c.log.WithField("sleep", time.Duration(c.sleep)).Infof("round #%d", round)
+				logEntry.WithField("sleep", time.Duration(c.sleep)).Infof("round #%d", round)
 			}
 			running = !running
 		case <-ctx.Done():
@@ -246,6 +253,13 @@ func WithPid(pid int) Option {
 func WithHumanize(humanize bool) Option {
 	return func(c *Counter) error {
 		c.humanize = humanize
+		return nil
+	}
+}
+
+func WithDryRun(dryRun bool) Option {
+	return func(c *Counter) error {
+		c.dryRun = dryRun
 		return nil
 	}
 }
