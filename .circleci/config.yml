@@ -46,7 +46,19 @@ jobs:
       - setup_remote_docker:
           version: 20.10.6
       - run:
+          name: Install Docker Buildx
+          command: |
+            mkdir -vp ~/.docker/cli-plugins/
+            curl --silent -L --output ~/.docker/cli-plugins/docker-buildx https://github.com/docker/buildx/releases/download/v0.3.1/buildx-v0.3.1.linux-amd64
+            chmod a+x ~/.docker/cli-plugins/docker-buildx
+            docker run -it --rm --privileged tonistiigi/binfmt --install all
+      - run:
           name: Prepare env
           command: |
             echo ${DOCKERHUB_SECRET} | docker login -u ${DOCKERHUB_USER} --password-stdin
-      - run: curl -sL https://git.io/goreleaser | bash
+      - run:
+          name: Go releaser
+          no_output_timeout: 40m
+          command: |
+            export DOCKER_CLI_EXPERIMENTAL=enabled
+            curl -sL https://git.io/goreleaser | bash

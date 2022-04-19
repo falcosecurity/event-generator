@@ -1,15 +1,15 @@
-FROM golang:1.16.5-alpine3.14 as builder
+FROM alpine:latest as builder
 
 LABEL maintainer="cncf-falco-dev@lists.cncf.io"
 
-RUN apk add --no-cache make bash git build-base
+RUN apk add --no-cache make bash git build-base go
 
 WORKDIR /event-generator
 COPY . .
 
 RUN make
 
-FROM alpine:3.14
+FROM alpine:latest
 
 COPY --from=builder /event-generator/event-generator /bin/event-generator
 
