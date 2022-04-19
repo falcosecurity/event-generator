@@ -9,19 +9,20 @@ builds:
     goarch:
     - amd64
     - 386
+    - arm64
     main: .
     env:
       - CGO_ENABLED=0
     binary: event-generator
 
 dockers:
-  -
+  - use: buildx
     goos: linux
     goarch: amd64
     dockerfile: Dockerfile
     image_templates:
-      - "falcosecurity/event-generator:latest"
-      - "falcosecurity/event-generator:{{ .Version }}"
+      - "falcosecurity/event-generator:latest-amd64"
+      - "falcosecurity/event-generator:{{ .Version }}-amd64"
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -38,6 +39,39 @@ dockers:
       - go.sum
       - main.go
       - Makefile
+  - use: buildx
+    goos: linux
+    goarch: arm64
+    dockerfile: Dockerfile
+    image_templates:
+      - "falcosecurity/event-generator:latest-arm64v8"
+      - "falcosecurity/event-generator:{{ .Version }}-arm64v8"
+    build_flag_templates:
+      - "--platform=linux/arm64/v8"
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+    extra_files:
+      - .git
+      - cmd
+      - pkg
+      - events
+      - tools
+      - go.mod
+      - go.sum
+      - main.go
+      - Makefile
+docker_manifests:
+  # https://goreleaser.com/customization/docker_manifest/
+  - name_template: falcosecurity/event-generator:{{ .Version }}
+    image_templates:
+      - falcosecurity/event-generator:{{ .Version }}-amd64
+      - falcosecurity/event-generator:{{ .Version }}-arm64v8
+  - name_template: falcosecurity/event-generator:latest
+      - falcosecurity/event-generator:latest-amd64
+      - falcosecurity/event-generator:latest-arm64v8
 
 release:
   github:
