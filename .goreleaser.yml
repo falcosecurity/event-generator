@@ -70,6 +70,7 @@ docker_manifests:
       - falcosecurity/event-generator:{{ .Version }}-amd64
       - falcosecurity/event-generator:{{ .Version }}-arm64v8
   - name_template: falcosecurity/event-generator:latest
+    image_templates:
       - falcosecurity/event-generator:latest-amd64
       - falcosecurity/event-generator:latest-arm64v8
 
