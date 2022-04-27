@@ -53,5 +53,4 @@ jobs:
           name: Go releaser
           no_output_timeout: 60m
           command: |
-            export DOCKER_CLI_EXPERIMENTAL=enabled
             curl -sL https://git.io/goreleaser | bash -s -- --timeout 60m
