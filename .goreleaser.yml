@@ -11,6 +11,8 @@ builds:
     - 386
     - arm64
     main: .
+    flags:
+      - -buildmode=pie
     env:
       - CGO_ENABLED=0
     binary: event-generator
