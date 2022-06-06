@@ -27,7 +27,7 @@ prepare: clean events/k8saudit/yaml/bundle.go
 
 .PHONY: ${output}
 ${output}:
-	$(GO) build -o $@ ${main}
+	$(GO) build -buildmode=pie -o $@ ${main}
 
 .PHONY: clean
 clean:
