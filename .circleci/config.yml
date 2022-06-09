@@ -6,10 +6,18 @@ workflows:
           filters:
             tags:
               only: /v[0-9]+(\.[0-9]+)*(-.*)*/
+      - test-arm64:
+          filters:
+            tags:
+              only: /v[0-9]+(\.[0-9]+)*(-.*)*/        
       - build:
           filters:
             tags:
               only: /v[0-9]+(\.[0-9]+)*(-.*)*/
+      - build-arm64:
+          filters:
+            tags:
+              only: /v[0-9]+(\.[0-9]+)*(-.*)*/        
       - release:
           context: falco
           requires:
@@ -28,13 +36,41 @@ jobs:
       - run:
           name: Test
           command: make test
+  test-arm64:
+    machine:
+      enabled: true
+      image: ubuntu-2004:2022.04.1
+    resource_class: arm.medium
+    steps:
+      - checkout
+      - run:
+          name: Install deps
+          command: |
+            sudo apt update
+            sudo apt install golang git make
+      - run:
+          name: Test
+          command: make test
   build:
     docker:
       - image: docker.io/circleci/golang:1.16.6
     steps:
       - checkout
-      - setup_remote_docker:
-          version: 20.10.12
+      - run:
+          name: Build
+          command: make build
+  build-arm64:
+    machine:
+      enabled: true
+      image: ubuntu-2004:2022.04.1
+    resource_class: arm.medium
+    steps:
+      - checkout
+      - run:
+          name: Install deps
+          command: |
+            sudo apt update
+            sudo apt install golang git make
       - run:
           name: Build
           command: make build
