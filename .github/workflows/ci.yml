@@ -1,0 +1,71 @@
+name: CI Build
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Install deps
+        run: |
+            sudo apt update -y
+            sudo apt install golang git make -y
+      - name: Build
+        run: make build
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Install deps
+        run: |
+            sudo apt update -y
+            sudo apt install golang git make -y
+      - name: Test
+        run: make test
+  build-arm64:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: uraimo/run-on-arch-action@v2
+        name: Install deps and build
+        id: runcmd
+        with:
+          arch: aarch64
+          distro: ubuntu22.04
+          install: |
+            apt update -q -y
+            apt install golang git make -q -y
+          run: |
+            make build
+  test-arm64:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: uraimo/run-on-arch-action@v2
+        name: Install deps and test
+        id: runcmd
+        with:
+          arch: aarch64
+          distro: ubuntu22.04
+          install: |
+            apt update -q -y
+            apt install golang git make -q -y
+          run: |
+            make test    
