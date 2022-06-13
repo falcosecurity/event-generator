@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
@@ -20,20 +20,9 @@ jobs:
             sudo apt install golang git make -y
       - name: Build
         run: make build
-  test:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Install deps
-        run: |
-            sudo apt update -y
-            sudo apt install golang git make -y
       - name: Test
         run: make test
-  build-arm64:
+  build-and-test-arm64:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
@@ -49,23 +38,7 @@ jobs:
           install: |
             apt update -q -y
             apt install golang git make -q -y
+            git config --global --add safe.directory /home/runner/work/event-generator/event-generator
           run: |
             make build
-  test-arm64:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - uses: uraimo/run-on-arch-action@v2
-        name: Install deps and test
-        id: runcmd
-        with:
-          arch: aarch64
-          distro: ubuntu22.04
-          install: |
-            apt update -q -y
-            apt install golang git make -q -y
-          run: |
-            make test    
+            make test
