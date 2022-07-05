@@ -1,7 +1,4 @@
 approvers:
-  - leodido
-  - fntlnz
-  - kris-nova
   - leogr
   - fededp
 reviewers:
@@ -10,3 +7,7 @@ reviewers:
   - kris-nova
   - leogr
   - fededp
+emeritus_approvers:
+  - leodido
+  - fntlnz
+  - kris-nova
