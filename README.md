@@ -90,26 +90,36 @@ docker run -it --rm falcosecurity/event-generator run
 
 #### With Kubernetes
 
-Run the following command to create the Service Account (`falco-event-generator`), Cluster Role, and Role that will allow the tool to create objects in the current namespace:
+It can be deployed in a Kubernetes cluster using the event-generator [helm chart](https://github.com/falcosecurity/charts/tree/master/event-generator).
+Before installing the chart, add the `falcosecurity` charts repository:
 
-```shell
-kubectl apply -f deployment/role-rolebinding-serviceaccount.yaml
+```bash
+helm repo add falcosecurity https://falcosecurity.github.io/charts
+helm repo update
 ```
 
 Run all events once using a Kubernetes job:
 
 ```shell
-kubectl apply -f deployment/run-as-job.yaml
+helm install event-generator falcosecurity/event-generator \
+  --namespace event-generator \
+  --create-namespace \
+  --set config.loop=false \
+  --set config.actions=""
 ```
 
 Run all events in a loop using a Kubernetes deployment:
 
-```
-kubectl apply -f deployment/event-generator.yaml
+```bash
+helm install event-generator falcosecurity/event-generator \
+  --namespace event-generator \
+  --create-namespace \
+  --set config.actions=""
 ```
 
+
 **N.B.**
-The above commands apply to the `default` namespace. Use the `--namespace` option to use a different namespace. It will generate events in the same namespace.
+The above commands apply to the `event-generator` namespace. Use a different name to use a different namespace. It will generate events in the same namespace.
 
 ## Collections
 
@@ -155,18 +165,28 @@ sudo ./event-generator test syscall
 
 #### Test on Kubernetes
 
-Then, run the following command to create the Service Account (`falco-event-generator`), Cluster Role, and Role that will allow the tool to create objects in the current namespace:
+Before running the following commands make sure you have added the `falcosecurity` charts repository as explained [here](#with-kubernetes).
+
+Test all events once using a Kubernetes job:
 
 ```shell
-kubectl apply -f deployment/role-rolebinding-serviceaccount.yaml
+helm install event-generator falcosecurity/event-generator \
+  --namespace event-generator \
+  --create-namespace \
+  --set config.command=test \
+  --set config.loop=false \
+  --set config.actions=""
 ```
 
-Finally:
+Test all events in a loop using a Kubernetes deployment:
 
-```shell
-kubectl apply -f deployment/run-test.yaml
+```bash
+helm install event-generator falcosecurity/event-generator \
+  --namespace event-generator \
+  --create-namespace \
+  --set config.command=test \
+  --set config.actions=""
 ```
-
 Note that to test `k8saudit` events, you need [Kubernetes audit log] enabled both in Kubernetes and Falco.
 
 ## Benchmark
