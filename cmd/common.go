@@ -25,7 +25,7 @@ func parseEventsArg(arg string) (map[string]events.Action, error) {
 
 func grpcFlags(flags *pflag.FlagSet) *client.Config {
 	grpcCfg := &client.Config{}
-	flags.StringVar(&grpcCfg.UnixSocketPath, "grpc-unix-socket", "unix:///var/run/falco.sock", "Unix socket path for connecting to a Falco gRPC server")
+	flags.StringVar(&grpcCfg.UnixSocketPath, "grpc-unix-socket", "unix:///run/falco/falco.sock", "Unix socket path for connecting to a Falco gRPC server")
 	flags.StringVar(&grpcCfg.Hostname, "grpc-hostname", "localhost", "Hostname for connecting to a Falco gRPC server")
 	flags.Uint16Var(&grpcCfg.Port, "grpc-port", 5060, "Port for connecting to a Falco gRPC server")
 	flags.StringVar(&grpcCfg.CertFile, "grpc-cert", "/etc/falco/certs/client.crt", "Cert file path for connecting to a Falco gRPC server")
