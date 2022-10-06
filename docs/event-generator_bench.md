@@ -51,7 +51,7 @@ event-generator bench [regexp] [flags]
       --grpc-hostname string           Hostname for connecting to a Falco gRPC server (default "localhost")
       --grpc-key string                Key file path for connecting to a Falco gRPC server (default "/etc/falco/certs/client.key")
       --grpc-port uint16               Port for connecting to a Falco gRPC server (default 5060)
-      --grpc-unix-socket string        Unix socket path for connecting to a Falco gRPC server (default "unix:///var/run/falco.sock")
+      --grpc-unix-socket string        Unix socket path for connecting to a Falco gRPC server (default "unix:///run/falco/falco.sock")
   -h, --help                           help for bench
       --humanize                       Humanize values when printing statistics (default true)
       --insecure-skip-tls-verify       If true, the server's certificate will not be checked for validity. This will make your HTTPS connections insecure
@@ -80,4 +80,3 @@ event-generator bench [regexp] [flags]
 ### SEE ALSO
 
 * [event-generator](event-generator.md)	 - A command line tool to perform a variety of suspect actions.
-
