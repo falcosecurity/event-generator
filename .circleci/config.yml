@@ -52,7 +52,7 @@ jobs:
           command: make test
   release:
     docker:
-      - image: docker.io/circleci/golang:1.16.6
+      - image: cimg/go:1.16
     steps:
       - checkout
       - setup_remote_docker:
@@ -61,9 +61,15 @@ jobs:
           name: Install Docker Buildx
           command: |
             mkdir -vp ~/.docker/cli-plugins/
-            curl --silent -L --output ~/.docker/cli-plugins/docker-buildx https://github.com/docker/buildx/releases/download/v0.3.1/buildx-v0.3.1.linux-amd64
+            curl --silent -L --output ~/.docker/cli-plugins/docker-buildx https://github.com/docker/buildx/releases/download/v0.9.1/buildx-v0.9.1.linux-amd64
             chmod a+x ~/.docker/cli-plugins/docker-buildx
             docker run -it --rm --privileged tonistiigi/binfmt --install all    
+      - run:
+          name: Install goreleaser
+          command: |
+            echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
+            sudo apt update
+            sudo apt install goreleaser
       - run:
           name: Prepare env
           command: |
@@ -73,4 +79,4 @@ jobs:
           no_output_timeout: 60m
           command: |
             export DOCKER_CLI_EXPERIMENTAL=enabled
-            curl -sL https://git.io/goreleaser | bash -s -- --timeout 60m
+            goreleaser --timeout 60m
