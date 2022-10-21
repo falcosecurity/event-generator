@@ -45,7 +45,7 @@ func WriteBelowEtc(h events.Helper) error {
 
 The `k8saudit` collection includes a facilitator for implementing *actions* that ones of just need to create K8s resources.
 
-Basically, all files within the [./k8saudit/yaml/](https://github.com/falcosecurity/event-generator/tree/master/events/k8saudit/yaml) folder will be embedded into the binary at build time, then [yaml_loader.go](https://github.com/falcosecurity/event-generator/blob/master/events/k8saudit/yaml_loader.go) will automatically create and register an *action* for each of those at initialization time.
+Basically, all files within the [./k8saudit/yaml/](https://github.com/falcosecurity/event-generator/tree/main/events/k8saudit/yaml) folder will be embedded into the binary at build time, then [yaml_loader.go](https://github.com/falcosecurity/event-generator/blob/main/events/k8saudit/yaml_loader.go) will automatically create and register an *action* for each of those at initialization time.
 
 
 ## Usage
