@@ -224,12 +224,12 @@ sudo event-generator bench "ChangeThreadNamespace|ReadSensitiveFileUntrusted|Wri
 ## FAQ
 
 ### What sample events can this tool generate?
-See the [events registry](https://github.com/falcosecurity/event-generator/tree/master/events).
+See the [events registry](https://github.com/falcosecurity/event-generator/tree/main/events).
 
 ### Can I contribute by adding new events?
 Sure! 
 
-Check out the [events registry](https://github.com/falcosecurity/event-generator/tree/master/events) conventions, then feel free to open a P.R.
+Check out the [events registry](https://github.com/falcosecurity/event-generator/tree/main/events) conventions, then feel free to open a P.R.
 
 Your contribution is highly appreciated.
 
