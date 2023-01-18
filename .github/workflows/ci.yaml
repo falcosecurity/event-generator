@@ -1,0 +1,46 @@
+name: CI build
+on:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.19
+
+      - name: Build
+        run: make build
+        
+      - name: Test
+        run: make test
+
+  build-and-test-arm64:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: uraimo/run-on-arch-action@v2.2.0
+        name: Run aarch64 build 🏎️
+        with:
+          arch: aarch64
+          distro: alpine_latest
+          githubToken: ${{ github.token }}
+          install: |
+            apk update
+            apk add gcc musl-dev make bash git go
+          run: |
+            make build
+            make test
+
+        

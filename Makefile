@@ -27,7 +27,7 @@ prepare: clean events/k8saudit/yaml/bundle.go
 
 .PHONY: ${output}
 ${output}:
-	$(GO) build -buildmode=pie -o $@ ${main}
+	$(GO) build -buildmode=pie -buildvcs=false -o $@ ${main}
 
 .PHONY: clean
 clean:
@@ -45,7 +45,7 @@ events/k8saudit/yaml/bundle.go: events/k8saudit/yaml events/k8saudit/yaml/*.yaml
 
 .PHONY: ${docgen}
 ${docgen}: ${PWD}/tools/docgen/docgen.go
-	$(GO) build -v -o $@ $^
+	$(GO) build -buildvcs=false -v -o $@ $^
 
 .PHONY: docs
 docs: ${docgen}
