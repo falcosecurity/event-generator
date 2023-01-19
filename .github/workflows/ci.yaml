@@ -40,6 +40,7 @@ jobs:
             apk update
             apk add gcc musl-dev make bash git go
           run: |
+            git config --global --add safe.directory ${{ github.workspace }}
             make build
             make test
 
