@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/github/license/falcosecurity/event-generator?style=flat-square)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/falcosecurity/event-generator?style=flat-square)](https://goreportcard.com/report/github.com/falcosecurity/event-generator)
 [![Docker pulls](https://img.shields.io/docker/pulls/falcosecurity/event-generator?style=flat-square)](https://hub.docker.com/r/falcosecurity/event-generator)
-
+![Architectures](https://img.shields.io/badge/ARCHS-x86__64%7Caarch64-blueviolet?style=flat-square)
 
 **Warning** — We strongly recommend that you run the program within Docker (see below), since some commands might alter your system. 
     For example, some actions modify files and directories below /bin, /etc, /dev, etc.
