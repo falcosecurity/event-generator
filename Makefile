@@ -8,10 +8,17 @@ GIT_COMMIT := $(if $(shell git status --porcelain --untracked-files=no),${COMMIT
 GIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
 GIT_BRANCH_CLEAN := $(shell echo $(GIT_BRANCH) | sed -e "s/[^[:alnum:]]/-/g")
 
+VERSION = $(shell git describe --tags)
+
+CLIENTGO_VERSION := $(shell grep 'k8s.io/client-go' go.mod | cut -dv -f2)
+
 IMAGE_NAME ?= docker.io/falcosecurity/event-generator
 
 IMAGE_NAME_BRANCH := $(IMAGE_NAME):$(GIT_BRANCH_CLEAN)
 IMAGE_NAME_COMMIT := $(IMAGE_NAME):$(GIT_COMMIT)
+
+LDFLAGS = -X k8s.io/client-go/pkg/version.gitCommit=v$(CLIENTGO_VERSION) \
+			-X k8s.io/client-go/pkg/version.gitVersion=$(VERSION)
 
 TEST_FLAGS ?= -v -race
 
@@ -27,7 +34,7 @@ prepare: clean events/k8saudit/yaml/bundle.go
 
 .PHONY: ${output}
 ${output}:
-	$(GO) build -buildmode=pie -buildvcs=false -o $@ ${main}
+	$(GO) build -buildmode=pie -buildvcs=false -ldflags "$(LDFLAGS)" -o $@ ${main}
 
 .PHONY: clean
 clean:
