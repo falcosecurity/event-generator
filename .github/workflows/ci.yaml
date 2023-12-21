@@ -4,7 +4,11 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    name: build-and-test-${{ matrix.arch }}
+    runs-on: ${{ (matrix.arch == 'arm64' && 'actuated-arm64-8cpu-16gb') || 'ubuntu-22.04' }}
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -21,25 +25,3 @@ jobs:
 
       - name: Test
         run: make test
-
-  build-and-test-arm64:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - uses: uraimo/run-on-arch-action@v2.2.0
-        name: Run aarch64 build 🏎️
-        with:
-          arch: aarch64
-          distro: alpine_latest
-          githubToken: ${{ github.token }}
-          install: |
-            apk update
-            apk add gcc musl-dev make bash git go
-          run: |
-            git config --global --add safe.directory ${{ github.workspace }}
-            make build
-            TEST_FLAGS=-v make test
