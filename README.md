@@ -159,7 +159,7 @@ Since `v0.4.0`, this tool introduces a convenient integration test suite for Fal
 
 #### Test locally (`syscall` only)
 
-Run the following command to test `syscall` actions on a local Falco instance (connects via Unix socket to `/var/run/falco.sock` by default):
+Run the following command to test `syscall` actions on a local Falco instance (connects via Unix socket to `/run/falco/falco.sock` by default):
 
 ```shell
 sudo ./event-generator test syscall
@@ -217,7 +217,7 @@ outputs:
   max_burst: 1000000000
 ```
 
-Then, a common way for benchmarking a local Falco instance is by running the following command (that connects via Unix socket to `/var/run/falco.sock` by default):
+Then, a common way for benchmarking a local Falco instance is by running the following command (that connects via Unix socket to `/run/falco/falco.sock` by default):
 
 ```shell
 sudo event-generator bench "ChangeThreadNamespace|ReadSensitiveFileUntrusted|WriteBelowBinaryDir" --loop --pid $(ps -ef | awk '$8=="falco" {print $2}')
