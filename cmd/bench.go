@@ -49,7 +49,7 @@ N.B.:
 
 One commmon way to use this command is as following:
 
-	event-generator bench "ChangeThreadNamespace|ReadSensitiveFileUntrusted" --loop --sleep 10ms --pid $(pidof -s falco) 
+	event-generator bench "ChangeThreadNamespace|ReadSensitiveFileUntrusted" --all --loop --sleep 10ms --pid $(pidof -s falco) 
 
 
 ` + runWarningMessage
