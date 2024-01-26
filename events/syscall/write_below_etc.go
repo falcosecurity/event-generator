@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /*
-Copyright (C) 2023 The Falco Authors.
+Copyright (C) 2024 The Falco Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -21,7 +21,10 @@ import (
 	"github.com/falcosecurity/event-generator/events"
 )
 
-var _ = events.Register(WriteBelowEtc)
+var _ = events.Register(
+	WriteBelowEtc,
+	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
+)
 
 func WriteBelowEtc(h events.Helper) error {
 	const filename = "/etc/created-by-event-generator"

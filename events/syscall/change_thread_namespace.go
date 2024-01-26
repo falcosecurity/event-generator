@@ -3,7 +3,7 @@
 
 // SPDX-License-Identifier: Apache-2.0
 /*
-Copyright (C) 2023 The Falco Authors.
+Copyright (C) 2024 The Falco Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -25,7 +25,7 @@ import (
 
 var _ = events.Register(
 	ChangeThreadNamespace,
-	events.WithDisabled(), // the rule is not enabled by default, so disable the action too
+	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
 func ChangeThreadNamespace(h events.Helper) error {
