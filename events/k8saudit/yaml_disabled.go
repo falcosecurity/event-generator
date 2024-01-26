@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /*
-Copyright (C) 2023 The Falco Authors.
+Copyright (C) 2024 The Falco Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -16,5 +16,17 @@ package k8saudit
 
 // disabled items will be registered with events.WithDisabled() option
 var disabled = map[string]bool{
-	"create-disallowed-pod.yaml": true,
+	"cluster-role-with-pod-exec-created.yaml":               true,
+	"cluster-role-with-wildcard-created.yaml":               true,
+	"cluster-role-with-write-privileges-created.yaml":       true,
+	"create-disallowed-pod.yaml":                            true,
+	"create-host-network-pod.yaml":                          true,
+	"create-modify-configmap-with-private-credentials.yaml": true,
+	"create-node-port-service.yaml":                         true,
+	"create-privileged-pod.yaml":                            true,
+	"create-sensitive-mount-pod.yaml":                       true,
+	"k8s-config-map-created.yaml":                           true,
+	"k8s-deployment-created.yaml":                           true,
+	"k8s-serviceaccount-created.yaml":                       true,
+	"k8s-service-created.yaml":                              true,
 }
