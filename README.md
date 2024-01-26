@@ -14,6 +14,8 @@ Generate a variety of suspect actions that are detected by Falco rulesets.
     For example, some actions modify files and directories below /bin, /etc, /dev, etc.
     Make sure you fully understand what is the purpose of this tool before running any action.
 
+**Notice** — From version `v0.11.0` the `event-generator` requires Falco 0.37.0 or newer. Previous versions of the `event-generator` might be compatible with older versions of Falco, however, we do not guarantee it.
+
 ## Usage
 
 The full command line documentation is [here](./docs/event-generator.md).
@@ -21,7 +23,7 @@ The full command line documentation is [here](./docs/event-generator.md).
 ### List actions
 
 ```shell
-$ event-generator list
+$ event-generator list --all
 
 helper.ExecLs
 helper.NetworkActivity
@@ -41,7 +43,9 @@ k8saudit.K8SServiceCreated
 k8saudit.K8SServiceaccountCreated
 syscall.ChangeThreadNamespace
 syscall.CreateFilesBelowDev
+syscall.CreateSymlinkOverSensitiveFiles
 syscall.DbProgramSpawnedProcess
+syscall.DirectoryTraversalMonitoredFileRead
 syscall.MkdirBinaryDirs
 syscall.ModifyBinaryDirs
 syscall.NonSudoSetuid
@@ -49,6 +53,7 @@ syscall.ReadSensitiveFileTrustedAfterStartup
 syscall.ReadSensitiveFileUntrusted
 syscall.RunShellUntrusted
 syscall.ScheduleCronJobs
+syscall.SearchPrivateKeysOrPasswords
 syscall.SystemProcsNetworkActivity
 syscall.SystemUserInteractive
 syscall.UserMgmtBinaries
@@ -61,24 +66,32 @@ syscall.WriteBelowRpmDatabase
 ```
 event-generator run [regexp]
 ```
-Without arguments, it runs all actions; otherwise, only those actions matching the given regular expression.
+Without arguments, it runs all actions; otherwise, only those actions match the given regular expression.
 
-For example, to run `syscall.MkdirBinaryDirs` and
-`syscall.ModifyBinaryDirs` actions only:
+For example, to run only those actions containing the word `Files` in their name:
+
 ```shell
-$ sudo event-generator run syscall\.\*BinaryDirs
+$ sudo event-generator run syscall\.\*Files\.\*
 
-INFO sleep for 1s                                  action=syscall.MkdirBinaryDirs
-INFO writing to /bin/directory-created-by-event-generator  action=syscall.MkdirBinaryDirs
-INFO sleep for 1s                                  action=syscall.ModifyBinaryDirs
-INFO modifying /bin/true to /bin/true.event-generator and back  action=syscall.ModifyBinaryDirs
+INFO sleep for 100ms                               action=syscall.ReadSensitiveFileUntrusted
+INFO action executed                               action=syscall.ReadSensitiveFileUntrusted
+INFO sleep for 100ms                               action=syscall.CreateSymlinkOverSensitiveFiles
+INFO action executed                               action=syscall.CreateSymlinkOverSensitiveFiles
+INFO sleep for 100ms                               action=syscall.DirectoryTraversalMonitoredFileRead
+INFO action executed                               action=syscall.DirectoryTraversalMonitoredFileRead
+INFO sleep for 100ms                               action=syscall.ReadSensitiveFileTrustedAfterStartup
+INFO spawn as "httpd"                              action=syscall.ReadSensitiveFileTrustedAfterStartup args="^syscall.ReadSensitiveFileUntrusted$ --sleep 6s"
+INFO sleep for 6s                                  action=syscall.ReadSensitiveFileUntrusted as=httpd
+INFO action executed                               action=syscall.ReadSensitiveFileUntrusted as=httpd
 ```
 
 Useful options:
 - `--loop` to run actions in a loop
 - `--sleep` to set the length of time to wait before running an action (default to `1s`)
 
-All other options are documented [here](./docs/event-generator_run.md).
+Also, note that not all actions are enabled by default. To run all actions, use the `--all` option.
+
+Further options are documented [here](./docs/event-generator_run.md).
 
 
 #### With Docker
@@ -138,9 +151,10 @@ The above command loops forever, incessantly generating a sample event each seco
 ### Generate activity for the k8s audit rules
 The `k8saudit` collection generates activity that matches the [k8s audit event ruleset](https://github.com/falcosecurity/falco/blob/master/rules/k8s_audit_rules.yaml).
 
+Note that all `k8saudit` are disabled by default. To enable them, use the `--all` option.
 
 ```shell
-$ event-generator run k8saudit --loop --namespace `falco-eg-sandbox`
+$ event-generator run k8saudit --all --loop --namespace `falco-eg-sandbox`
 ```
 > N.B.: the namespace must exist already.
 
@@ -189,15 +203,14 @@ helm install event-generator falcosecurity/event-generator \
   --set config.command=test \
   --set config.actions=""
 ```
-Note that to test `k8saudit` events, you need [Kubernetes audit log] enabled both in Kubernetes and Falco.
+
+Note that to test `k8saudit` events, you need _Kubernetes Audit Log_ functionality enabled in Kubernetes and the [k8saudit plugin](https://github.com/falcosecurity/plugins/tree/master/plugins/k8saudit) in Falco.
 
 ## Benchmark
 
 Since `v0.5.0`, the `event-generator` can also be used for benchmarking a running instance of Falco. The command `event-generator bench` generates a high number of Event Per Second (EPS) to show you events throughput allowed by your Falco installation.
 
-> This feature requires Falco 0.24.0 or newer. Before using the command in the section below, you need [Falco installed](https://falco.org/docs/installation/) and running with the [gRPC Output](https://falco.org/docs/grpc/) enabled.
-
-Finally, be aware that Falco embeds a rate-limiter for notifications that affect the gRPC Outputs APIs too. You probably need to increase the `outputs.rate` and `outputs.max_burst` values [within the Falco configuration](https://github.com/falcosecurity/falco/blob/e2bf87d207a32401da271835e15dadf957f68e8c/falco.yaml#L90-L104), otherwise EPS will be rate-limited by the throttling mechanism.
+Be aware that before Falco 0.37 a rate-limiter for notifications that affects the gRPC Outputs APIs was present. You probably need to increase the `outputs.rate` and `outputs.max_burst` values [within the Falco configuration](https://github.com/falcosecurity/falco/blob/e2bf87d207a32401da271835e15dadf957f68e8c/falco.yaml#L90-L104), otherwise EPS will be rate-limited by the throttling mechanism. 
 
 ### Run a benchmark
 
@@ -209,18 +222,10 @@ Please, keep in mind that not all actions can be used for benchmarking since som
 
 **Benchmark example**
 
-Once you have relaxed the rate-limiter in the Falco configuration, for example by setting:
-
-```yaml
-outputs:
-  rate: 1000000000
-  max_burst: 1000000000
-```
-
-Then, a common way for benchmarking a local Falco instance is by running the following command (that connects via Unix socket to `/run/falco/falco.sock` by default):
+A common way for benchmarking a local Falco instance is by running the following command (that connects via Unix socket to `/run/falco/falco.sock` by default):
 
 ```shell
-sudo event-generator bench "ChangeThreadNamespace|ReadSensitiveFileUntrusted|WriteBelowBinaryDir" --loop --pid $(ps -ef | awk '$8=="falco" {print $2}')
+sudo event-generator bench "ChangeThreadNamespace|ReadSensitiveFileUntrusted" --all --loop --sleep 10ms --pid $(pidof -s falco)
 ```
 
 ## FAQ
@@ -231,7 +236,7 @@ See the [events registry](https://github.com/falcosecurity/event-generator/tree/
 ### Can I contribute by adding new events?
 Sure! 
 
-Check out the [events registry](https://github.com/falcosecurity/event-generator/tree/main/events) conventions, then feel free to open a P.R.
+Check out the [events registry](https://github.com/falcosecurity/event-generator/tree/main/events) conventions, then feel free to open a PR!
 
 Your contribution is highly appreciated.
 
