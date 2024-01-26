@@ -14,6 +14,7 @@ event-generator list [regexp] [flags]
 ### Options
 
 ```
+      --all    List all actions, including those disabled by default
   -h, --help   help for list
 ```
 
