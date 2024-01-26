@@ -38,7 +38,15 @@ func NewList() *cobra.Command {
 		DisableAutoGenTag: true,
 	}
 
+	flags := c.Flags()
+	flags.Bool("all", false, "List all actions, including those disabled by default")
+
 	c.RunE = func(c *cobra.Command, args []string) error {
+
+		all, err := flags.GetBool("all")
+		if err != nil {
+			return err
+		}
 
 		var evts map[string]events.Action
 		if len(args) == 0 {
@@ -54,15 +62,20 @@ func NewList() *cobra.Command {
 			if len(evts) == 0 {
 				return fmt.Errorf(`no events matching '%s'`, args[0])
 			}
-
 		}
 
-		actions := make([]string, len(evts))
-		i := 0
+		var actions []string
 		for action := range evts {
-			actions[i] = action
-			i++
+			if !all && events.Disabled(action) {
+				continue
+			}
+			actions = append(actions, action)
 		}
+
+		if len(actions) == 0 {
+			return fmt.Errorf(`no enabled events matching '%s'`, args[0])
+		}
+
 		sort.Strings(actions)
 
 		for _, v := range actions {
