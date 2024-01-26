@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -51,7 +50,7 @@ func genBundle(path string) error {
 			return nil
 		}
 
-		if bundle[filepath.Base(filename)], err = ioutil.ReadFile(filename); err != nil {
+		if bundle[filepath.Base(filename)], err = os.ReadFile(filename); err != nil {
 			return err
 		}
 
@@ -60,7 +59,7 @@ func genBundle(path string) error {
 		return err
 	}
 
-	return ioutil.WriteFile(
+	return os.WriteFile(
 		filepath.Join(path, goFileName),
 		[]byte(fmt.Sprintf(goFileTemplate, packageName, bundle)),
 		os.FileMode(0644),

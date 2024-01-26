@@ -37,7 +37,7 @@ func WriteBelowEtc(h events.Helper) error {
 	const filename = "/etc/created-by-event-generator"
 	h.Log().Infof("writing to %s", filename)
 	defer os.Remove(filename) // clean up here!!!
-	return ioutil.WriteFile(filename, nil, os.FileMode(0755))
+	return os.WriteFile(filename, nil, os.FileMode(0755))
 }
 ```
 

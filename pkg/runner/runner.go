@@ -17,7 +17,6 @@ package runner
 import (
 	"context"
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -158,7 +157,7 @@ func procAlias() string {
 }
 
 func inContainer() bool {
-	b, err := ioutil.ReadFile("/proc/1/cmdline")
+	b, err := os.ReadFile("/proc/1/cmdline")
 	if err != nil {
 		return false
 	}

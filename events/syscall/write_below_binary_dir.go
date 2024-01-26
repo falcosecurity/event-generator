@@ -15,7 +15,6 @@ limitations under the License.
 package syscall
 
 import (
-	"io/ioutil"
 	"os"
 
 	"github.com/falcosecurity/event-generator/events"
@@ -30,5 +29,5 @@ func WriteBelowBinaryDir(h events.Helper) error {
 	const filename = "/bin/created-by-event-generator"
 	h.Log().Infof("writing to %s", filename)
 	defer os.Remove(filename)
-	return ioutil.WriteFile(filename, nil, os.FileMode(0755))
+	return os.WriteFile(filename, nil, os.FileMode(0755))
 }
