@@ -17,6 +17,7 @@ package runner
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,7 +51,7 @@ func (r *Runner) logEntry(ctx context.Context) *logger.Entry {
 	return l
 }
 
-func (r *Runner) trigger(ctx context.Context, n string, f events.Action) (cleanup func(), err error) {
+func (r *Runner) trigger(ctx context.Context, n string, f events.Action) (triggered bool, cleanup func(), err error) {
 	fields := logger.Fields{
 		"action": n,
 	}
@@ -63,8 +64,8 @@ func (r *Runner) trigger(ctx context.Context, n string, f events.Action) (cleanu
 	}
 
 	if !r.all && events.Disabled(n) {
-		log.Warn("action not enabled")
-		return nil, nil
+		log.Debug("action not enabled")
+		return false, nil, nil
 	}
 
 	if r.kf != nil {
@@ -76,7 +77,7 @@ func (r *Runner) trigger(ctx context.Context, n string, f events.Action) (cleanu
 
 	if r.plgn != nil {
 		if plgnErr := r.plgn.PreRun(ctx, log, n, f); plgnErr != nil {
-			return h.cleanup, plgnErr
+			return true, h.cleanup, plgnErr
 		}
 	}
 
@@ -98,14 +99,18 @@ func (r *Runner) trigger(ctx context.Context, n string, f events.Action) (cleanu
 
 	if r.plgn != nil {
 		if plgnErr := r.plgn.PostRun(ctx, log, n, f, actErr); plgnErr != nil {
-			return h.cleanup, plgnErr
+			return true, h.cleanup, plgnErr
 		}
 	}
 
-	return h.cleanup, nil
+	return true, h.cleanup, nil
 }
 
 func (r *Runner) runOnce(ctx context.Context, m map[string]events.Action) (err error, shutdown bool) {
+
+	if len(m) == 0 {
+		return fmt.Errorf("no action selected"), false
+	}
 
 	var cList []func()
 	teardown := func() {
@@ -115,8 +120,10 @@ func (r *Runner) runOnce(ctx context.Context, m map[string]events.Action) (err e
 	}
 	defer teardown()
 
+	actionsTriggered := false
 	for n, f := range m {
-		cleanup, err := r.trigger(ctx, n, f)
+		triggered, cleanup, err := r.trigger(ctx, n, f)
+		actionsTriggered = actionsTriggered || triggered
 		if cleanup != nil {
 			cList = append(cList, cleanup)
 		}
@@ -130,6 +137,11 @@ func (r *Runner) runOnce(ctx context.Context, m map[string]events.Action) (err e
 			continue
 		}
 	}
+
+	if !actionsTriggered {
+		return fmt.Errorf("none of the selected actions is enabled"), false
+	}
+
 	return nil, false
 }
 
