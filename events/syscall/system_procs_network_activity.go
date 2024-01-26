@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /*
-Copyright (C) 2023 The Falco Authors.
+Copyright (C) 2024 The Falco Authors.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -19,7 +19,10 @@ import (
 	_ "github.com/falcosecurity/event-generator/events/helper"
 )
 
-var _ = events.Register(SystemProcsNetworkActivity)
+var _ = events.Register(
+	SystemProcsNetworkActivity,
+	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
+)
 
 func SystemProcsNetworkActivity(h events.Helper) error {
 	return h.SpawnAs("sha1sum", "helper.NetworkActivity")
