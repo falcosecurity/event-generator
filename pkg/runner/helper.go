@@ -17,7 +17,6 @@ package runner
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -85,7 +84,7 @@ func (h *helper) SpawnAs(name string, action string, args ...string) error {
 	if h.Spawned() {
 		return ErrChildSpawn
 	}
-	tmpDir, err := ioutil.TempDir(os.TempDir(), "falco-event-generator")
+	tmpDir, err := os.MkdirTemp(os.TempDir(), "falco-event-generator")
 	if err != nil {
 		return err
 	}
