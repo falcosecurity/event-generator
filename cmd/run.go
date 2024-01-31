@@ -15,6 +15,8 @@ limitations under the License.
 package cmd
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/falcosecurity/event-generator/events"
@@ -95,12 +97,18 @@ Without arguments it runs all actions, otherwise only those actions matching the
 
 		l := logger.StandardLogger()
 
+		// Honor --all too!
+		exeArgs := fmt.Sprintf("--loglevel %s run", l.GetLevel().String())
+		if all {
+			exeArgs += " --all"
+		}
+
 		runOpts := []runner.Option{
 			runner.WithLogger(l),
 			runner.WithKubeNamespace(ns),
 			runner.WithKubeFactory(cmdutil.NewFactory(matchVersionKubeConfigFlags)),
 			// todo(leogr): inherit other flags
-			runner.WithExecutable("", "--loglevel", l.GetLevel().String(), "run"),
+			runner.WithExecutable("", strings.Split(exeArgs, " ")...),
 			runner.WithSleep(sleep),
 			runner.WithLoop(loop),
 			runner.WithAllEnabled(all),
