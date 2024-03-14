@@ -17,7 +17,7 @@ An *action* is a `func` that implements `events.Action` interface, and when call
 
 - Use the name of the rule the action is intended for, remove all non-alphanumeric characters (eg. `s/[^([:alpha:]|[:digit:]]//g`), and convert it to:
     - *CamelCase* for function name (eg. `WriteBelowEtc`),
-    - *underscore_case* for file name (eg. `write_below_etc.go`), alternativelly *dash-case* is accetable to for file types other than `.go` (eg. `create-privileged-pod.yaml`).
+    - *underscore_case* for file name (eg. `write_below_etc.go`), alternativelly *dash-case* is acceptable to for file types other than `.go` (eg. `create-privileged-pod.yaml`).
 - The resulting action name must match the name of the rule stripped of all non-alphanumeric characters when comparing those strings in a case insensitive manner.
 
 ### Registration
