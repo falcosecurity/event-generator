@@ -105,7 +105,7 @@ docker run -it --rm falcosecurity/event-generator run
 
 #### With Kubernetes
 
-It can be deployed in a Kubernetes cluster using the event-generator [helm chart](https://github.com/falcosecurity/charts/tree/master/event-generator).
+It can be deployed in a Kubernetes cluster using the event-generator [helm chart](https://github.com/falcosecurity/charts/tree/master/charts/event-generator).
 Before installing the chart, add the `falcosecurity` charts repository:
 
 ```bash
