@@ -26,7 +26,20 @@ var _ = events.Register(
 )
 
 func AddingSshKeysToAuthorizedKeys(h events.Helper) error {
-	const filename = "/root/.ssh/authorized_keys"
+	// Creates temporary data for testing.
+	directoryname := "/home/created-by-falco-event-generator/.ssh"
+	if err := os.MkdirAll(directoryname, 0755); err != nil {
+		return err
+	}
+
+	filename := directoryname + "/authorized_keys"
+	if err := os.WriteFile(filename, nil, os.FileMode(0755)); err != nil {
+		return err
+	}
+
 	h.Log().Infof("writing to %s", filename)
-	return os.WriteFile(filename, []byte("ssh-rsa <ssh_public_key>\n"), os.FileMode(0755))
+	err := os.WriteFile(filename, []byte("ssh-rsa <ssh_public_key>\n"), os.FileMode(0755))
+
+	defer os.RemoveAll("/home/created-by-falco-event-generator")
+	return err
 }
