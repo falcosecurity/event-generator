@@ -25,18 +25,9 @@ var _ = events.Register(ExecutionFromDevShm)
 
 func ExecutionFromDevShm(h events.Helper) error {
 	scriptPath := "/dev/shm/example_script-created-by-falco-event-generator.sh"
-
-	file, err := os.Create(scriptPath)
-	if err != nil {
-		return err
-	}
-
 	scriptContent := "#!/bin/bash\n echo 'hello world'"
-	if _, err := file.WriteString(scriptContent); err != nil {
-		return err
-	}
 
-	if err := file.Close(); err != nil {
+	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0755); err != nil {
 		return err
 	}
 
