@@ -15,6 +15,7 @@ limitations under the License.
 package syscall
 
 import (
+	"os"
 	"os/exec"
 
 	"github.com/falcosecurity/event-generator/events"
@@ -23,6 +24,28 @@ import (
 var _ = events.Register(ExecutionFromDevShm)
 
 func ExecutionFromDevShm(h events.Helper) error {
-	cmd := exec.Command("/dev/shm/example_script.sh")
+	scriptPath := "/dev/shm/example_script-created-by-falco-event-generator.sh"
+
+	file, err := os.Create(scriptPath)
+	if err != nil {
+		return err
+	}
+
+	scriptContent := "#!/bin/bash\n echo 'hello world'"
+	if _, err := file.WriteString(scriptContent); err != nil {
+		return err
+	}
+
+	if err := file.Close(); err != nil {
+		return err
+	}
+
+	// Set execute permission on the file
+	if err := exec.Command("chmod", "+x", scriptPath).Run(); err != nil {
+		return err
+	}
+
+	cmd := exec.Command(scriptPath)
+	defer os.Remove(scriptPath)
 	return cmd.Run()
 }
