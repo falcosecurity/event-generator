@@ -15,25 +15,22 @@ limitations under the License.
 package syscall
 
 import (
-	"os/exec"
+    "os/exec"
 
-	"github.com/falcosecurity/event-generator/events"
+    "github.com/falcosecurity/event-generator/events"
 )
 
-var _ = events.Register(LaunchNetworkToolInContainer)
+var _ = events.Register(LaunchSuspiciousNetworkToolOnHost)
 
-func LaunchNetworkToolInContainer(h events.Helper) error {
-    path, err := exec.LookPath("docker")
-    if err != nil {
-        return &events.ErrSkipped{
-            Reason: "docker not found in path",
+func LaunchSuspiciousNetworkToolInContainer(h events.Helper) error {
+    if h.InContainer() {
+        cmd := exec.Command("nmap", "-sn", "192.168.1.0/24")
+
+        h.Log().Infof("Network tool launched in container")
+
+        if err := cmd.Run(); err != nil {
+            return err
         }
-    }
-
-    cmd := exec.Command(path, "run", "--rm", "alpine", "nmap", "-v")
-    err = cmd.Run()
-    if err != nil {
-        return err
     }
 
     return nil
