@@ -20,7 +20,7 @@ import (
     "github.com/falcosecurity/event-generator/events"
 )
 
-var _ = events.Register(LaunchSuspiciousNetworkToolOnHost)
+var _ = events.Register(LaunchSuspiciousNetworkToolInContainer)
 
 func LaunchSuspiciousNetworkToolInContainer(h events.Helper) error {
     if h.InContainer() {
