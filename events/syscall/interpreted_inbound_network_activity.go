@@ -20,7 +20,10 @@ import (
     "github.com/falcosecurity/event-generator/events"
 )
 
-var _ = events.Register(InterpretedProcsInboundNetworkActivity)
+var _ = events.Register(
+    InterpretedProcsInboundNetworkActivity,
+    events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
+)
 
 func InterpretedProcsInboundNetworkActivity(h events.Helper) error {
     // Python script to perform inbound network activity
