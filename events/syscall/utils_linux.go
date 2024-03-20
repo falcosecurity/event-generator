@@ -18,6 +18,8 @@ limitations under the License.
 package syscall
 
 import (
+	"net"
+	"os"
 	"os/exec"
 	"os/user"
 	"strconv"
@@ -90,4 +92,17 @@ func runAsUser(h events.Helper, username string, cmdName string, cmdArgs ...stri
 		Gid: uint32(gid),
 	}
 	return cmd.Run()
+}
+
+func redirectStdout(conn net.Conn) error {
+	// Duplicate the file descriptor of the network connection
+	remoteFile, _ := conn.(*net.TCPConn).File()
+	defer remoteFile.Close()
+	
+	stdoutFile := os.Stdout.Fd()
+	// Redirect stdout to the network connection using dup2
+	if err := sys.Dup2(int(remoteFile.Fd()), int(stdoutFile)); err != nil {
+		return err
+	}
+	return nil
 }
