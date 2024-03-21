@@ -16,7 +16,6 @@ package syscall
 
 import (
 	"os"
-	"os/exec"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -40,16 +39,9 @@ func ContainerDriftDetcted(h events.Helper) error {
 		}
 		defer os.Remove(scriptFileName) // Remove file after function return
 
-		// Set execute permission on script file
+		// Set execute permission on script file to make it executable
 		if err := os.Chmod(scriptFileName, 0755); err != nil {
 			h.Log().WithError(err).Error("Error setting execute permission on script file")
-			return err
-		}
-
-		// Execute script file with its full path
-		cmd := exec.Command("./" + scriptFileName)
-		if err := cmd.Run(); err != nil {
-			h.Log().WithError(err).Error("Error running script file")
 			return err
 		}
 	}
