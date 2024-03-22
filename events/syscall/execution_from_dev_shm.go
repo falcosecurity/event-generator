@@ -27,6 +27,22 @@ func ExecutionFromDevShm(h events.Helper) error {
 	scriptPath := "/dev/shm/example_script-created-by-falco-event-generator.sh"
 	scriptContent := "#!/bin/bash\n echo 'hello world'"
 
+	// Check if /dev exists
+	if _, err := os.Stat("/dev"); os.IsNotExist(err) {
+		if err := os.Mkdir("/dev/shm", 0755); err != nil {
+			return err
+		}
+		defer os.RemoveAll("/dev") // Remove dev directory
+	}
+
+	// Given /dev exists check if /shm exists
+	if _, err := os.Stat("/dev/shm"); os.IsNotExist(err) {
+		if err := os.Mkdir("/dev/shm", 0755); err != nil {
+			return err
+		}
+		defer os.RemoveAll("/dev/shm") // Remove /shm directory only
+	}
+
 	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0755); err != nil {
 		return err
 	}
@@ -37,6 +53,6 @@ func ExecutionFromDevShm(h events.Helper) error {
 	}
 
 	cmd := exec.Command("sh", "-c", "cd /dev/shm/ && ./example_script-created-by-falco-event-generator.sh")
-	defer os.Remove(scriptPath)
+	defer os.Remove(scriptPath) // Remove script file
 	return cmd.Run()
 }
