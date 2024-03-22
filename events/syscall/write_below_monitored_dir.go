@@ -27,6 +27,12 @@ var _ = events.Register(
 
 func WriteBelowMonitoredDir(h events.Helper) error {
 	const filename = "/usr/local/bin/created-by-event-generator"
+
+	// Create the directory if it doesn't exist
+	if err := os.MkdirAll("/usr/local/bin", 0755); err != nil {
+		return err
+	}
+
 	h.Log().Infof("writing to %s", filename)
 	defer os.Remove(filename)
 	return os.WriteFile(filename, nil, os.FileMode(0755))
