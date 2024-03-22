@@ -68,6 +68,7 @@ func FilelessExecutionViaMemfdCreate(h events.Helper) error {
 		h.Log().WithError(err).Error("failed to write binary data to memory")
 		return err
 	}
+	defer unix.Close(fd)
 
 	// Execute the binary from memory
 	executeCmd := exec.Command("/proc/self/fd/" + fmt.Sprintf("%d", fd))
