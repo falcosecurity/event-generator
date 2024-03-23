@@ -26,26 +26,15 @@ var _ = events.Register(
 )
 
 func ReadShellConfigurationFile(h events.Helper) error {
-	shellConfigFiles := []string{
-		"/etc/bashrc",
-		"/etc/profile",
-		"/etc/csh.cshrc",
-		"/etc/csh.login",
+	const filename = "/created-by-event-generator/.bashrc"
+	if err := os.Mkdir("/created-by-event-generator", os.FileMode(0755)); err != nil {
+		return err
 	}
-
-	var errRead error
-
-	// Iterate over shellConfigFiles until a file is successfully opened.
-	for _, configFile := range shellConfigFiles {
-		file, err := os.Open(configFile)
-		if err == nil {
-			h.Log().Infof("A shell configuration file %s was read by a non-shell program", configFile)
-			defer file.Close()
-			return err
-		} else if !os.IsNotExist(err) {
-			errRead = err
-		}
+	if err := os.WriteFile(filename, nil, 0755); err != nil {
+		return err
 	}
-
-	return errRead
+	file, err := os.Open(filename)
+	defer file.Close()
+	defer os.RemoveAll("/created-by-event-generator")
+	return err
 }
