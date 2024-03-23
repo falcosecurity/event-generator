@@ -23,22 +23,21 @@ import (
 var _ = events.Register(ClearLogActivites)
 
 func ClearLogActivites(h events.Helper) error {
-	// Opening a file from access log files list with O_TRUNC flag
-	filename := "/var/log/syslog"
-	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_TRUNC, 0644)
+	filename := "/created-by-event-generator/syslog"
+
+	if err := os.Mkdir("/created-by-event-generator", 0755); err != nil {
+		h.Log().WithError(err).Error("Error creating directory")
+		return err
+	}
+	defer os.RemoveAll("/created-by-event-generator")
+
+	// Open or create the file with write-only access and truncate its contents if it exists
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
 		h.Log().WithError(err).Error("Error opening file")
 		return err
 	}
 	defer file.Close()
 
-	// Perform some write operation on the file
-	_, err = file.WriteString("Created by falco event generator")
-	if err != nil {
-		h.Log().WithError(err).Error("Error writing into file")
-		return err
-	}
-
-	h.Log().Info("Log file: ", filename, "was tampered.")
 	return nil
 }
