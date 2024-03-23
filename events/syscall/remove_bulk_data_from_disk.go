@@ -27,7 +27,6 @@ var _ = events.Register(RemoveBulkDataFromDisk)
 func RemoveBulkDataFromDisk(h events.Helper) error {
 	// Creates temporary data for testing, avoiding critical file deletion.
 	tmpDir, err := os.MkdirTemp(os.TempDir(), "created-by-falco-event-generator")
-	defer os.RemoveAll(tmpDir) // clean up
 	if err != nil {
 		return err
 	}
