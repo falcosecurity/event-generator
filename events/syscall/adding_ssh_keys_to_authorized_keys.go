@@ -22,7 +22,7 @@ import (
 
 var _ = events.Register(
 	AddingSshKeysToAuthorizedKeys,
-	// events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
+	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
 func AddingSshKeysToAuthorizedKeys(h events.Helper) error {
