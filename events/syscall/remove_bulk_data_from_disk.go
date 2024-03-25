@@ -17,7 +17,6 @@ package syscall
 import (
 	"os"
 	"os/exec"
-	"path/filepath"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -26,20 +25,14 @@ var _ = events.Register(RemoveBulkDataFromDisk)
 
 func RemoveBulkDataFromDisk(h events.Helper) error {
 	// Creates temporary data for testing, avoiding critical file deletion.
-	tmpDir, err := os.MkdirTemp(os.TempDir(), "created-by-falco-event-generator")
-	if err != nil {
-		return err
-	}
-
-	filename := filepath.Join(tmpDir, "file.txt")
+	filename := "/created-by-falco-event-generator"
+	defer os.RemoveAll(filename) // clean up
 	if err := os.WriteFile(filename, []byte("bulk data content"), os.FileMode(0755)); err != nil {
 		return err
 	}
 
-	// Generating the event
-	const command = "shred"
-	h.Log().Infof("attempting to run %s command to remove bulk data from disk", command)
-	cmd := exec.Command("shred", "-u", tmpDir)
-	err = cmd.Run()
+	h.Log().Infof("attempting to run shred command to remove bulk data from disk")
+	cmd := exec.Command("shred", "-u", filename)
+	err := cmd.Run()
 	return err
 }
