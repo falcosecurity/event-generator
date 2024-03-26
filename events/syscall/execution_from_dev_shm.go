@@ -52,7 +52,7 @@ func ExecutionFromDevShm(h events.Helper) error {
 		return err
 	}
 
-	cmd := exec.Command("sh", "-c", "cd /dev/shm/ && ./example_script-created-by-falco-event-generator.sh")
-	defer os.Remove(scriptPath) // Remove script file
+	cmd := exec.Command("sh", "-c", scriptPath) // Execute script file
+	defer os.Remove(scriptPath)                 // Remove script file
 	return cmd.Run()
 }
