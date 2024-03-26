@@ -35,6 +35,6 @@ func RemoveBulkDataFromDisk(h events.Helper) error {
 	// Rule triggers regardless of whether the 'shred' utility exists or its outcome
 	// Therefore, there's no need to skip the action or report the error in any case
 	cmd := exec.Command("shred", "-u", filename)
-	_ := cmd.Run()
+	cmd.Run()
 	return nil
 }
