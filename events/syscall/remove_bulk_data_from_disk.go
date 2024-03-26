@@ -32,9 +32,9 @@ func RemoveBulkDataFromDisk(h events.Helper) error {
 	}
 
 	h.Log().Infof("attempting to run shred command to remove bulk data from disk")
-	// Rule triggers regardless of whether the 'shred' utility exists
-	// Therefore, there's no need to skip the action even if 'shred' does not exist
+	// Rule triggers regardless of whether the 'shred' utility exists or its outcome
+	// Therefore, there's no need to skip the action or report the error in any case
 	cmd := exec.Command("shred", "-u", filename)
-	err := cmd.Run()
-	return err
+	_ := cmd.Run()
+	return nil
 }
