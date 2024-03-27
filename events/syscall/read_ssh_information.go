@@ -18,6 +18,8 @@ limitations under the License.
 package syscall
 
 import (
+	"path/filepath"
+
 	"github.com/falcosecurity/event-generator/events"
 
 	"os"
@@ -30,19 +32,31 @@ var _ = events.Register(
 
 func ReadSshInformation(h events.Helper) error {
 	// Creates temporary data for testing.
-	directoryname := "/home/created-by-falco-event-generator/.ssh"
-	if err := os.MkdirAll(directoryname, 0755); err != nil {
+	var (
+		directoryname string
+		err           error
+	)
+	// Loop until a unique temporary directory is successfully created
+	for {
+		if directoryname, err = os.MkdirTemp("/home", "falco-event-generator-"); err == nil {
+			break
+		}
+	}
+	defer os.RemoveAll(directoryname)
+
+	// Create the SSH directory
+	sshDir := filepath.Join(directoryname, ".ssh")
+	if err := os.Mkdir(sshDir, 0755); err != nil {
 		return err
 	}
-	defer os.RemoveAll("/home/created-by-falco-event-generator")
 
-	filename := directoryname + "/known_hosts"
-	if err := os.WriteFile(filename, nil, os.FileMode(0755)); err != nil {
+	// Create known_hosts file. os.Create is enough to trigger the rule
+	filename := filepath.Join(sshDir, "known_hosts")
+	if _, err := os.Create(filename); err != nil {
 		return err
 	}
 
 	h.Log().Info("attempting to simulate SSH information read")
-	file, err := os.Open(filename)
-	defer file.Close()
-	return err
+
+	return nil
 }
