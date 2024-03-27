@@ -28,7 +28,7 @@ var _ = events.Register(
 
 func AddingSshKeysToAuthorizedKeys(h events.Helper) error {
 	// Also creates .ssh directory inside tempDirectory
-	tempDirectoryName, err := CreateSshDirectoryUnderHome()
+	tempDirectoryName, err := createSshDirectoryUnderHome()
 	if err != nil {
 		return err
 	}
