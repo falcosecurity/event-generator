@@ -18,8 +18,10 @@ limitations under the License.
 package syscall
 
 import (
+	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"strconv"
 	sys "syscall"
 
@@ -90,4 +92,27 @@ func runAsUser(h events.Helper, username string, cmdName string, cmdArgs ...stri
 		Gid: uint32(gid),
 	}
 	return cmd.Run()
+}
+
+// Creates a temp directory and .ssh directory inside it.
+func CreateSshDirectoryUnderHome() (string, error) {
+	// Creates temporary data for testing.
+	var (
+		tempDirectoryName string
+		err               error
+	)
+	// Loop until a unique temporary directory is successfully created
+	for {
+		if tempDirectoryName, err = os.MkdirTemp("/home", "falco-event-generator-"); err == nil {
+			break
+		}
+	}
+
+	// Create the SSH directory
+	sshDir := filepath.Join(tempDirectoryName, ".ssh")
+	if err := os.Mkdir(sshDir, 0755); err != nil {
+		return "", err
+	}
+
+	return tempDirectoryName, nil
 }

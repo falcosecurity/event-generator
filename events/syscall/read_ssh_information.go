@@ -31,24 +31,13 @@ var _ = events.Register(
 )
 
 func ReadSshInformation(h events.Helper) error {
-	// Creates temporary data for testing.
-	var (
-		directoryname string
-		err           error
-	)
-	// Loop until a unique temporary directory is successfully created
-	for {
-		if directoryname, err = os.MkdirTemp("/home", "falco-event-generator-"); err == nil {
-			break
-		}
-	}
-	defer os.RemoveAll(directoryname)
-
-	// Create the SSH directory
-	sshDir := filepath.Join(directoryname, ".ssh")
-	if err := os.Mkdir(sshDir, 0755); err != nil {
+	// Also creates .ssh directory inside tempDirectory
+	tempDirectoryName, err := CreateSshDirectoryUnderHome()
+	if err != nil {
 		return err
 	}
+	sshDir := filepath.Join(tempDirectoryName, ".ssh")
+	defer os.RemoveAll(tempDirectoryName)
 
 	// Create known_hosts file. os.Create is enough to trigger the rule
 	filename := filepath.Join(sshDir, "known_hosts")
