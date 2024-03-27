@@ -16,24 +16,38 @@ package syscall
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ = events.Register(
 	AddingSshKeysToAuthorizedKeys,
-	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
+	// events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
 func AddingSshKeysToAuthorizedKeys(h events.Helper) error {
 	// Creates temporary data for testing.
-	directoryname := "/home/created-by-falco-event-generator/.ssh"
-	filename := directoryname + "/authorized_keys"
+	var (
+		directoryname string
+		err           error
+	)
+	// Loop until a unique temporary directory is successfully created
+	for {
+		if directoryname, err = os.MkdirTemp("/home", "falco-event-generator-"); err == nil {
+			break
+		}
+	}
+	defer os.RemoveAll(directoryname)
 
-	if err := os.MkdirAll(directoryname, 0755); err != nil {
+	// Create the SSH directory
+	sshDir := filepath.Join(directoryname, ".ssh")
+	if err := os.Mkdir(sshDir, 0755); err != nil {
 		return err
 	}
-	defer os.RemoveAll("/home/created-by-falco-event-generator")
+
+	// Create known_hosts file. os.Create is enough to trigger the rule
+	filename := filepath.Join(sshDir, "authorized_keys")
 
 	h.Log().Infof("writing to %s", filename)
 	return os.WriteFile(filename, []byte("ssh-rsa <ssh_public_key>\n"), os.FileMode(0755))
