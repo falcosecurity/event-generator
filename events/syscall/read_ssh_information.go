@@ -27,7 +27,7 @@ import (
 
 var _ = events.Register(
 	ReadSshInformation,
-	// events.WithDisabled(), // the rule is not enabled by default, so disable the action too
+	events.WithDisabled(), // the rule is not enabled by default, so disable the action too
 )
 
 func ReadSshInformation(h events.Helper) error {
