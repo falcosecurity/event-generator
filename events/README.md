@@ -9,9 +9,14 @@ An *action* is a `func` that implements `events.Action` interface, and when call
 
 ### Choose a package
 
+- The package name should reflect the data source name of the ruleset (ie. `syscall`).
 - Each *action* must be put in a subpackage of `events` that matches the ruleset context.
-- The `helper` subpackage is intended for those actions that does not match a rule, but still be useful to implement other actions.
+- The `helper` subpackage is intended for actions that do not match a rule but can still be useful for implementing other actions.
 - Before adding a new subpackage, propose your motivations to the maintainers.
+
+#### Functions visibility
+
+Only `func`s that implement the `events.Action` interface must be exported by a package. Other utility functions can be included, if needed, stating they are not exported names (a notable example is [syscall/utils_linux.go](https://github.com/falcosecurity/event-generator/blob/main/events/syscall/utils_linux.go)).
 
 ### Naming
 
@@ -25,11 +30,20 @@ An *action* is a `func` that implements `events.Action` interface, and when call
 Each action must be registered by calling `events.Register()` or `events.RegisterWithName()` at initialization time, the first one will automatically extracts the name from the `func`'s name. For example:
 
 ```golang
-var _ = events.Register(WriteBelowEtc)
+var _ = events.Register(SystemUserInteractive)
+```
+
+Rules disabled by default or not included in the *stable* ruleset (if the [Rules Maturity Framework applies) must be skipped by default. For example:
+
+```golang
+var _ = events.Register(
+	WriteBelowEtc,
+	events.WithDisabled(), // this rule is not included in falco_rules.yaml (stable rules), so disable the action
+)
 ```
 
 ### Behavior
-Running an *action* should be an idempotent operation, in the sense that it should not have additional effect if it is called more than once.
+Running an *action* should be an idempotent operation in the sense that it should not have additional effects if it is called more than once.
 For this reason, *actions* should revert any operation that changed the state of the system (eg. if a file is created, then it has to be removed). For example:
 
 ```golang
