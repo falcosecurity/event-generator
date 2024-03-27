@@ -34,6 +34,7 @@ func ReadSshInformation(h events.Helper) error {
 	if err := os.MkdirAll(directoryname, 0755); err != nil {
 		return err
 	}
+	defer os.RemoveAll("/home/created-by-falco-event-generator")
 
 	filename := directoryname + "/known_hosts"
 	if err := os.WriteFile(filename, nil, os.FileMode(0755)); err != nil {
@@ -43,6 +44,5 @@ func ReadSshInformation(h events.Helper) error {
 	h.Log().Info("attempting to simulate SSH information read")
 	file, err := os.Open(filename)
 	defer file.Close()
-	defer os.RemoveAll("/home/created-by-falco-event-generator")
 	return err
 }
