@@ -33,7 +33,8 @@ func AddingSshKeysToAuthorizedKeys(h events.Helper) error {
 	if err := os.MkdirAll(directoryname, 0755); err != nil {
 		return err
 	}
-	h.Log().Infof("writing to %s", filename)
 	defer os.RemoveAll("/home/created-by-falco-event-generator")
+
+	h.Log().Infof("writing to %s", filename)
 	return os.WriteFile(filename, []byte("ssh-rsa <ssh_public_key>\n"), os.FileMode(0755))
 }
