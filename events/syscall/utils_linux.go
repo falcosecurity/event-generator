@@ -102,10 +102,8 @@ func CreateSshDirectoryUnderHome() (string, error) {
 		err               error
 	)
 	// Loop until a unique temporary directory is successfully created
-	for {
-		if tempDirectoryName, err = os.MkdirTemp("/home", "falco-event-generator-"); err == nil {
-			break
-		}
+	if tempDirectoryName, err = os.MkdirTemp("/home", "falco-event-generator-"); err != nil {
+		return "", err
 	}
 
 	// Create the SSH directory
