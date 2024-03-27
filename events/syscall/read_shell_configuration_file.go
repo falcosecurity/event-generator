@@ -16,6 +16,7 @@ package syscall
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -26,15 +27,17 @@ var _ = events.Register(
 )
 
 func ReadShellConfigurationFile(h events.Helper) error {
-	const filename = "/created-by-event-generator/.bashrc"
-	if err := os.Mkdir("/created-by-event-generator", os.FileMode(0755)); err != nil {
+	// Create a unique tempdirectory
+	tempDirectoryName, err := os.MkdirTemp("/", "created-by-event-generator-")
+	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filename, nil, 0755); err != nil {
+	defer os.RemoveAll(tempDirectoryName)
+
+	filename := filepath.Join(tempDirectoryName, ".bashrc")
+	// os.Create is enough to trigger the rule
+	if _, err := os.Create(filename); err != nil {
 		return err
 	}
-	file, err := os.Open(filename)
-	defer file.Close()
-	defer os.RemoveAll("/created-by-event-generator")
-	return err
+	return nil
 }
