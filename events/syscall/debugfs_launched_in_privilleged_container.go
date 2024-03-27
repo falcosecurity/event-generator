@@ -25,7 +25,7 @@ var _ = events.Register(DebugfsLaunchedInPrivilegedContainer)
 
 func DebugfsLaunchedInPrivilegedContainer(h events.Helper) error {
     if h.InContainer() {
-        cmd := exec.Command("/usr/bin/debugfs")
+        cmd := exec.Command("debugfs")
         cmd.SysProcAttr = &syscall.SysProcAttr{
             Cloneflags: syscall.CLONE_NEWNS | syscall.CLONE_NEWUSER,
         }
