@@ -95,7 +95,7 @@ func runAsUser(h events.Helper, username string, cmdName string, cmdArgs ...stri
 }
 
 // Creates a temp directory and .ssh directory inside it.
-func CreateSshDirectoryUnderHome() (string, error) {
+func createSshDirectoryUnderHome() (string, error) {
 	// Creates temporary data for testing.
 	var (
 		tempDirectoryName string
