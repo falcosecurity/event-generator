@@ -15,23 +15,24 @@ limitations under the License.
 package syscall
 
 import (
-    "net"
+	"os/exec"
 
-    "github.com/falcosecurity/event-generator/events"
+	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ = events.Register(
 	DisallowedSSHConnection,
-	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
+	events.WithDisabled(), // this rule is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
 func DisallowedSSHConnection(h events.Helper) error {
-    conn, err := net.Dial("tcp", ":22")
-    if err != nil {
-        return err
-    }
-    defer conn.Close()
-    h.Log().Info("Disallowed SSH connection attempt to port 22")
-	
-    return nil
+	cmd := exec.Command("ssh", "user@example.com", "-p", "22")
+	err := cmd.Run()
+	if err != nil {
+		return err
+	}
+
+	h.Log().Info("Disallowed SSH connection attempt to port 22")
+
+	return nil
 }
