@@ -19,14 +19,16 @@ package syscall
 
 import (
     "os/exec"
-    "syscall"
 
     "github.com/falcosecurity/event-generator/events"
 )
 
-var _ = events.Register(ChangeNamespacePrivilegesViaUnshare)
+var _ = events.Register(
+	ChangeNamespacePrivilegesViaUnshare,
+        events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
+)
 
-func MaliciousProcessWithUnshare(h events.Helper) error {
+func ChangeNamespacePrivilegesViaUnshare(h events.Helper) error {
     if h.InContainer() {
         cmd := exec.Command("unshare")
         
