@@ -15,25 +15,19 @@ limitations under the License.
 package syscall
 
 import (
-	"fmt"
 	"os/exec"
 
 	"github.com/falcosecurity/event-generator/events"
 )
 
-var (
-	encodedPayload = "RmFsY28gaXMgbG92ZSEh"
+var _ = events.Register(
+	DecodingPayloadInContainer,
+        events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
 )
-
-var _ = events.Register(DecodingPayloadInContainer)
 
 func DecodingPayloadInContainer(h events.Helper) error {
 	if h.InContainer() {
-		cmd := exec.Command("sh", "-c", fmt.Sprintf("echo %s | base64 -d", encodedPayload))
-
-		if _, err := cmd.CombinedOutput(); err != nil {
-			return err
-		}
+		cmd := exec.Command("base64", "-d")
 	}
 	return nil
 }
