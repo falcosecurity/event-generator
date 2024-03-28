@@ -24,16 +24,13 @@ import (
     "github.com/falcosecurity/event-generator/events"
 )
 
-var _ = events.Register(MaliciousProcessWithUnshare)
+var _ = events.Register(ChangeNamespacePrivilegesViaUnshare)
 
 func MaliciousProcessWithUnshare(h events.Helper) error {
     if h.InContainer() {
-        cmd := exec.Command("/bin/sh", "-c", "unshare --fork --pid --mount-proc /bin/bash")
-        cmd.SysProcAttr = &syscall.SysProcAttr{
-			Cloneflags: syscall.CLONE_NEWNS | syscall.CLONE_NEWUSER,
-        }
+        cmd := exec.Command(unshare)
         
-        h.Log().Infof("Change namespace privilleges via unshare")
+        h.Log().Infof("Change namespace privileges via unshare")
 
         if err := cmd.Run(); err != nil {
             return err
