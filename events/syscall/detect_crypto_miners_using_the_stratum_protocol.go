@@ -29,7 +29,8 @@ func DetectCryptoMinersUsingTheStratumProtocol(h events.Helper) error {
 	// NOTE: Crypto mining commands typically may resemble the following format,
 	// where 'minersoftware' is an executable:
 	// minersoftware -o stratum+tcp://example.com:3333 -u username -p password
-	// However, for testing purposes, we're using 'find' as a placeholder.
-	cmd := exec.Command("find", "-o stratum+tcp", "-u user", "-p pass")
-	return cmd.Run()
+	// However, for testing purposes, we're using 'ls' as a placeholder.
+	cmd := exec.Command("ls", "-o stratum+tcp", "-u user", "-p pass")
+	cmd.Run()
+	return nil
 }
