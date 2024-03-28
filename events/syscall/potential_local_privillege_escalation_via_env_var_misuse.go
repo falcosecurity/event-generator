@@ -28,10 +28,9 @@ var _ = events.Register(PotentialLocalPrivillegeEscalation)
 
 func PotentialLocalPrivillegeEscalation(h events.Helper) error {
     // Set the GLIBC_TUNABLES environment variable
-    os.Setenv("GLIBC_TUNABLES", "glibc.tune.hwcaps=-WAITED,glibc.tune.secrets=2")
-
     cmd := exec.Command("bash", "-c", "id")
     cmd.Env = os.Environ()
+    cmd.Env = append(cmd.Env, "GLIBC_TUNABLES=glibc.tune.hwcaps=-WAITED,glibc.tune.secrets=2")
 
     h.Log().Info("Process run with suspect environment variable which could be attempting privilege escalation")
     err := cmd.Run()
