@@ -23,7 +23,12 @@ import (
 var _ = events.Register(LaunchSuspiciousNetworkToolOnHost)
 
 func LaunchSuspiciousNetworkToolOnHost(h events.Helper) error {
-
+    nmap, err := exec.LookPath("nmap")
+    if err != nil {
+      h.Log().Warnf("nmap is needed to launch this action")
+      return err
+    }
+    
     cmd := exec.Command("nmap", "-sn", "192.168.1.0/24")
     h.Log().Infof("Network tool launched in host")
 
