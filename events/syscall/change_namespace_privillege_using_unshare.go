@@ -28,7 +28,7 @@ var _ = events.Register(ChangeNamespacePrivilegesViaUnshare)
 
 func MaliciousProcessWithUnshare(h events.Helper) error {
     if h.InContainer() {
-        cmd := exec.Command(unshare)
+        cmd := exec.Command("unshare")
         
         h.Log().Infof("Change namespace privileges via unshare")
 
