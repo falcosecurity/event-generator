@@ -29,7 +29,7 @@ func LaunchSuspiciousNetworkToolOnHost(h events.Helper) error {
       return err
     }
     
-    cmd := exec.Command("nmap", "-sn", "192.168.1.0/24")
+    cmd := exec.Command(nmap, "-sn", "192.168.1.0/24")
     h.Log().Infof("Network tool launched in host")
 
     if err := cmd.Run(); err != nil {
