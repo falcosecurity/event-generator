@@ -30,7 +30,7 @@ var _ = events.Register(
 
 func LaunchIngressRemoteFileCopyToolsInsideContainer(h events.Helper) error {
 	if h.InContainer() {
-		cmd := exec.Command("wget", "https://falco.org/")
+		cmd := exec.Command("wget")
 		return cmd.Run()
 	}
 	return nil
