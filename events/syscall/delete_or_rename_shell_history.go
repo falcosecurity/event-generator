@@ -31,12 +31,6 @@ func DeleteOrRenameShellHistory(h events.Helper) error {
 
     historyFile := filepath.Join(homeDir, ".bash_history")
 
-    h.Log().Infof("Shell history deleted: %s", historyFile)
-    
-	err = os.Remove(historyFile)
-	if err!= nil {
-		return err
-	}
-
+	os.Remove(historyFile)
 	return nil
 }
