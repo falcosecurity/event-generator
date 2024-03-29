@@ -21,7 +21,10 @@ import (
     "github.com/falcosecurity/event-generator/events"
 )
 
-var _ = events.Register(ModifyShellConfigurationFile)
+var _ = events.Register(
+    ModifyShellConfigurationFile,
+	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
+)
 
 func ModifyShellConfigurationFile(h events.Helper) error {
 
