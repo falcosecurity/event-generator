@@ -31,8 +31,8 @@ func ModifyShellConfigurationFile(h events.Helper) error {
     }
 
     configFile := filepath.Join(homeDir, ".bashrc")
-
-    content := []byte("# written to shell configuration file\n")
+    
+    content := []byte("# written by event-generator\n")
     err = os.WriteFile(configFile, content, 0644)
     if err != nil {
         return err
