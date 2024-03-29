@@ -22,18 +22,26 @@ import (
 )
 
 var _ = events.Register(
-	DeleteOrRenameShellHistory,
-        events.WithDisabled(), // this rule is not included in falco_rules.yaml (stable rules), so disable the action    
+    DeleteOrRenameShellHistory,
+    events.WithDisabled(), // this rule is not included in falco_rules.yaml (stable rules), so disable the action    
 )
 
 func DeleteOrRenameShellHistory(h events.Helper) error {
-    homeDir, err := os.UserHomeDir()
+    // Define the path to the file
+    tmpDir := "/tmp"
+    tmpFile := filepath.Join(tmpDir, "ash_history")
+
+    // Create the file
+    file, err := os.Create(tmpFile)
     if err != nil {
         return err
     }
+    defer file.Close()
 
-    historyFile := filepath.Join(homeDir, ".bash_history")
+    // Remove the file
+    if err := os.Remove(tmpFile); err != nil {
+        return err
+    }
 
-	os.Remove(historyFile)
-	return nil
+    return nil
 }
