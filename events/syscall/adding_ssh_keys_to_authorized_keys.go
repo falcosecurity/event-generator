@@ -27,13 +27,12 @@ var _ = events.Register(
 )
 
 func AddingSshKeysToAuthorizedKeys(h events.Helper) error {
-	// Also creates .ssh directory inside tempDirectory
-	tempDirectoryName, err := createSshDirectoryUnderHome()
+	// Creates .ssh directory inside tempDirectory
+	sshDir, cleanup, err := createSshDirectoryUnderHome()
 	if err != nil {
 		return err
 	}
-	sshDir := filepath.Join(tempDirectoryName, ".ssh")
-	defer os.RemoveAll(tempDirectoryName)
+	defer cleanup() // Cleanup after function return
 
 	filename := filepath.Join(sshDir, "authorized_keys")
 	h.Log().Infof("writing to %s", filename)
