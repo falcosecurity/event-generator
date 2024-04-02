@@ -23,21 +23,13 @@ import (
 
 var _ = events.Register(
 	ProgramRunWithDisallowedHttpProxyEnv,
-	// events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
+	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
 func ProgramRunWithDisallowedHttpProxyEnv(h events.Helper) error {
-	// Get the current value of HTTP_PROXY environment variable
-	originalHTTPProxy := os.Getenv("HTTP_PROXY")
-
-	// Modify HTTP_PROXY environment variable
-	os.Setenv("HTTP_PROXY", "http://my.http.proxy.com ")
-
-	// Ensure the original HTTP_PROXY value is reverted even if an error occurs
-	defer os.Setenv("HTTP_PROXY", originalHTTPProxy)
-
-	h.Log().Info("executing curl or wget with disallowed HTTP_PROXY environment variable")
 	cmd := exec.Command("curl", "http://example.com")
-
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "HTTP_PROXY=http://my.http.proxy.com ")
+	h.Log().Info("executing curl or wget with disallowed HTTP_PROXY environment variable")
 	return cmd.Run()
 }
