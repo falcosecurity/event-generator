@@ -31,16 +31,9 @@ func ModifyShellConfigurationFile(h events.Helper) error {
     tmpDir := "/tmp"
     tmpConfigFile := filepath.Join(tmpDir, ".bashrc")
 
-    // Create the file
-    file, err := os.Create(tmpConfigFile)
-    if err != nil {
-        return err
-    }
-    file.Close()
-
     // Modify the file
     content := []byte("# written by event-generator\n")
-    err = os.WriteFile(tmpConfigFile, content, 0644)
+    err := os.WriteFile(tmpConfigFile, content, 0644)
     if err != nil {
         return err
     }
