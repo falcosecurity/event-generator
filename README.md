@@ -105,7 +105,7 @@ docker run -it --rm falcosecurity/event-generator run
 
 #### With Kubernetes
 
-It can be deployed in a Kubernetes cluster using the event-generator [helm chart](https://github.com/falcosecurity/charts/tree/master/event-generator).
+It can be deployed in a Kubernetes cluster using the event-generator [helm chart](https://github.com/falcosecurity/charts/tree/master/charts/event-generator).
 Before installing the chart, add the `falcosecurity` charts repository:
 
 ```bash
@@ -139,7 +139,7 @@ The above commands apply to the `event-generator` namespace. Use a different nam
 ## Collections
 
 ### Generate System Call activity
-The `syscall` collection performs a variety of suspect actions detected by the [default Falco ruleset](https://github.com/falcosecurity/falco/blob/master/rules/falco_rules.yaml).
+The `syscall` collection performs a variety of suspect actions detected by the [default Falco ruleset](https://github.com/falcosecurity/rules/tree/main/rules).
 
 ```shell
 $ docker run -it --rm falcosecurity/event-generator run syscall --loop
@@ -149,7 +149,7 @@ The above command loops forever, incessantly generating a sample event each seco
 
 
 ### Generate activity for the k8s audit rules
-The `k8saudit` collection generates activity that matches the [k8s audit event ruleset](https://github.com/falcosecurity/falco/blob/master/rules/k8s_audit_rules.yaml).
+The `k8saudit` collection generates activity that matches the [k8s audit event ruleset](https://github.com/falcosecurity/plugins/blob/master/plugins/k8saudit/rules/k8s_audit_rules.yaml).
 
 Note that all `k8saudit` are disabled by default. To enable them, use the `--all` option.
 
