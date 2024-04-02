@@ -95,7 +95,7 @@ func runAsUser(h events.Helper, username string, cmdName string, cmdArgs ...stri
 }
 
 // Creates a temp directory and .ssh directory inside it.
-func createSshDirectoryUnderHome() (string, error) {
+func createSshDirectoryUnderHome() (string, func(), error) {
 	// Creates temporary data for testing.
 	var (
 		tempDirectoryName string
@@ -103,14 +103,14 @@ func createSshDirectoryUnderHome() (string, error) {
 	)
 	// Loop until a unique temporary directory is successfully created
 	if tempDirectoryName, err = os.MkdirTemp("/home", "falco-event-generator-"); err != nil {
-		return "", err
+		return "", func() {}, err
 	}
 
 	// Create the SSH directory
 	sshDir := filepath.Join(tempDirectoryName, ".ssh")
 	if err := os.Mkdir(sshDir, 0755); err != nil {
-		return "", err
+		return "", func() { _ = os.RemoveAll(tempDirectoryName) }, err
 	}
 
-	return tempDirectoryName, nil
+	return sshDir, func() { _ = os.RemoveAll(tempDirectoryName) }, nil
 }

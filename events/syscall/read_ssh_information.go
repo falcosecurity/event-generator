@@ -31,13 +31,12 @@ var _ = events.Register(
 )
 
 func ReadSshInformation(h events.Helper) error {
-	// Also creates .ssh directory inside tempDirectory
-	tempDirectoryName, err := createSshDirectoryUnderHome()
+	// Creates .ssh directory inside tempDirectory
+	sshDir, cleanup, err := createSshDirectoryUnderHome()
 	if err != nil {
 		return err
 	}
-	sshDir := filepath.Join(tempDirectoryName, ".ssh")
-	defer os.RemoveAll(tempDirectoryName)
+	defer cleanup() // Cleanup after function return
 
 	// Create known_hosts file. os.Create is enough to trigger the rule
 	filename := filepath.Join(sshDir, "known_hosts")
