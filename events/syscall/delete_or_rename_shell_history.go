@@ -36,7 +36,7 @@ func DeleteOrRenameShellHistory(h events.Helper) error {
     if err != nil {
         return err
     }
-    defer file.Close()
+    file.Close()
 
     // Remove the file
     if err := os.Remove(tmpFile); err != nil {
