@@ -23,20 +23,24 @@ import (
 
 var _ = events.Register(
     ModifyShellConfigurationFile,
-	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
+    events.WithDisabled(), // this rule is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
 func ModifyShellConfigurationFile(h events.Helper) error {
+    // Define the path to the file
+    tmpDir := "/tmp"
+    tmpConfigFile := filepath.Join(tmpDir, ".bashrc")
 
-    homeDir, err := os.UserHomeDir()
+    // Create the file
+    file, err := os.Create(tmpConfigFile)
     if err != nil {
         return err
     }
+    file.Close()
 
-    configFile := filepath.Join(homeDir, ".bashrc")
-    
+    // Modify the file
     content := []byte("# written by event-generator\n")
-    err = os.WriteFile(configFile, content, 0644)
+    err = os.WriteFile(tmpConfigFile, content, 0644)
     if err != nil {
         return err
     }
