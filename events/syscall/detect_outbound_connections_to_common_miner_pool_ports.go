@@ -26,6 +26,11 @@ var _ = events.Register(
 )
 
 func DetectOutboundConnectionsToCommonMinerPoolPorts(h events.Helper) error {
-	cmd := exec.Command("curl", "http://mine.moneropool.com")
+	curl, err := exec.LookPath("curl")
+	if err != nil {
+		h.Log().Warnf("Curl is needed to launch this action")
+		return err
+	}
+	cmd := exec.Command(curl, "http://mine.moneropool.com")
 	return cmd.Run()
 }
