@@ -15,6 +15,9 @@ limitations under the License.
 package syscall
 
 import (
+	"os"
+	"os/exec"
+
 	"github.com/falcosecurity/event-generator/events"
 )
 
@@ -26,7 +29,22 @@ var _ = events.Register(
 func LaunchPackageManagementProcessInContainer(h events.Helper) error {
 	// Make sure it runs in container and user.name != _apt
 	if h.InContainer() {
-		return runAsUser(h, "root", "apt-get")
+		if os.Getenv("USER") == "_apt" {
+			// Create a new user
+			username := "user-created-by-event-generator"
+			err := exec.Command("adduser", username).Run()
+			if err != nil {
+				return err
+			}
+			err = exec.Command("su", username).Run()
+			if err != nil {
+				return err
+			}
+			defer exec.Command("userdel", "-r", username).Run() // Remove the created user at end
+		}
+		// Now launch package management process
+		cmd := exec.Command("apt-get")
+		return cmd.Run()
 	}
 	return nil
 }
