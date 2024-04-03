@@ -20,7 +20,10 @@ import (
     "github.com/falcosecurity/event-generator/events"
 )
 
-var _ = events.Register(LaunchSuspiciousNetworkToolInContainer)
+var _ = events.Register(
+    LaunchSuspiciousNetworkToolInContainer,
+    events.WithDisabled(), // this rule is not included in falco_rules.yaml (stable rules), so disable the action
+)
 
 func LaunchSuspiciousNetworkToolInContainer(h events.Helper) error {
     if h.InContainer() {
