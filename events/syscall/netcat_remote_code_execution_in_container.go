@@ -25,12 +25,11 @@ var _ = events.Register(NetcatRemoteCodeExecutionInContainer)
 func NetcatRemoteCodeExecutionInContainer(h events.Helper) error {
     if h.InContainer() {
         // Launch netcat (nc) with the -e flag for remote code execution
-        cmd := exec.Command("nc", "-e", "/bin/bash")
+        cmd := exec.Command("nc", "-e")
 
         h.Log().Info("Netcat runs inside container that allows remote code execution")
         err := cmd.Run()
         if err != nil {
-            h.Log().WithError(err).Error("Failed to launch netcat (nc) for remote code execution")
             return err
         }
     } 
