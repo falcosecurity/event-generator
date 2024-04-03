@@ -27,7 +27,12 @@ var _ = events.Register(
 )
 
 func ProgramRunWithDisallowedHttpProxyEnv(h events.Helper) error {
-	cmd := exec.Command("curl", "http://example.com")
+	curl, err := exec.LookPath("curl")
+	if err != nil {
+		h.Log().Warnf("Curl is needed to launch this action")
+		return err
+	}
+	cmd := exec.Command(curl, "http://example.com")
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "HTTP_PROXY=http://my.http.proxy.com ")
 	h.Log().Info("executing curl or wget with disallowed HTTP_PROXY environment variable")
