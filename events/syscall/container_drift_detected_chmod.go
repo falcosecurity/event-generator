@@ -27,20 +27,15 @@ var _ = events.Register(
 
 func ContainerDriftDetcted(h events.Helper) error {
 	if h.InContainer() {
-		// Shell script content
-		scriptContent := `#!/bin/bash
-		echo "Hello World"
-		`
-
-		scriptFileName := "temp_script.sh"
-		if err := os.WriteFile(scriptFileName, []byte(scriptContent), 0755); err != nil {
-			h.Log().WithError(err).Error("Error writing script file")
+		filename := "/created-by-event-generator"
+		if err := os.WriteFile(filename, nil, 0755); err != nil {
+			h.Log().WithError(err).Error("Error creating an empty file")
 			return err
 		}
-		defer os.Remove(scriptFileName) // Remove file after function return
+		defer os.Remove(filename) // Remove file after function return
 
 		// Set execute permission on script file to make it executable
-		if err := os.Chmod(scriptFileName, 0755); err != nil {
+		if err := os.Chmod(filename, 0755); err != nil {
 			h.Log().WithError(err).Error("Error setting execute permission on script file")
 			return err
 		}
