@@ -25,5 +25,5 @@ var _ = events.Register(
 )
 
 func DbProgramSpawnedProcess(h events.Helper) error {
-	return h.SpawnAs("mysqld", "helper.ExecLs")
+	return h.SpawnAsWithSymlink("mysqld", "helper.ExecLs")
 }

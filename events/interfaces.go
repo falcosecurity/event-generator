@@ -48,7 +48,13 @@ type Helper interface {
 
 	// SpawnAs starts a child process and waits for it to complete.
 	// The child runs the given action as a different program name.
+	// The current event-generator binary is copied with a differen name
+	// prior to be run.
 	SpawnAs(name string, action string, args ...string) error
+
+	// SpawnAsWithSymlink works like SpawnAs, except that it does not make a
+	// copy of the the current event-generator binary, but creates a symlink instead.
+	SpawnAsWithSymlink(name string, action string, args ...string) error
 
 	// Spawned returns true if the action is running in a child process.
 	Spawned() bool

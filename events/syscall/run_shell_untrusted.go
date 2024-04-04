@@ -22,5 +22,5 @@ import (
 var _ = events.Register(RunShellUntrusted)
 
 func RunShellUntrusted(h events.Helper) error {
-	return h.SpawnAs("httpd", "helper.RunShell")
+	return h.SpawnAsWithSymlink("httpd", "helper.RunShell")
 }
