@@ -25,11 +25,11 @@ import (
 )
 
 var _ = events.Register(
-	SetSetuidOrSetSetgidBit,
+	SetSetuidorSetgidbit,
 	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
-func SetSetuidOrSetSetgidBit(h events.Helper) error {
+func SetSetuidorSetgidbit(h events.Helper) error {
 	filename := "created-by-falco-event-generator"
 	if err := os.WriteFile(filename, nil, 0755); err != nil {
 		h.Log().WithError(err).Error("Error Creating an empty file")
