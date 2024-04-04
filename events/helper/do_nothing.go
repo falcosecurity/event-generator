@@ -24,6 +24,5 @@ var _ = events.Register(DoNothing)
 // It can be used to just test execve events or command line arguments
 // when using the helper function SpawnAs.
 func DoNothing(h events.Helper) error {
-	h.Log().Info("DoNothing helper")
 	return nil
 }
