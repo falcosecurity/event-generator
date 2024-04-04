@@ -16,20 +16,22 @@ package syscall
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/falcosecurity/event-generator/events"
 )
 
-var _ = events.Register(ClearLogActivites)
+var _ = events.Register(ClearLogActivities)
 
-func ClearLogActivites(h events.Helper) error {
-	filename := "/created-by-event-generator/syslog"
-
-	if err := os.Mkdir("/created-by-event-generator", 0755); err != nil {
-		h.Log().WithError(err).Error("Error creating directory")
+func ClearLogActivities(h events.Helper) error {
+	// Create a unique temp directory
+	tempDirectoryName, err := os.MkdirTemp("/", "falco-event-generator-")
+	if err != nil {
 		return err
 	}
-	defer os.RemoveAll("/created-by-event-generator")
+	defer os.RemoveAll(tempDirectoryName)
+
+	filename := filepath.Join(tempDirectoryName, "syslog")
 
 	// Open or create the file with write-only access and truncate its contents if it exists
 	file, err := os.OpenFile(filename, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
