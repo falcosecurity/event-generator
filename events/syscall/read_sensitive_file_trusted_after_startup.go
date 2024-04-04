@@ -21,5 +21,5 @@ import (
 var _ = events.Register(ReadSensitiveFileTrustedAfterStartup)
 
 func ReadSensitiveFileTrustedAfterStartup(h events.Helper) error {
-	return h.SpawnAs("httpd", "syscall.ReadSensitiveFileUntrusted", "--sleep", "6s")
+	return h.SpawnAsWithSymlink("httpd", "syscall.ReadSensitiveFileUntrusted", "--sleep", "6s")
 }

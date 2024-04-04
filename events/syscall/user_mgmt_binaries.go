@@ -32,5 +32,5 @@ func UserMgmtBinaries(h events.Helper) error {
 			Reason: "'User mgmt binaries' is excluded in containers",
 		}
 	}
-	return h.SpawnAs("vipw", "helper.ExecLs")
+	return h.SpawnAsWithSymlink("vipw", "helper.ExecLs")
 }

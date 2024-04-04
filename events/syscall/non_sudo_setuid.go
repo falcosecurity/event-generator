@@ -36,6 +36,6 @@ func NonSudoSetuid(h events.Helper) error {
 		h.Log().WithError(err).Debug("ignore root setuid error")
 		return nil
 	} else {
-		return h.SpawnAs("child", "syscall.NonSudoSetuid")
+		return h.SpawnAsWithSymlink("child", "syscall.NonSudoSetuid")
 	}
 }

@@ -25,5 +25,5 @@ var _ = events.Register(
 )
 
 func SystemProcsNetworkActivity(h events.Helper) error {
-	return h.SpawnAs("sha1sum", "helper.NetworkActivity")
+	return h.SpawnAsWithSymlink("sha1sum", "helper.NetworkActivity")
 }

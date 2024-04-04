@@ -79,6 +79,14 @@ func (h *helper) Cleanup(f func(), args ...interface{}) {
 }
 
 func (h *helper) SpawnAs(name string, action string, args ...string) error {
+	return h.spawnAs(name, action, true, args...)
+}
+
+func (h *helper) SpawnAsWithSymlink(name string, action string, args ...string) error {
+	return h.spawnAs(name, action, false, args...)
+}
+
+func (h *helper) spawnAs(name string, action string, copy bool, args ...string) error {
 	fullArgs := append([]string{fmt.Sprintf("^%s$", action)}, args...)
 	h.Log().WithField("args", strings.Join(fullArgs, " ")).Infof(`spawn as "%s"`, name)
 	if h.Spawned() {
@@ -91,8 +99,18 @@ func (h *helper) SpawnAs(name string, action string, args ...string) error {
 	defer os.RemoveAll(tmpDir)
 
 	name = filepath.Join(tmpDir, name)
-	if err := os.Symlink(h.runner.exePath, name); err != nil {
-		return err
+	if copy {
+		var data []byte
+		if data, err = os.ReadFile(h.runner.exePath); err != nil {
+			return err
+		}
+		if err = os.WriteFile(name, data, 0755); err != nil {
+			return err
+		}
+	} else {
+		if err := os.Symlink(h.runner.exePath, name); err != nil {
+			return err
+		}
 	}
 
 	cmd := exec.Command(name, append(h.runner.exeArgs, fullArgs...)...)
