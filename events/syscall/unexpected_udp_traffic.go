@@ -18,33 +18,23 @@ limitations under the License.
 package syscall
 
 import (
-    "fmt"
     "os/exec"
-	"math/rand"
     "github.com/falcosecurity/event-generator/events"
 )
 
-var _ = events.Register(GenerateUnexpectedUDPTraffic)
+var _ = events.Register(
+    UnexpectedUDPTraffic,
+    events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
+)
 
-func GenerateUnexpectedUDPTraffic(h events.Helper) error {
-    // Choose a random port number
-    port := randInt(1024, 65535)
-
-    // Execute the command to send UDP packets
-	message := "UDP traffic"
-    cmd := exec.Command("echo", message, "|", "nc", "-u", "127.0.0.1", fmt.Sprintf("%d", port))
+func UnexpectedUDPTraffic(h events.Helper) error {
+    cmd := exec.Command("timeout", "1s", "nc", "-u", "192.168.1.2", "22")
     err := cmd.Run()
     if err != nil {
         return err
     }
 
-    // Log the event
-    h.Log().Infof("Unexpected UDP Traffic Seen on port %d", port)
+    h.Log().Infof("Unexpected UDP Traffic Seen")
 
     return nil
-}
-
-// randInt generates a random integer between min and max.
-func randInt(min, max int) int {
-    return min + rand.Intn(max-min+1)
 }
