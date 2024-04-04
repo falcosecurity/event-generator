@@ -20,7 +20,10 @@ import (
     "github.com/falcosecurity/event-generator/events"
 )
 
-var _ = events.Register(LaunchRemoteFileCopyToolInContainer)
+var _ = events.Register(
+    LaunchRemoteFileCopyToolInContainer,
+    events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
+)
 
 func LaunchRemoteFileCopyToolInContainer(h events.Helper) error {
     if h.InContainer() {
