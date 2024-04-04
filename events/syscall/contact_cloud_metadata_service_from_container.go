@@ -18,22 +18,25 @@ limitations under the License.
 package syscall
 
 import (
-    "net"
-
+    "os/exec"
     "github.com/falcosecurity/event-generator/events"
 )
 
-var _ = events.Register(ContactCloudMetadataServiceFromContainer)
+var _ = events.Register(
+    ContactCloudMetadataServiceFromContainer,
+    events.WithDisabled(), // this rule is not included in falco_rules.yaml (stable rules), so disable the action
+)
 
 func ContactCloudMetadataServiceFromContainer(h events.Helper) error {
     if h.InContainer() {
-        conn, err := net.Dial("tcp", "169.254.169.254:80")
-        if err != nil {
+        //this event can be use on GCP, AWS and Azure
+        cmd := exec.Command("timeout", "1s", "nc", "169.254.169.254", "80")
+    
+        if err := cmd.Run(); err != nil {
             return err
-		}
+        }
 
         h.Log().Infof("Outbound connection to cloud instance metadata service")
-        defer conn.Close()    
 	}
     return nil
 }
