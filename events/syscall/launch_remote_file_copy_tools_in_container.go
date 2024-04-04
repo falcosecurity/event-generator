@@ -21,11 +21,11 @@ import (
 )
 
 var _ = events.Register(
-    LaunchRemoteFileCopyToolInContainer,
+    LaunchRemoteFileCopyToolsInContainer,
     events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
-func LaunchRemoteFileCopyToolInContainer(h events.Helper) error {
+func LaunchRemoteFileCopyToolsInContainer(h events.Helper) error {
     if h.InContainer() {
         // Launch a remote file copy tool (e.g., scp) within the container
         cmd := exec.Command("scp")
