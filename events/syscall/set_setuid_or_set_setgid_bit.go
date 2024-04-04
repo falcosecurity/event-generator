@@ -30,15 +30,16 @@ var _ = events.Register(
 )
 
 func SetSetuidorSetgidbit(h events.Helper) error {
-	filename := "created-by-falco-event-generator"
-	if err := os.WriteFile(filename, nil, 0755); err != nil {
+	// Create a unique temp file
+	file, err := os.CreateTemp("", "created-by-falco-event-generator-")
+	if err != nil {
 		h.Log().WithError(err).Error("Error Creating an empty file")
 		return err
 	}
-	defer os.Remove(filename) // Remove the file after function return
+	defer os.Remove(file.Name()) // Remove the file after function return
 
 	// Set setuid bit with this command
-	cmd := exec.Command("chmod", "u+s", filename)
+	cmd := exec.Command("chmod", "u+s", file.Name())
 
 	if err := cmd.Run(); err != nil {
 		h.Log().WithError(err).Error("Error running chmod commad")
