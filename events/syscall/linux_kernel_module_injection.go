@@ -17,6 +17,7 @@ package syscall
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -25,38 +26,65 @@ var _ = events.Register(LinuxKernelModuleInjection)
 
 func LinuxKernelModuleInjection(h events.Helper) error {
 	if h.InContainer() {
-		// Shell script content
-		scriptContent := `#!/bin/bash
+		// Create a unique temp directory
+		tempDirectoryName, err := os.MkdirTemp("/home", "falco-event-generator-")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(tempDirectoryName)
 
-		# Run lsmod and pipe the output to awk to extract the first module name
-		module_name=$(lsmod | awk 'NR==2{print $1}')
+		// Create a c file and make file for building a kernel module
+		cFilePath := filepath.Join(tempDirectoryName, "basic_driver.c")
+		cFileContent := `#include <linux/init.h>
+		#include <linux/module.h>
+		#include <linux/uaccess.h>
+		#include <linux/fs.h>
+		#include <linux/proc_fs.h>
 		
-		# Run modinfo on the first module and grab the module path
-		file_path=$(modinfo "$module_name" | awk -F ': ' '/filename/ {print $2}')
+		// Module metadata
+		MODULE_AUTHOR("Falco");
+		MODULE_DESCRIPTION("Hello world driver for falco");
+		MODULE_LICENSE("GPL");
 		
-		# Run insmod with the module path
-		sudo insmod $file_path
+		static int __init custom_init(void) {
+			printk(KERN_INFO "Hello from Basic kernel module.");
+			return 0;
+		}
+		static void __exit custom_exit(void) {
+			printk(KERN_INFO "Exit the kernel module");
+		}
+		
+		module_init(custom_init);
+		module_exit(custom_exit);
 		`
 
-		scriptFileName := "temp_script.sh"
-		if err := os.WriteFile(scriptFileName, []byte(scriptContent), 0755); err != nil {
-			h.Log().WithError(err).Error("Error writing script file")
-			return err
-		}
-		defer os.Remove(scriptFileName) // Remove file after function return
-
-		// Set execute permission on script file
-		if err := os.Chmod(scriptFileName, 0755); err != nil {
-			h.Log().WithError(err).Error("Error setting execute permission on script file")
+		if err := os.WriteFile(cFilePath, []byte(cFileContent), 0644); err != nil {
 			return err
 		}
 
-		// Execute script file with its full path
-		cmd := exec.Command("./" + scriptFileName)
+		makefilePath := filepath.Join(tempDirectoryName, "Makefile")
+		makefileContent := `obj-m += basic_driver.o
+
+		all:
+			make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+		clean:
+			make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean`
+
+		if err := os.WriteFile(makefilePath, []byte(makefileContent), 0644); err != nil {
+			return err
+		}
+
+		// Run make command
+		cmd := exec.Command("make")
+		cmd.Dir = tempDirectoryName
 		if err := cmd.Run(); err != nil {
-			h.Log().WithError(err).Error("Error running script file")
 			return err
 		}
+
+		// Load kernel module with insmod
+		koFilePath := filepath.Join(tempDirectoryName, "basic_driver.ko")
+		defer exec.Command("rmmod", "basic_driver.ko") // Unload the kernel module at end
+		return exec.Command("insmod", koFilePath).Run()
 	}
 	return nil
 }
