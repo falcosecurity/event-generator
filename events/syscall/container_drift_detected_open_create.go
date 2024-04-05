@@ -27,10 +27,15 @@ var _ = events.Register(
 
 func ContainerDriftDetectedOpenCreate(h events.Helper) error {
 	if h.InContainer() {
-		const filename = "created-by-event-generator"
-		h.Log().Infof("writing to %s", filename)
-		defer os.Remove(filename)
-		return os.WriteFile(filename, nil, os.FileMode(0755)) // Also set execute permission
+		// Create a unique file under tmp dir
+		file, err := os.CreateTemp(os.TempDir(), "created-by-falco-event-generator-")
+		if err != nil {
+			h.Log().WithError(err).Error("Error Creating an empty file")
+			return err
+		}
+		defer os.Remove(file.Name()) // Remove the file after function return
+		h.Log().Infof("writing to %s", file.Name())
+		return os.WriteFile(file.Name(), nil, os.FileMode(0755)) // Also set execute permission
 	}
 	return nil
 }
