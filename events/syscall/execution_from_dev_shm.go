@@ -43,12 +43,8 @@ func ExecutionFromDevShm(h events.Helper) error {
 		defer os.RemoveAll("/dev/shm") // Remove /shm directory only
 	}
 
-	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0755); err != nil {
-		return err
-	}
-
 	// Set execute permission on the file
-	if err := exec.Command("chmod", "+x", scriptPath).Run(); err != nil {
+	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0755); err != nil {
 		return err
 	}
 
