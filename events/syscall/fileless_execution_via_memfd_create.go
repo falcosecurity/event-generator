@@ -27,31 +27,11 @@ import (
 var _ = events.Register(FilelessExecutionViaMemfdCreate)
 
 func FilelessExecutionViaMemfdCreate(h events.Helper) error {
-	sourceCode := `package main
-	import "fmt"
-	
-	func main() {
-		fmt.Println("Hello, world! This is a fileless execution example.")
-	}`
+	// Event-generator executable path
+	exePath := h.ExePath()
 
-	binaryPath := "/tmp/program"
-	err := os.WriteFile(binaryPath+".go", []byte(sourceCode), 0644)
-	if err != nil {
-		h.Log().WithError(err).Error("failed to write source code to file")
-		return err
-	}
-	defer os.Remove(binaryPath + ".go")
-
-	// Compile the Go source code into an executable binary
-	compileCmd := exec.Command("go", "build", "-o", binaryPath, binaryPath+".go")
-	if err := compileCmd.Run(); err != nil {
-		h.Log().WithError(err).Error("failed to compile Go code")
-		return err
-	}
-	defer os.Remove(binaryPath)
-
-	// Read the compiled binary into memory
-	binaryData, err := os.ReadFile(binaryPath)
+	// Read the event-generator executable into memory
+	binaryData, err := os.ReadFile(exePath)
 	if err != nil {
 		h.Log().WithError(err).Error("failed to read binary file")
 		return err
@@ -71,7 +51,7 @@ func FilelessExecutionViaMemfdCreate(h events.Helper) error {
 	defer unix.Close(fd)
 
 	// Execute the binary from memory
-	executeCmd := exec.Command("/proc/self/fd/" + fmt.Sprintf("%d", fd))
+	executeCmd := exec.Command("/proc/self/fd/"+fmt.Sprintf("%d", fd), "run", "helper.DoNothing")
 	if err := executeCmd.Run(); err != nil {
 		h.Log().WithError(err).Error("failed to execute binary from memory")
 		return err
