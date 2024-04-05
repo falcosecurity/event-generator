@@ -42,6 +42,7 @@ type helper struct {
 	hasLog  bool
 	builder *resource.Builder
 	cleanup func()
+	exePath string
 }
 
 func (h *helper) Log() *logger.Entry {
@@ -113,4 +114,8 @@ func (h *helper) Spawned() bool {
 
 func (h *helper) InContainer() bool {
 	return h.runner.inCnt
+}
+
+func (h *helper) ExePath() string {
+	return h.runner.exePath
 }

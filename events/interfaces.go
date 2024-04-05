@@ -59,6 +59,9 @@ type Helper interface {
 	// InContainer returns true if the application is running in a container.
 	// Useful to skip actions which won't work within a container.
 	InContainer() bool
+
+	// ExePath returns the path of the event-generator executable
+	ExePath() string
 }
 
 // An Action triggers an event.
