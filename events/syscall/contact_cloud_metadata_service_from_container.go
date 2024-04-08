@@ -37,6 +37,6 @@ func ContactCloudMetadataServiceFromContainer(h events.Helper) error {
         }
 
         h.Log().Infof("Outbound connection to cloud instance metadata service")
-	}
+    }
     return nil
 }
