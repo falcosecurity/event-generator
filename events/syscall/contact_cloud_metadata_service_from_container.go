@@ -29,7 +29,11 @@ var _ = events.Register(
 
 func ContactCloudMetadataServiceFromContainer(h events.Helper) error {
     if h.InContainer() {
-        //This event works on GCP, AWS, and Azure using the common link-local IP address 169.254.169.254.
+        // The IP address 169.254.169.254 is reserved for the Cloud Instance Metadata Service,
+        // a common endpoint used by cloud instances (GCP, AWS and Azure) to access
+        // metadata about the instance itself. Detecting attempts to communicate with this
+        // IP address from a container can indicate potential unauthorized access to
+        // sensitive cloud infrastructure metadata.
         cmd := exec.Command("timeout", "1s", "nc", "169.254.169.254", "80")
     
         if err := cmd.Run(); err != nil {
