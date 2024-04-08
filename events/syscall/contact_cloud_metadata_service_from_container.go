@@ -29,7 +29,7 @@ var _ = events.Register(
 
 func ContactCloudMetadataServiceFromContainer(h events.Helper) error {
     if h.InContainer() {
-        //this event can be use on GCP, AWS and Azure
+        // this event can be used on GCP, AWS and Azure
         cmd := exec.Command("timeout", "1s", "nc", "169.254.169.254", "80")
     
         if err := cmd.Run(); err != nil {
