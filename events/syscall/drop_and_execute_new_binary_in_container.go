@@ -25,28 +25,32 @@ var _ = events.Register(DropAndExecuteNewBinaryInContainer)
 
 func DropAndExecuteNewBinaryInContainer(h events.Helper) error {
 	if h.InContainer() {
-		binaryPath := "/tmp/created-by-event-generator"
-		exampleCode := `package main
-		func main() {}`
-
-		err := os.WriteFile(binaryPath+".go", []byte(exampleCode), 0644) // Create a sample .go file
+		// Find the path of the ls binary
+		lsPath, err := exec.LookPath("ls")
 		if err != nil {
-			h.Log().WithError(err).Error("failed to write source code to file")
+			h.Log().WithError(err).Error("ls binary not found")
 			return err
 		}
-		defer os.Remove(binaryPath + ".go") // Remove at end
 
-		// Compile the .go file into an executable binary
-		compileCmd := exec.Command("go", "build", "-o", binaryPath, binaryPath+".go")
-		if err := compileCmd.Run(); err != nil {
-			h.Log().WithError(err).Error("failed to compile Go code")
+		// Read the ls binary content
+		lsContent, err := os.ReadFile(lsPath)
+		if err != nil {
 			return err
 		}
-		defer os.Remove(binaryPath) // Remove at end
 
-		executeCmd := exec.Command(exampleCode)
+		// New binary which is duplicate of ls binary
+		newBinaryPath := "/bin/ls-created-by-event-generator"
+
+		err = os.WriteFile(newBinaryPath, lsContent, 0755)
+		if err != nil {
+			h.Log().WithError(err).Error("failed to create new file in /bin")
+			return err
+		}
+		defer os.Remove(newBinaryPath) // CleanUp
+
+		executeCmd := exec.Command(newBinaryPath)
 		h.Log().Info("Executed a binary not part of base image")
-		return executeCmd.Run()
+		executeCmd.Run() // Rule triggers even the command is not successful
 	}
 	return nil
 }
