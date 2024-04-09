@@ -42,6 +42,21 @@ var _ = events.Register(
 )
 ```
 
+### Handling Unsupported Contexts/Prerequisites
+
+When developing actions for the event-generator, it's essential to consider whether the action is applicable to the current execution context. For example, certain actions might be intended to run exclusively within containers or specific environments. Actions that require a specific context or prerequisite to execute successfully should skip the action by return events.ErrSkipped when the necessary conditions are not met For example:
+
+```golang
+func UserMgmtBinaries(h events.Helper) error { 
+ 	if h.InContainer() { 
+ 		return &events.ErrSkipped{ 
+ 			Reason: "'User mgmt binaries' is excluded in containers", 
+ 		} 
+ 	} 
+	return h.SpawnAsWithSymlink("vipw", "helper.ExecLs") 
+} 
+```
+
 ### Behavior
 Running an *action* should be an idempotent operation in the sense that it should not have additional effects if it is called more than once.
 For this reason, *actions* should revert any operation that changed the state of the system (eg. if a file is created, then it has to be removed). For example:
