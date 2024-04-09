@@ -32,13 +32,16 @@ func kubernetesClientToolLaunchedInContainer(h events.Helper) error {
 	if h.InContainer() {
 		kubectl, err := exec.LookPath("kubectl")
 		if err != nil {
-			h.Log().Warnf("kubectl is needed to launch this action")
-			return err
+			return &events.ErrSkipped{
+				Reason: "kubectl is needed to launch this action",
+			}
 		}
 
 		cmd := exec.Command(kubectl)
 		h.Log().Infof("Kubernetes Client Tool Launched In Container")
 		return cmd.Run()
 	}
-	return nil
+	return &events.ErrSkipped{
+		Reason: "'Kubernetes Client Tool Launched In Container' is applicable only to containers.",
+	}
 }

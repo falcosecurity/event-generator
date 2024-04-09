@@ -29,8 +29,9 @@ var _ = events.Register(
 func ProgramRunWithDisallowedHttpProxyEnv(h events.Helper) error {
 	curl, err := exec.LookPath("curl")
 	if err != nil {
-		h.Log().Warnf("Curl is needed to launch this action")
-		return err
+		return &events.ErrSkipped{
+			Reason: "curl utility is needed to launch this action",
+		}
 	}
 	cmd := exec.Command(curl, "http://example.com")
 	cmd.Env = os.Environ()

@@ -15,28 +15,29 @@ limitations under the License.
 package syscall
 
 import (
-    "os/exec"
+	"os/exec"
 
-    "github.com/falcosecurity/event-generator/events"
+	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ = events.Register(
-    LaunchRemoteFileCopyToolsInContainer,
-    events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
+	LaunchRemoteFileCopyToolsInContainer,
+	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
 func LaunchRemoteFileCopyToolsInContainer(h events.Helper) error {
-    if h.InContainer() {
-        // Launch a remote file copy tool (e.g., scp) within the container
-        cmd := exec.Command("scp")
+	if h.InContainer() {
+		// Launch a remote file copy tool (e.g., scp) within the container
+		cmd := exec.Command("scp")
 
-        h.Log().Info("Remote file copy tool launched in container")
-        err := cmd.Run()
-        if err != nil {
-            h.Log().WithError(err).Error("Failed to launch remote file copy tool")
-            return err
-        }
-    }
-
-    return nil
+		h.Log().Info("Remote file copy tool launched in container")
+		err := cmd.Run()
+		if err != nil {
+			h.Log().WithError(err).Error("Failed to launch remote file copy tool")
+			return err
+		}
+	}
+	return &events.ErrSkipped{
+		Reason: "'Launch Remote File Copy Tools In Container' is applicable only to containers.",
+	}
 }

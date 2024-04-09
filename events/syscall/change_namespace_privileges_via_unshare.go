@@ -18,25 +18,27 @@ limitations under the License.
 package syscall
 
 import (
-    "os/exec"
+	"os/exec"
 
-    "github.com/falcosecurity/event-generator/events"
+	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ = events.Register(
 	ChangeNamespacePrivilegesViaUnshare,
-        events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
+	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
 func ChangeNamespacePrivilegesViaUnshare(h events.Helper) error {
-    if h.InContainer() {
-        cmd := exec.Command("unshare")
-        
-        h.Log().Infof("Change namespace privileges via unshare")
+	if h.InContainer() {
+		cmd := exec.Command("unshare")
 
-        if err := cmd.Run(); err != nil {
-            return err
-        }
+		h.Log().Infof("Change namespace privileges via unshare")
+
+		if err := cmd.Run(); err != nil {
+			return err
+		}
 	}
-    return nil
+	return &events.ErrSkipped{
+		Reason: "'Change Namespace Privileges Via Unshare' is applicable only to containers.",
+	}
 }

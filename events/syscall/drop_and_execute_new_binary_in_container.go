@@ -28,8 +28,9 @@ func DropAndExecuteNewBinaryInContainer(h events.Helper) error {
 		// Find the path of the ls binary
 		lsPath, err := exec.LookPath("ls")
 		if err != nil {
-			h.Log().WithError(err).Error("ls binary not found")
-			return err
+			return &events.ErrSkipped{
+				Reason: "ls utility not found in path",
+			}
 		}
 
 		// Read the ls binary content
@@ -52,5 +53,7 @@ func DropAndExecuteNewBinaryInContainer(h events.Helper) error {
 		h.Log().Info("Executed a binary not part of base image")
 		executeCmd.Run() // Rule triggers even the command is not successful
 	}
-	return nil
+	return &events.ErrSkipped{
+		Reason: "'Drop And Execute New Binary In Container' is applicable only to containers.",
+	}
 }

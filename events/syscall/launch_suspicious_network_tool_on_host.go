@@ -15,26 +15,27 @@ limitations under the License.
 package syscall
 
 import (
-    "os/exec"
+	"os/exec"
 
-    "github.com/falcosecurity/event-generator/events"
+	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ = events.Register(LaunchSuspiciousNetworkToolOnHost)
 
 func LaunchSuspiciousNetworkToolOnHost(h events.Helper) error {
-    nmap, err := exec.LookPath("nmap")
-    if err != nil {
-      h.Log().Warnf("nmap is needed to launch this action")
-      return err
-    }
-    
-    cmd := exec.Command(nmap, "-sn", "192.168.1.0/24")
-    h.Log().Infof("Network tool launched in host")
+	nmap, err := exec.LookPath("nmap")
+	if err != nil {
+		return &events.ErrSkipped{
+			Reason: "nmap utility is needed to launch this action ",
+		}
+	}
 
-    if err := cmd.Run(); err != nil {
-        return err
-    }
+	cmd := exec.Command(nmap, "-sn", "192.168.1.0/24")
+	h.Log().Infof("Network tool launched in host")
 
-    return nil
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	return nil
 }

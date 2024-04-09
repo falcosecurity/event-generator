@@ -40,5 +40,7 @@ func ContainerDriftDetcted(h events.Helper) error {
 			return err
 		}
 	}
-	return nil
+	return &events.ErrSkipped{
+		Reason: "'Container Drift Detected (chmod)' is applicable only to containers.",
+	}
 }
