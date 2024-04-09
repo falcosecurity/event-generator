@@ -18,29 +18,32 @@ limitations under the License.
 package syscall
 
 import (
-    "os/exec"
-    "github.com/falcosecurity/event-generator/events"
+	"os/exec"
+
+	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ = events.Register(
-    ContactCloudMetadataServiceFromContainer,
-    events.WithDisabled(), // this rule is not included in falco_rules.yaml (stable rules), so disable the action
+	ContactCloudMetadataServiceFromContainer,
+	events.WithDisabled(), // this rule is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
 func ContactCloudMetadataServiceFromContainer(h events.Helper) error {
-    if h.InContainer() {
-        // The IP address 169.254.169.254 is reserved for the Cloud Instance Metadata Service,
-        // a common endpoint used by cloud instances (GCP, AWS and Azure) to access
-        // metadata about the instance itself. Detecting attempts to communicate with this
-        // IP address from a container can indicate potential unauthorized access to
-        // sensitive cloud infrastructure metadata.
-        cmd := exec.Command("timeout", "1s", "nc", "169.254.169.254", "80")
-    
-        if err := cmd.Run(); err != nil {
-            return err
-        }
+	if h.InContainer() {
+		// The IP address 169.254.169.254 is reserved for the Cloud Instance Metadata Service,
+		// a common endpoint used by cloud instances (GCP, AWS and Azure) to access
+		// metadata about the instance itself. Detecting attempts to communicate with this
+		// IP address from a container can indicate potential unauthorized access to
+		// sensitive cloud infrastructure metadata.
+		cmd := exec.Command("timeout", "1s", "nc", "169.254.169.254", "80")
 
-        h.Log().Infof("Outbound connection to cloud instance metadata service")
-    }
-    return nil
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+
+		h.Log().Infof("Outbound connection to cloud instance metadata service")
+	}
+	return &events.ErrSkipped{
+		Reason: "'Contact Cloud Metadata Service From Container' is applicable only to containers.",
+	}
 }

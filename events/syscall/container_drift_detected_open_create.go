@@ -37,5 +37,7 @@ func ContainerDriftDetectedOpenCreate(h events.Helper) error {
 		h.Log().Infof("writing to %s", file.Name())
 		return os.WriteFile(file.Name(), nil, os.FileMode(0755)) // Also set execute permission
 	}
-	return nil
+	return &events.ErrSkipped{
+		Reason: "'Container Drift Detected (open+create)' is applicable only to containers.",
+	}
 }

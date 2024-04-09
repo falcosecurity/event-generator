@@ -46,5 +46,7 @@ func LaunchPackageManagementProcessInContainer(h events.Helper) error {
 		cmd := exec.Command("apt-get")
 		return cmd.Run()
 	}
-	return nil
+	return &events.ErrSkipped{
+		Reason: "'Launch Package Management Process In Container' is applicable only to containers.",
+	}
 }

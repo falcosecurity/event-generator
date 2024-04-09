@@ -15,28 +15,29 @@ limitations under the License.
 package syscall
 
 import (
-    "os/exec"
-    "syscall"
+	"os/exec"
+	"syscall"
 
-    "github.com/falcosecurity/event-generator/events"
+	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ = events.Register(DebugfsLaunchedInPrivilegedContainer)
 
 func DebugfsLaunchedInPrivilegedContainer(h events.Helper) error {
-    if h.InContainer() {
-        cmd := exec.Command("debugfs")
-        cmd.SysProcAttr = &syscall.SysProcAttr{
-            Cloneflags: syscall.CLONE_NEWNS | syscall.CLONE_NEWUSER,
-        }
+	if h.InContainer() {
+		cmd := exec.Command("debugfs")
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Cloneflags: syscall.CLONE_NEWNS | syscall.CLONE_NEWUSER,
+		}
 
-        h.Log().Info("Debugfs launched started in a privileged container")
-        err := cmd.Run()
-        if err != nil {
-            h.Log().WithError(err).Error("Failed to launch debugfs")
-            return err
-        }
-    }
-
-    return nil
+		h.Log().Info("Debugfs launched started in a privileged container")
+		err := cmd.Run()
+		if err != nil {
+			h.Log().WithError(err).Error("Failed to launch debugfs")
+			return err
+		}
+	}
+	return &events.ErrSkipped{
+		Reason: "'Debugfs Launched in Privileged Container' is applicable only to containers.",
+	}
 }

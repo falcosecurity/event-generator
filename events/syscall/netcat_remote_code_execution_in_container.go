@@ -15,24 +15,25 @@ limitations under the License.
 package syscall
 
 import (
-    "os/exec"
+	"os/exec"
 
-    "github.com/falcosecurity/event-generator/events"
+	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ = events.Register(NetcatRemoteCodeExecutionInContainer)
 
 func NetcatRemoteCodeExecutionInContainer(h events.Helper) error {
-    if h.InContainer() {
-        // Launch netcat (nc) with the -e flag for remote code execution
-        cmd := exec.Command("nc", "-e")
+	if h.InContainer() {
+		// Launch netcat (nc) with the -e flag for remote code execution
+		cmd := exec.Command("nc", "-e")
 
-        h.Log().Info("Netcat runs inside container that allows remote code execution")
-        err := cmd.Run()
-        if err != nil {
-            return err
-        }
-    } 
-
-    return nil
+		h.Log().Info("Netcat runs inside container that allows remote code execution")
+		err := cmd.Run()
+		if err != nil {
+			return err
+		}
+	}
+	return &events.ErrSkipped{
+		Reason: "'Netcat Remote Code Execution In Container' is applicable only to containers.",
+	}
 }

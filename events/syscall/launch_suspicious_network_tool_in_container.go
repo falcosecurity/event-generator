@@ -15,26 +15,27 @@ limitations under the License.
 package syscall
 
 import (
-    "os/exec"
+	"os/exec"
 
-    "github.com/falcosecurity/event-generator/events"
+	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ = events.Register(
-    LaunchSuspiciousNetworkToolInContainer,
-    events.WithDisabled(), // this rule is not included in falco_rules.yaml (stable rules), so disable the action
+	LaunchSuspiciousNetworkToolInContainer,
+	events.WithDisabled(), // this rule is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
 func LaunchSuspiciousNetworkToolInContainer(h events.Helper) error {
-    if h.InContainer() {
-        cmd := exec.Command("nmap", "-sn", "192.168.1.0/24")
+	if h.InContainer() {
+		cmd := exec.Command("nmap", "-sn", "192.168.1.0/24")
 
-        h.Log().Infof("Network tool launched in container")
+		h.Log().Infof("Network tool launched in container")
 
-        if err := cmd.Run(); err != nil {
-            return err
-        }
-    }
-
-    return nil
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+	}
+	return &events.ErrSkipped{
+		Reason: "'Launch Suspicious Network Tool In Container' is applicable only to containers.",
+	}
 }

@@ -33,5 +33,7 @@ func LaunchIngressRemoteFileCopyToolsInsideContainer(h events.Helper) error {
 		cmd := exec.Command("wget")
 		return cmd.Run()
 	}
-	return nil
+	return &events.ErrSkipped{
+		Reason: "'Launch Ingress Remote File Copy Tools Inside Container' is applicable only to containers.",
+	}
 }
