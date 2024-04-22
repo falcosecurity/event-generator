@@ -29,7 +29,7 @@ func ExecutionFromDevShm(h events.Helper) error {
 
 	// Check if /dev exists
 	if _, err := os.Stat("/dev"); os.IsNotExist(err) {
-		if err := os.Mkdir("/dev/shm", 0755); err != nil {
+		if err := os.Mkdir("/dev", 0755); err != nil {
 			return err
 		}
 		defer os.RemoveAll("/dev") // Remove dev directory
