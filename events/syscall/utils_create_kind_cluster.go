@@ -37,7 +37,7 @@ func createKindCluster() (string, error) {
 	}
 	tempDir, _ := os.MkdirTemp("", "kind-cluster")
 	kubeConfigPath := filepath.Join(tempDir, "kind-kubeconfig")
-	cmd := exec.Command("kind", "create", "cluster", "--kubeconfig", kubeConfigPath)
+	cmd := exec.Command("kind", "create", "cluster", "--name", "cluster-created-by-event-generator", "--kubeconfig", kubeConfigPath)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
 		os.RemoveAll(tempDir)
