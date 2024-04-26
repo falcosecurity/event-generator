@@ -20,7 +20,7 @@ import (
 )
 
 func deleteKindCluster() error {
-	cmd := exec.Command("kind", "delete", "cluster")
+	cmd := exec.Command("kind", "delete", "cluster", "--name", "cluster-created-by-event-generator")
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	cmd.Run()
 	return nil
