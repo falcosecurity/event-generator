@@ -16,8 +16,6 @@ package syscall
 
 import (
 	"net"
-	"os"
-	"syscall"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -52,19 +50,4 @@ func RedirectStdoutStdinFromContainer(h events.Helper) error {
 	return &events.ErrSkipped{
 		Reason: "'Redirect Stdout/Stdin From Container' is applicable only to containers.",
 	}
-}
-
-func redirectStdout(conn net.Conn) error {
-	// Duplicate the file descriptor of the network connection
-	remoteFile, _ := conn.(*net.TCPConn).File()
-	defer remoteFile.Close()
-
-	// Duplicate the file descriptor of stdout
-	stdoutFile := os.Stdout.Fd()
-
-	// Redirect stdout to the network connection using dup2
-	if err := syscall.Dup2(int(remoteFile.Fd()), int(stdoutFile)); err != nil {
-		return err
-	}
-	return nil
 }
