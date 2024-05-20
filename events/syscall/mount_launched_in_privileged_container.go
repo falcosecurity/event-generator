@@ -29,7 +29,8 @@ func MountLaunchedInPrivilegedContainer(h events.Helper) error {
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Cloneflags: syscall.CLONE_NEWNS | syscall.CLONE_NEWUSER,
 		}
-		return cmd.Run() // This command will give a run time error, but enough to trigger the rule
+		_ = cmd.Run() // This command will give a run time error, but enough to trigger the rule
+		return nil
 	}
 	return &events.ErrSkipped{
 		Reason: "'Mount Launched In Privileged Container' is applicable only to privileged containers.",
