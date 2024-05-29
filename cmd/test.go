@@ -17,6 +17,7 @@ package cmd
 import (
 
 	// register event collections
+
 	"time"
 
 	"github.com/falcosecurity/event-generator/pkg/runner"

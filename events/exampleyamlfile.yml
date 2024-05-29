@@ -1,0 +1,21 @@
+tests:
+  - rule: WriteBelowRoot
+    runner: HostRunner
+    before: ""
+    steps:
+      - syscall: "write"
+        args:
+          filepath: "/root/created-by-event-generator"
+          content: ""
+    after: "rm -f /root/created-by-event-generator"
+
+  - rule: WriteBelowEtc
+    runner: HostRunner
+    before: ""
+    steps:
+      - syscall: "write"
+        args:
+          filepath: "/etc/created-by-event-generator"
+          content: ""
+    after: "rm -f /etc/created-by-event-generator"
+

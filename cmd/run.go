@@ -44,6 +44,7 @@ func NewRun() *cobra.Command {
 	c.RunE = func(c *cobra.Command, args []string) error {
 		return runEWithOpts(c, args)
 	}
+	c.AddCommand(NewDeclarative())
 	return c
 }
 
