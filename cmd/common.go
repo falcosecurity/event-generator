@@ -16,12 +16,29 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 
 	"github.com/falcosecurity/client-go/pkg/client"
 	"github.com/falcosecurity/event-generator/events"
+	"github.com/falcosecurity/event-generator/pkg/declarative"
 	"github.com/spf13/pflag"
+	"gopkg.in/yaml.v2"
 )
+
+// This function parses the yaml file given and returns the tests data int it
+func parseYamlFile(filepath string) (declarative.Tests, error) {
+	data, err := os.ReadFile(filepath)
+	if err != nil {
+		return declarative.Tests{}, fmt.Errorf("an error occurred while parsing file %s: %w", filepath, err)
+	}
+	var tests declarative.Tests
+	err = yaml.Unmarshal(data, &tests)
+	if err != nil {
+		return declarative.Tests{}, fmt.Errorf("an error occurred while unmarshalling yaml data: %w", err)
+	}
+	return tests, nil
+}
 
 func parseEventsArg(arg string) (map[string]events.Action, error) {
 	reg, err := regexp.Compile(arg)
