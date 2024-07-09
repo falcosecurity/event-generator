@@ -72,6 +72,9 @@ func runTestSteps(test declarative.Test) error {
 	switch test.Runner {
 	case "HostRunner":
 		runner = &declarative.Hostrunner{}
+	case "ContainerRunner":
+		// spawn an alpine container
+		runner = &declarative.Containerrunner{Image: "alpine"}
 	default:
 		return fmt.Errorf("unsupported runner: %v", test.Runner)
 	}
