@@ -18,4 +18,10 @@ tests:
           filepath: "/etc/created-by-event-generator"
           content: ""
     after: "rm -f /etc/created-by-event-generator"
+  
+  - rule: LaunchIngressRemoteFileCopyToolsInsideContainer
+    runner: ContainerRunner
+    before: "wget"
+    steps: 
+    after: ""
 
