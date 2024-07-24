@@ -15,6 +15,7 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/falcosecurity/event-generator/pkg/declarative"
@@ -67,33 +68,34 @@ func NewDeclarative() *cobra.Command {
 // runTestSteps executes the steps, before and after scripts defined in the test.
 func runTestSteps(test declarative.Test) error {
 	var runner declarative.Runner
+	var ctx context.Context
 
 	// Assign a runner based on test.Runner value
 	switch test.Runner {
 	case "HostRunner":
 		runner = &declarative.Hostrunner{}
+		ctx = context.TODO()
 	case "ContainerRunner":
 		// spawn an alpine container
-		runner = &declarative.Containerrunner{Image: "alpine"}
+		runner = &declarative.Containerrunner{Image: "golang"}
+		ctx = context.Background()
 	default:
 		return fmt.Errorf("unsupported runner: %v", test.Runner)
 	}
 
 	// Execute the "Before" script.
-	if err := runner.Setup(test.Before); err != nil {
+	if err := runner.Setup(ctx, test.Before); err != nil {
 		return err
 	}
 
 	// Execute each step in the test.
-	for _, step := range test.Steps {
-		err := runner.ExecuteStep(step)
-		if err != nil {
-			return fmt.Errorf("error executing steps for the rule %v : %v", test.Rule, err)
-		}
+	err := runner.ExecuteStep(ctx, test)
+	if err != nil {
+		return fmt.Errorf("error executing steps for the rule %v : %v", test.Rule, err)
 	}
 
 	// Execute the "After" script.
-	if err := runner.Cleanup(test.After); err != nil {
+	if err := runner.Cleanup(ctx, test.After); err != nil {
 		return err
 	}
 	return nil
