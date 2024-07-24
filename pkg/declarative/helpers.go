@@ -15,10 +15,49 @@ limitations under the License.
 package declarative
 
 import (
+	"archive/tar"
+	"bytes"
 	"fmt"
+	"io"
+	"os"
 
 	"golang.org/x/sys/unix"
 )
+
+// It creates a tar reader for the file in given path.
+func CreateTarReader(filePath string) (io.Reader, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("error opening file: %v", err)
+	}
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		file.Close()
+		return nil, fmt.Errorf("error getting file info: %v", err)
+	}
+
+	// Create a tar archive in memory
+	tarBuffer := new(bytes.Buffer)
+	tw := tar.NewWriter(tarBuffer)
+	defer tw.Close()
+
+	header := &tar.Header{
+		Name: fileInfo.Name(),
+		Mode: 0755,
+		Size: fileInfo.Size(),
+	}
+
+	if err := tw.WriteHeader(header); err != nil {
+		return nil, fmt.Errorf("error writing tar header: %v", err)
+	}
+
+	if _, err := io.Copy(tw, file); err != nil {
+		return nil, fmt.Errorf("error copying file to tar writer: %v", err)
+	}
+
+	return tarBuffer, nil
+}
 
 func WriteSyscall(filepath string, content string) error {
 	// Open the file using unix.Open syscall

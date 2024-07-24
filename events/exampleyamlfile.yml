@@ -21,7 +21,6 @@ tests:
   
   - rule: LaunchIngressRemoteFileCopyToolsInsideContainer
     runner: ContainerRunner
-    before: "wget"
+    before: "wget example.com"
     steps: 
     after: ""
-
