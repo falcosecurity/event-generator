@@ -15,9 +15,17 @@ limitations under the License.
 package declarative
 
 // Yaml file structure
+type Args struct {
+	Dirfd    *int    `yaml:"dirfd,omitempty"`
+	Filepath *string `yaml:"filepath,omitempty"`
+	Flags    *int    `yaml:"flag,omitempty"`
+	Mode     *uint32 `yaml:"mode,omitempty"`
+	Resolve  *uint64 `yaml:"resolve,omitempty"`
+}
+
 type SyscallStep struct {
-	Syscall string            `yaml:"syscall"`
-	Args    map[string]string `yaml:"args"`
+	Syscall string `yaml:"syscall"`
+	Args    Args   `yaml:"args"`
 }
 
 type Test struct {

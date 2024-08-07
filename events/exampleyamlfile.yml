@@ -1,23 +1,14 @@
 tests:
-  - rule: WriteBelowRoot
+  - rule: DirectoryTraversalMonitoredFileRead
     runner: HostRunner
     before: ""
     steps:
-      - syscall: "write"
+      - syscall: "open"
         args:
-          filepath: "/root/created-by-event-generator"
-          content: ""
-    after: "rm -f /root/created-by-event-generator"
-
-  - rule: WriteBelowEtc
-    runner: HostRunner
-    before: ""
-    steps:
-      - syscall: "write"
-        args:
-          filepath: "/etc/created-by-event-generator"
-          content: ""
-    after: "rm -f /etc/created-by-event-generator"
+          filepath: "/etc/../etc/../etc/shadow"
+          flag: 0
+          mode: 0655
+    after: ""
   
   - rule: LaunchIngressRemoteFileCopyToolsInsideContainer
     runner: ContainerRunner
