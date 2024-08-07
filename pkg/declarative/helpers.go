@@ -88,3 +88,27 @@ func Openat2Syscall(dirfd int, filepath string, flags int, mode uint32, resolve 
 	}
 	return fd, nil
 }
+
+func ExecveSyscall(exepath string, cmnd []string, envv []string) error {
+	return unix.Exec(exepath, cmnd, envv)
+}
+
+func ConnectSyscall(sockfd int, socketAddr unix.Sockaddr) error {
+	return unix.Connect(sockfd, socketAddr)
+}
+
+func SocketSyscall(domain int, socktype int, protocol int) (int, error) {
+	fd, err := unix.Socket(domain, socktype, protocol)
+	if err != nil {
+		return -1, fmt.Errorf("error creating a socket: %v", err)
+	}
+	return fd, nil
+}
+
+func SymlinkSyscall(oldpath string, newpath string) error {
+	return unix.Symlink(oldpath, newpath)
+}
+
+func LinkSyscall(oldpath string, newpath string) error {
+	return unix.Link(oldpath, newpath)
+}

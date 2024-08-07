@@ -50,6 +50,31 @@ func (r *Hostrunner) ExecuteStep(ctx context.Context, test Test) error {
 			if err != nil {
 				return fmt.Errorf("openat2 syscall failed with error: %v", err)
 			}
+		case "execve":
+			err := ExecveSyscall(*step.Args.Exepath, *step.Args.Cmnd, *step.Args.Envv)
+			if err != nil {
+				return fmt.Errorf("execve syscall failed with error: %v", err)
+			}
+		case "connect":
+			err := ConnectSyscall(*step.Args.Sockfd, *step.Args.Sockaddr)
+			if err != nil {
+				return fmt.Errorf("connect syscall failed with error: %v", err)
+			}
+		case "socket":
+			_, err := SocketSyscall(*step.Args.Domain, *step.Args.SockType, *step.Args.Protocol)
+			if err != nil {
+				return fmt.Errorf("socket syscall failed with error: %v", err)
+			}
+		case "symlink":
+			err := SymlinkSyscall(*step.Args.Oldpath, *step.Args.Newpath)
+			if err != nil {
+				return fmt.Errorf("symlink syscall failed with error: %v", err)
+			}
+		case "link":
+			err := LinkSyscall(*step.Args.Oldpath, *step.Args.Newpath)
+			if err != nil {
+				return fmt.Errorf("link syscall failed with error: %v", err)
+			}
 		default:
 			return fmt.Errorf("unsupported syscall: %s", step.Syscall)
 		}

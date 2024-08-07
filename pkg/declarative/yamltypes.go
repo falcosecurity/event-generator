@@ -14,13 +14,34 @@ limitations under the License.
 
 package declarative
 
+import "golang.org/x/sys/unix"
+
 // Yaml file structure
 type Args struct {
+	// For open, openat, openat2 syscalls
 	Dirfd    *int    `yaml:"dirfd,omitempty"`
 	Filepath *string `yaml:"filepath,omitempty"`
 	Flags    *int    `yaml:"flag,omitempty"`
 	Mode     *uint32 `yaml:"mode,omitempty"`
 	Resolve  *uint64 `yaml:"resolve,omitempty"`
+
+	// For execve syscall
+	Exepath *string   `yaml:"exepath,omitempty"`
+	Cmnd    *[]string `yaml:"cmnd,omitempty"`
+	Envv    *[]string `yaml:"envv,omitempty"`
+
+	// For connect syscall
+	Sockfd   *int           `yaml:"sockfd,omitempty"`
+	Sockaddr *unix.Sockaddr `yaml:"sockaddr,omitempty"`
+
+	// For socket syscall
+	Domain   *int `yaml:"domain,omitempty"`
+	SockType *int `yaml:"socktype,omitempty"`
+	Protocol *int `yaml:"protocol,omitempty"`
+
+	// For symlink and link syscalls
+	Oldpath *string `yaml:"oldpath,omitempty"`
+	Newpath *string `yaml:"newpath,omitempty"`
 }
 
 type SyscallStep struct {
