@@ -59,18 +59,32 @@ func CreateTarReader(filePath string) (io.Reader, error) {
 	return tarBuffer, nil
 }
 
-func WriteSyscall(filepath string, content string) error {
-	// Open the file using unix.Open syscall
-	fd, err := unix.Open(filepath, unix.O_WRONLY|unix.O_CREAT, 0644)
+func OpenSyscall(filepath string, flags int, mode uint32) (int, error) {
+	fd, err := unix.Open(filepath, flags, mode)
 	if err != nil {
-		return fmt.Errorf("error opening file: %v", err)
+		return -1, fmt.Errorf("error opening file: %v", err)
 	}
-	defer unix.Close(fd)
+	return fd, nil
+}
 
-	// Write to the file using unix.Write
-	_, err = unix.Write(fd, []byte(content))
+func OpenatSyscall(dirfd int, filepath string, flags int, mode uint32) (int, error) {
+	fd, err := unix.Openat(dirfd, filepath, flags, mode)
 	if err != nil {
-		return fmt.Errorf("error writing to file: %v", err)
+		return -1, fmt.Errorf("error opening file: %v", err)
 	}
-	return nil
+	return fd, nil
+}
+
+func Openat2Syscall(dirfd int, filepath string, flags int, mode uint32, resolve uint64) (int, error) {
+	how := &unix.OpenHow{
+		Flags:   uint64(flags),
+		Mode:    uint64(mode),
+		Resolve: resolve,
+	}
+
+	fd, err := unix.Openat2(dirfd, filepath, how)
+	if err != nil {
+		return -1, fmt.Errorf("error opening file: %v", err)
+	}
+	return fd, nil
 }
