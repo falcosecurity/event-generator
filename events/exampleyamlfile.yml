@@ -7,9 +7,62 @@ tests:
         args:
           filepath: "/etc/../etc/../etc/shadow"
           flag: 0
-          mode: 0655
+          mode: 0644
+    after: ""
+
+  - rule: ReadSensitiveFileUntrusted
+    runner: HostRunner
+    before: ""
+    steps:
+      - syscall: "open"
+        args:
+          filepath: "/etc/shadow"
+          flag: 0
+          mode: 0644
+    after: ""
+
+  - rule: ReadSensitiveFileTrustedAfterStartup
+    runner: HostRunner
+    before: ""
+    steps:
+      - syscall: "open"
+        args:
+          filepath: "/etc/shadow"
+          flag: 0
+          mode: 0644
     after: ""
   
+  - rule: ClearLogActivities
+    runner: HostRunner
+    before: "mkdir /tmp/created-by-event-generator && touch /tmp/created-by-event-generator/syslog"
+    steps:
+      - syscall: "open"
+        args:
+          filepath: "/tmp/created-by-event-generator/syslog"
+          flag: 513
+          mode: 0644
+    after: "rm -rf /tmp/created-by-event-generator"
+
+  - rule: CreateSymlinkOverSensitiveFiles
+    runner: HostRunner
+    before: "mkdir /created-by-event-generator"
+    steps:
+      - syscall: "symlink"
+        args:
+          oldpath: "/etc"
+          newpath: "/created-by-event-generator/newpath"
+    after: "rm /created-by-event-generator/newpath && rmdir /created-by-event-generator"
+
+  - rule: CreateHardlinkOverSensitiveFiles
+    runner: HostRunner
+    before: "mkdir /created-by-event-generator"
+    steps:
+      - syscall: "link"
+        args:
+          oldpath: "/etc/shadow"
+          newpath: "/created-by-event-generator/newpath"
+    after: "rm /created-by-event-generator/newpath && rmdir /created-by-event-generator"
+
   - rule: LaunchIngressRemoteFileCopyToolsInsideContainer
     runner: ContainerRunner
     before: "wget example.com"
