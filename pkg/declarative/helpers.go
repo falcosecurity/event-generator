@@ -59,18 +59,68 @@ func CreateTarReader(filePath string) (io.Reader, error) {
 	return tarBuffer, nil
 }
 
-func WriteSyscall(filepath string, content string) error {
-	// Open the file using unix.Open syscall
-	fd, err := unix.Open(filepath, unix.O_WRONLY|unix.O_CREAT, 0644)
+func OpenSyscall(filepath string, flags int, mode uint32) (int, error) {
+	fd, err := unix.Open(filepath, flags, mode)
 	if err != nil {
-		return fmt.Errorf("error opening file: %v", err)
+		return -1, fmt.Errorf("error opening file: %v", err)
 	}
-	defer unix.Close(fd)
+	return fd, nil
+}
 
-	// Write to the file using unix.Write
-	_, err = unix.Write(fd, []byte(content))
+func OpenatSyscall(dirfd int, filepath string, flags int, mode uint32) (int, error) {
+	fd, err := unix.Openat(dirfd, filepath, flags, mode)
 	if err != nil {
-		return fmt.Errorf("error writing to file: %v", err)
+		return -1, fmt.Errorf("error opening file: %v", err)
 	}
-	return nil
+	return fd, nil
+}
+
+func Openat2Syscall(dirfd int, filepath string, flags int, mode uint32, resolve uint64) (int, error) {
+	how := &unix.OpenHow{
+		Flags:   uint64(flags),
+		Mode:    uint64(mode),
+		Resolve: resolve,
+	}
+
+	fd, err := unix.Openat2(dirfd, filepath, how)
+	if err != nil {
+		return -1, fmt.Errorf("error opening file: %v", err)
+	}
+	return fd, nil
+}
+
+func ExecveSyscall(exepath string, cmnd []string, envv []string) error {
+	return unix.Exec(exepath, cmnd, envv)
+}
+
+func ConnectSyscall(sockfd int, socketAddr unix.Sockaddr) error {
+	return unix.Connect(sockfd, socketAddr)
+}
+
+func SocketSyscall(domain int, socktype int, protocol int) (int, error) {
+	fd, err := unix.Socket(domain, socktype, protocol)
+	if err != nil {
+		return -1, fmt.Errorf("error creating a socket: %v", err)
+	}
+	return fd, nil
+}
+
+func SymlinkSyscall(oldpath string, newpath string) error {
+	return unix.Symlink(oldpath, newpath)
+}
+
+func LinkSyscall(oldpath string, newpath string) error {
+	return unix.Link(oldpath, newpath)
+}
+
+func DupSyscall(oldfd int) (int, error) {
+	newfd, err := unix.Dup(oldfd)
+	if err != nil {
+		return -1, err
+	}
+	return newfd, nil
+}
+
+func PtraceSyscall(pid int, signal int) error {
+	return unix.PtraceSyscall(pid, signal)
 }

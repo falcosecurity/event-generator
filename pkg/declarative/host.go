@@ -35,9 +35,55 @@ func (r *Hostrunner) ExecuteStep(ctx context.Context, test Test) error {
 	steps := test.Steps
 	for _, step := range steps {
 		switch step.Syscall {
-		case "write":
-			if err := WriteSyscall(step.Args["filepath"], step.Args["content"]); err != nil {
-				return fmt.Errorf("write syscall failed with error: %v", err)
+		case "open":
+			_, err := OpenSyscall(*step.Args.Filepath, *step.Args.Flags, *step.Args.Mode)
+			if err != nil {
+				return fmt.Errorf("open syscall failed with error: %v", err)
+			}
+		case "openat":
+			_, err := OpenatSyscall(*step.Args.Dirfd, *step.Args.Filepath, *step.Args.Flags, *step.Args.Mode)
+			if err != nil {
+				return fmt.Errorf("openat syscall failed with error: %v", err)
+			}
+		case "openat2":
+			_, err := Openat2Syscall(*step.Args.Dirfd, *step.Args.Filepath, *step.Args.Flags, *step.Args.Mode, *step.Args.Resolve)
+			if err != nil {
+				return fmt.Errorf("openat2 syscall failed with error: %v", err)
+			}
+		case "execve":
+			err := ExecveSyscall(*step.Args.Exepath, *step.Args.Cmnd, *step.Args.Envv)
+			if err != nil {
+				return fmt.Errorf("execve syscall failed with error: %v", err)
+			}
+		case "connect":
+			err := ConnectSyscall(*step.Args.Sockfd, *step.Args.Sockaddr)
+			if err != nil {
+				return fmt.Errorf("connect syscall failed with error: %v", err)
+			}
+		case "socket":
+			_, err := SocketSyscall(*step.Args.Domain, *step.Args.SockType, *step.Args.Protocol)
+			if err != nil {
+				return fmt.Errorf("socket syscall failed with error: %v", err)
+			}
+		case "symlink":
+			err := SymlinkSyscall(*step.Args.Oldpath, *step.Args.Newpath)
+			if err != nil {
+				return fmt.Errorf("symlink syscall failed with error: %v", err)
+			}
+		case "link":
+			err := LinkSyscall(*step.Args.Oldpath, *step.Args.Newpath)
+			if err != nil {
+				return fmt.Errorf("link syscall failed with error: %v", err)
+			}
+		case "dup":
+			_, err := DupSyscall(*step.Args.Oldfd)
+			if err != nil {
+				return fmt.Errorf("dup syscall failed with error: %v", err)
+			}
+		case "ptrace":
+			err := PtraceSyscall(*step.Args.Pid, *step.Args.Ptracesignal)
+			if err != nil {
+				return fmt.Errorf("ptrace syscall failed with error: %v", err)
 			}
 		default:
 			return fmt.Errorf("unsupported syscall: %s", step.Syscall)
