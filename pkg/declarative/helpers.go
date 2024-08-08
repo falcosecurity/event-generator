@@ -112,3 +112,15 @@ func SymlinkSyscall(oldpath string, newpath string) error {
 func LinkSyscall(oldpath string, newpath string) error {
 	return unix.Link(oldpath, newpath)
 }
+
+func DupSyscall(oldfd int) (int, error) {
+	newfd, err := unix.Dup(oldfd)
+	if err != nil {
+		return -1, err
+	}
+	return newfd, nil
+}
+
+func PtraceSyscall(pid int, signal int) error {
+	return unix.PtraceSyscall(pid, signal)
+}

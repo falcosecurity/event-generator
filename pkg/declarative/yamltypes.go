@@ -42,6 +42,13 @@ type Args struct {
 	// For symlink and link syscalls
 	Oldpath *string `yaml:"oldpath,omitempty"`
 	Newpath *string `yaml:"newpath,omitempty"`
+
+	// For dup syscall
+	Oldfd *int `yaml:"oldfd,omitempty"`
+
+	// For ptrace syscall
+	Pid          *int `yaml:"pid,omitempty"`
+	Ptracesignal *int `yaml:"ptracesignal,omitempty"`
 }
 
 type SyscallStep struct {
