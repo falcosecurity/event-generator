@@ -75,6 +75,16 @@ func (r *Hostrunner) ExecuteStep(ctx context.Context, test Test) error {
 			if err != nil {
 				return fmt.Errorf("link syscall failed with error: %v", err)
 			}
+		case "dup":
+			_, err := DupSyscall(*step.Args.Oldfd)
+			if err != nil {
+				return fmt.Errorf("dup syscall failed with error: %v", err)
+			}
+		case "ptrace":
+			err := PtraceSyscall(*step.Args.Pid, *step.Args.Ptracesignal)
+			if err != nil {
+				return fmt.Errorf("ptrace syscall failed with error: %v", err)
+			}
 		default:
 			return fmt.Errorf("unsupported syscall: %s", step.Syscall)
 		}
