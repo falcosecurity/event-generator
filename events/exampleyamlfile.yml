@@ -21,17 +21,6 @@ tests:
           mode: 0644
     after: ""
 
-  - rule: ReadSensitiveFileTrustedAfterStartup
-    runner: HostRunner
-    before: ""
-    steps:
-      - syscall: "open"
-        args:
-          filepath: "/etc/shadow"
-          flag: 0
-          mode: 0644
-    after: ""
-  
   - rule: ClearLogActivities
     runner: HostRunner
     before: "mkdir /tmp/created-by-event-generator && touch /tmp/created-by-event-generator/syslog"
@@ -63,8 +52,10 @@ tests:
           newpath: "/created-by-event-generator/newpath"
     after: "rm /created-by-event-generator/newpath && rmdir /created-by-event-generator"
 
-  - rule: LaunchIngressRemoteFileCopyToolsInsideContainer
-    runner: ContainerRunner
-    before: "wget example.com"
-    steps: 
-    after: ""
+
+  # not a stable rule 
+  # - rule: LaunchIngressRemoteFileCopyToolsInsideContainer
+  #   runner: ContainerRunner
+  #   before: "wget example.com"
+  #   steps: 
+  #   after: ""

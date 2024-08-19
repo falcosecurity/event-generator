@@ -54,5 +54,7 @@ Without arguments it tests all actions, otherwise only those actions matching th
 		return runEWithOpts(c, args, runner.WithPlugin(t))
 	}
 
+	c.AddCommand(NewDeclarativeTest())
+
 	return c
 }
