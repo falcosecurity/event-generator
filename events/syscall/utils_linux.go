@@ -19,7 +19,6 @@ package syscall
 
 import (
 	"fmt"
-	"math/rand/v2"
 	"os"
 	"os/exec"
 	"os/user"
@@ -133,17 +132,4 @@ func createSshDirectoryUnderHome(h events.Helper) (string, func(), error) {
 			h.Log().WithError(err).Error("failed to remove temp directory")
 		}
 	}, nil
-}
-
-// randomString generates a random string of the given length.
-func randomString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-	bytes := make([]byte, length)
-
-	for i := range bytes {
-		bytes[i] = charset[rand.IntN(len(charset))]
-	}
-
-	return string(bytes)
 }
