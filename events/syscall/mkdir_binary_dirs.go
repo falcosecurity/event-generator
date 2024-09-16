@@ -15,6 +15,7 @@ limitations under the License.
 package syscall
 
 import (
+	"errors"
 	"os"
 
 	"github.com/falcosecurity/event-generator/events"
@@ -26,8 +27,33 @@ var _ = events.Register(
 )
 
 func MkdirBinaryDirs(h events.Helper) error {
-	const dirname = "/bin/directory-created-by-event-generator"
-	h.Log().Infof("writing to %s", dirname)
-	defer os.Remove(dirname)
-	return os.Mkdir(dirname, os.FileMode(0755))
+	// ensure /bin exists
+	if _, err := os.Stat("/bin"); os.IsNotExist(err) {
+		if err := os.Mkdir("/bin", os.FileMode(0755)); err != nil {
+			return err
+		}
+		// remove /bin directory
+		defer func() {
+			if err := os.RemoveAll("/bin"); err != nil {
+				h.Log().WithError(err).Error("failed to remove /bin directory")
+			}
+		}()
+	}
+
+	// create a unique temp directory under /bin
+	tmpDir, err := os.MkdirTemp("/bin", "falco-event-generator-syscall-MkdirBinaryDirs-")
+	if err != nil {
+		// to trigger the rule, it is enough to try, so we ignore permission denied errors
+		if errors.Is(err, os.ErrPermission) {
+			return nil
+		}
+		return err
+	}
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp directory")
+		}
+	}()
+
+	return nil
 }

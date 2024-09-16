@@ -15,8 +15,10 @@ limitations under the License.
 package syscall
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -24,17 +26,29 @@ import (
 var _ = events.Register(RemoveBulkDataFromDisk)
 
 func RemoveBulkDataFromDisk(h events.Helper) error {
-	// Creates temporary data for testing, avoiding critical file deletion.
-	filename := "/created-by-falco-event-generator"
-	defer os.RemoveAll(filename) // clean up
-	if err := os.WriteFile(filename, []byte("bulk data content"), os.FileMode(0755)); err != nil {
+	shred, err := exec.LookPath("shred")
+	if err != nil {
+		// if we don't have a shred, just bail
+		return &events.ErrSkipped{
+			Reason: "shred executable file not found in $PATH",
+		}
+	}
+
+	// create a unique file under temp directory
+	file, err := os.CreateTemp("", "falco-event-generator-syscall-RemoveBulkDataFromDisk-")
+	if err != nil {
 		return err
 	}
 
-	h.Log().Infof("attempting to run shred command to remove bulk data from disk")
-	// Rule triggers regardless of whether the 'shred' utility exists or its outcome
-	// Therefore, there's no need to skip the action or report the error in any case
-	cmd := exec.Command("shred", "-u", filename)
-	cmd.Run()
+	if err := os.WriteFile(file.Name(), []byte("bulk data content"), os.FileMode(0600)); err != nil {
+		return err
+	}
+
+	// shred the file content
+	cmd := exec.Command(shred, "-u", file.Name())
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
+	}
+
 	return nil
 }

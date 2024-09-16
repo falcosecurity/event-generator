@@ -25,6 +25,11 @@ var _ = events.Register(NetworkActivity)
 // NetworkActivity tries to connect to an andress.
 func NetworkActivity(h events.Helper) error {
 	conn, err := net.Dial("udp", "10.2.3.4:8192")
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			h.Log().WithError(err).Error("failed to close connection")
+		}
+	}()
+
 	return err
 }

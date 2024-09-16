@@ -23,8 +23,15 @@ import (
 var _ = events.Register(ReadSensitiveFileUntrusted)
 
 func ReadSensitiveFileUntrusted(h events.Helper) error {
-	const filename = "/etc/shadow"
-	file, err := os.Open(filename)
-	defer file.Close()
-	return err
+	file, err := os.Open("/etc/shadow")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			h.Log().WithError(err).Error("failed to close /etc/shadow file")
+		}
+	}()
+
+	return nil
 }

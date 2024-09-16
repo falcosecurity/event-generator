@@ -15,8 +15,11 @@ limitations under the License.
 package syscall
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -24,20 +27,38 @@ import (
 var _ = events.Register(CreateHardlinkOverSensitiveFiles)
 
 func CreateHardlinkOverSensitiveFiles(h events.Helper) error {
-	path, err := exec.LookPath("ln")
+	ln, err := exec.LookPath("ln")
 	if err != nil {
 		// if we don't have a ln, just bail
 		return &events.ErrSkipped{
-			Reason: "ln utility not found in path",
+			Reason: "ln executable file not found in $PATH",
 		}
 	}
 
-	tmpDir, err := os.MkdirTemp(os.TempDir(), "event-generator-syscall-CreateHardlinkOverSensitiveFiles")
+	// create a unique temp directory
+	tmpDir, err := os.MkdirTemp("", "falco-event-generator-syscall-CreateHardlinkOverSensitiveFiles-")
 	if err != nil {
 		return err
 	}
-	defer os.ReadDir(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp directory")
+		}
+	}()
 
-	cmd := exec.Command(path, "-v", "/etc", tmpDir+"/etc_link")
-	return cmd.Run()
+	shadowLink := filepath.Join(tmpDir, "shadow_link")
+
+	// create a hard link to /etc/shadow file
+	// note: directory hard links are not allowed
+	cmd := exec.Command(ln, "-v", "/etc/shadow", shadowLink)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	// read hard-linked /etc/shadow file
+	if _, err := os.ReadFile(shadowLink); err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -24,16 +24,21 @@ import (
 )
 
 var _ = events.Register(
-	LaunchIngressRemoteFileCopyToolsInsideContainer,
+	LaunchIngressRemoteFileCopyToolsInContainer,
 	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
-func LaunchIngressRemoteFileCopyToolsInsideContainer(h events.Helper) error {
-	if h.InContainer() {
-		cmd := exec.Command("wget")
-		return cmd.Run()
+func LaunchIngressRemoteFileCopyToolsInContainer(h events.Helper) error {
+	if !h.InContainer() {
+		return &events.ErrSkipped{
+			Reason: "only applicable to containers",
+		}
 	}
-	return &events.ErrSkipped{
-		Reason: "'Launch Ingress Remote File Copy Tools Inside Container' is applicable only to containers.",
+
+	// note: executing the following command might fail, but enough to trigger the rule, so we ignore any error
+	if err := exec.Command("wget", "-V").Run(); err != nil {
+		h.Log().WithError(err).Debug("failed to run wget command (might be ok)")
 	}
+
+	return nil
 }

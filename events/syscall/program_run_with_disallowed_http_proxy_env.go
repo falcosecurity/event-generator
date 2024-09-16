@@ -30,12 +30,11 @@ func ProgramRunWithDisallowedHttpProxyEnv(h events.Helper) error {
 	curl, err := exec.LookPath("curl")
 	if err != nil {
 		return &events.ErrSkipped{
-			Reason: "curl utility is needed to launch this action",
+			Reason: "curl executable file not found in $PATH",
 		}
 	}
+
 	cmd := exec.Command(curl, "http://example.com")
-	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "HTTP_PROXY=http://my.http.proxy.com ")
-	h.Log().Info("executing curl or wget with disallowed HTTP_PROXY environment variable")
+	cmd.Env = append(os.Environ(), "HTTP_PROXY=http://my.http.proxy.com ")
 	return cmd.Run()
 }

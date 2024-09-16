@@ -23,18 +23,22 @@ import (
 var _ = events.Register(LaunchSuspiciousNetworkToolOnHost)
 
 func LaunchSuspiciousNetworkToolOnHost(h events.Helper) error {
-	nmap, err := exec.LookPath("nmap")
-	if err != nil {
+	if h.InContainer() {
 		return &events.ErrSkipped{
-			Reason: "nmap utility is needed to launch this action ",
+			Reason: "not applicable to containers",
 		}
 	}
 
-	cmd := exec.Command(nmap, "-sn", "192.168.1.0/24")
-	h.Log().Infof("Network tool launched in host")
+	nmap, err := exec.LookPath("nmap")
+	if err != nil {
+		return &events.ErrSkipped{
+			Reason: "nmap executable file not found in $PATH",
+		}
+	}
 
-	if err := cmd.Run(); err != nil {
-		return err
+	// note: executing the following command might fail, but enough to trigger the rule, so we ignore any error
+	if err := exec.Command("timeout", "1s", nmap, "-sn", "172.17.0.1/32").Run(); err != nil {
+		h.Log().WithError(err).Debug("failed to run nmap command (might be ok)")
 	}
 
 	return nil

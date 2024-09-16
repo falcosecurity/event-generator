@@ -18,6 +18,9 @@ limitations under the License.
 package syscall
 
 import (
+	"errors"
+	"os/exec"
+
 	"github.com/falcosecurity/event-generator/events"
 )
 
@@ -27,6 +30,27 @@ var _ = events.Register(
 )
 
 func SudoPotentialPrivilegeEscalation(h events.Helper) error {
-	//To setuid to something non-root user
-	return runAsUser(h, "daemon", "sudoedit", "-u", "daemon", "-s", "ls\\")
+	sudoedit, err := exec.LookPath("sudoedit")
+	if err != nil {
+		// if we don't have a sudoedit, just bail
+		return &events.ErrSkipped{
+			Reason: "sudoedit executable file not found in $PATH",
+		}
+	}
+
+	// note: executing the following command might fail, but enough to trigger the rule, so we ignore the exit code 1 error
+	err = runAsUser(h, "daemon", sudoedit, "-u", "daemon", "-s", "ls\\")
+
+	// we need to unwrap the error to get the exit code
+	unerr := errors.Unwrap(err)
+	if unerr == nil {
+		unerr = err
+	}
+	if ee, ok := unerr.(*exec.ExitError); ok && ee.ProcessState.ExitCode() == 1 {
+		return &events.ErrSkipped{
+			Reason: "sudoedit command failed with exit code 1 (might be ok) - probably patched and not vulnerable to CVE-2021-3156",
+		}
+	}
+
+	return err
 }

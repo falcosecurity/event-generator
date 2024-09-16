@@ -18,6 +18,9 @@ limitations under the License.
 package syscall
 
 import (
+	"errors"
+	"os"
+
 	"github.com/falcosecurity/event-generator/events"
 )
 
@@ -27,15 +30,21 @@ var _ = events.Register(
 )
 
 func NonSudoSetuid(h events.Helper) error {
+	// ensure the process is spawned, otherwise we might hit unexpected side effect issues with becameUser()
 	if h.Spawned() {
 		h.Log().Debug("first setuid to something non-root, then try to setuid back to root")
 		if err := becameUser(h, "daemon"); err != nil {
+			// to trigger the rule, it is enough to try, so we ignore permission denied errors
+			if errors.Is(err, os.ErrPermission) {
+				return nil
+			}
 			return err
 		}
-		err := becameUser(h, "root")
-		h.Log().WithError(err).Debug("ignore root setuid error")
+		// note: executing the following command might fail, but enough to trigger the rule, so we ignore any error
+		if err := becameUser(h, "root"); err != nil {
+			h.Log().WithError(err).Debug("failed to setuid back to root (might be ok)")
+		}
 		return nil
-	} else {
-		return h.SpawnAsWithSymlink("child", "syscall.NonSudoSetuid")
 	}
+	return h.SpawnAsWithSymlink("child", "syscall.NonSudoSetuid")
 }

@@ -26,8 +26,29 @@ var _ = events.Register(
 )
 
 func WriteBelowRoot(h events.Helper) error {
-	const filename = "/root/created-by-event-generator"
-	h.Log().Infof("writing to %s", filename)
-	defer os.Remove(filename)
-	return os.WriteFile(filename, nil, os.FileMode(0755))
+	// ensure /root exists
+	if _, err := os.Stat("/root"); os.IsNotExist(err) {
+		if err := os.Mkdir("/root", os.FileMode(0755)); err != nil {
+			return err
+		}
+		// remove /root directory
+		defer func() {
+			if err := os.RemoveAll("/root"); err != nil {
+				h.Log().WithError(err).Error("failed to remove /root directory")
+			}
+		}()
+	}
+
+	// create a unique file under /root directory
+	file, err := os.CreateTemp("/root", "falco-event-generator-syscall-WriteBelowRoot-")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.Remove(file.Name()); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp file")
+		}
+	}()
+
+	return nil
 }

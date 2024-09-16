@@ -15,6 +15,8 @@ limitations under the License.
 package syscall
 
 import (
+	"errors"
+	"fmt"
 	"os"
 
 	"github.com/falcosecurity/event-generator/events"
@@ -26,11 +28,23 @@ var _ = events.Register(
 )
 
 func ModifyBinaryDirs(h events.Helper) error {
-	const from = "/bin/true"
-	const to = "/bin/true.event-generator"
-	h.Log().Infof("modifying %s to %s and back", from, to)
-	if err := os.Rename(from, to); err != nil {
+	org := "/bin/true"
+
+	// generate new "random" binary name
+	new := fmt.Sprintf("%s.falco-event-generator-syscall-ModifyBinaryDirs-%s", org, randomString(6))
+
+	if err := os.Rename(org, new); err != nil {
+		// to trigger the rule, it is enough to try, so we ignore permission denied errors
+		if errors.Is(err, os.ErrPermission) {
+			return nil
+		}
 		return err
 	}
-	return os.Rename(to, from)
+	defer func() {
+		if err := os.Rename(new, org); err != nil {
+			h.Log().WithError(err).Error("failed to restore the original binary")
+		}
+	}()
+
+	return nil
 }

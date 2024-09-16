@@ -24,20 +24,22 @@ import (
 var _ = events.Register(PtraceAntiDebugAttempt)
 
 func PtraceAntiDebugAttempt(h events.Helper) error {
-	// Start a dummy process which sleeps for 1hr
+	// start a dummy process which sleeps for 1hr
 	cmd := exec.Command("sleep", "3600")
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Ptrace: true, // This is equivalent to calling PTRACE_TRACEME in the child
 	}
 	if err := cmd.Start(); err != nil {
-		h.Log().WithError(err).Error("Failed to start dummy process")
+		h.Log().WithError(err).Error("failed to start dummy process")
 		return err
 	}
-	pid := cmd.Process.Pid
 
-	defer syscall.PtraceDetach(pid) // Detach the dummy process at end
-	defer cmd.Process.Kill()        // Kill the dummy process at end
+	// kill the dummy process
+	defer func() {
+		if err := cmd.Process.Kill(); err != nil {
+			h.Log().WithError(err).Error("failed to kill dummy process")
+		}
+	}()
 
-	h.Log().Infof("Successfully called ptrace with PTRACE_TRACEME argument")
 	return nil
 }

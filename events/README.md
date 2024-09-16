@@ -63,7 +63,7 @@ For this reason, *actions* should revert any operation that changed the state of
 
 ```golang
 func WriteBelowEtc(h events.Helper) error {
-	const filename = "/etc/created-by-event-generator"
+	const filename = "/etc/falco-event-generator"
 	h.Log().Infof("writing to %s", filename)
 	defer os.Remove(filename) // clean up here!!!
 	return os.WriteFile(filename, nil, os.FileMode(0755))

@@ -18,23 +18,29 @@ limitations under the License.
 package syscall
 
 import (
-    "os/exec"
-    "github.com/falcosecurity/event-generator/events"
+	"os/exec"
+
+	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ = events.Register(
-    UnexpectedUDPTraffic,
-    events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
+	UnexpectedUDPTraffic,
+	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
 func UnexpectedUDPTraffic(h events.Helper) error {
-    cmd := exec.Command("timeout", "1s", "nc", "-u", "192.168.1.2", "22")
-    err := cmd.Run()
-    if err != nil {
-        return err
-    }
+	nc, err := exec.LookPath("nc")
+	if err != nil {
+		// if we don't have a netcat, just bail
+		return &events.ErrSkipped{
+			Reason: "netcat executable file not found in $PATH",
+		}
+	}
 
-    h.Log().Infof("Unexpected UDP Traffic Seen")
+	// note: executing the following command might fail, but enough to trigger the rule, so we ignore any error
+	if err := exec.Command("timeout", "1s", nc, "-u", "example.com", "22").Run(); err != nil {
+		h.Log().WithError(err).Debug("failed to run nc command (this is expected)")
+	}
 
-    return nil
+	return nil
 }

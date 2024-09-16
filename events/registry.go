@@ -92,5 +92,5 @@ func MatchRule(name string, rule string) bool {
 		return false
 	}
 
-	return strings.ToLower(parts[l-1]) == strings.ToLower(nonAlphaNumericReg.ReplaceAllString(rule, ""))
+	return strings.EqualFold(parts[l-1], nonAlphaNumericReg.ReplaceAllString(rule, ""))
 }

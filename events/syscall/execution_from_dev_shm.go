@@ -15,8 +15,11 @@ limitations under the License.
 package syscall
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -24,31 +27,54 @@ import (
 var _ = events.Register(ExecutionFromDevShm)
 
 func ExecutionFromDevShm(h events.Helper) error {
-	scriptPath := "/dev/shm/example_script-created-by-falco-event-generator.sh"
-	scriptContent := "#!/bin/bash\n echo 'hello world'"
-
-	// Check if /dev exists
+	// ensure /dev exists
 	if _, err := os.Stat("/dev"); os.IsNotExist(err) {
-		if err := os.Mkdir("/dev", 0755); err != nil {
+		if err := os.Mkdir("/dev", os.FileMode(0755)); err != nil {
 			return err
 		}
-		defer os.RemoveAll("/dev") // Remove dev directory
+		// remove /dev directory
+		defer func() {
+			if err := os.RemoveAll("/dev"); err != nil {
+				h.Log().WithError(err).Error("failed to remove /dev directory")
+			}
+		}()
 	}
 
-	// Given /dev exists check if /shm exists
+	// ensure /dev/shm exists
 	if _, err := os.Stat("/dev/shm"); os.IsNotExist(err) {
-		if err := os.Mkdir("/dev/shm", 0755); err != nil {
+		if err := os.Mkdir("/dev/shm", os.FileMode(0755)); err != nil {
 			return err
 		}
-		defer os.RemoveAll("/dev/shm") // Remove /shm directory only
+		// remove /dev/shm subdirectory only
+		defer func() {
+			if err := os.RemoveAll("/dev/shm"); err != nil {
+				h.Log().WithError(err).Error("failed to remove /dev/shm directory")
+			}
+		}()
 	}
 
-	// Set execute permission on the file
-	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0755); err != nil {
+	// generate new "random" file name under /dev/shm
+	file := filepath.Join("/dev/shm", fmt.Sprintf("falco-event-generator-syscall-ExecutionFromDevShm-%s.sh", randomString(6)))
+
+	// create executable script file
+	if err := os.WriteFile(file, []byte("#!/bin/sh\n\necho 'hello world'\n"), os.FileMode(0755)); err != nil {
 		return err
 	}
+	defer func() {
+		if err := os.Remove(file); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp file")
+		}
+	}()
 
-	cmd := exec.Command("sh", "-c", scriptPath) // Execute script file
-	defer os.Remove(scriptPath)                 // Remove script file
-	return cmd.Run()
+	// execute script file
+	cmd := exec.Command("sh", "-c", file)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		// to trigger the rule, it is enough to try, so we ignore permission denied errors
+		if cmd.ProcessState.ExitCode() == 126 {
+			return nil
+		}
+		return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	return nil
 }

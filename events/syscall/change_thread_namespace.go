@@ -18,6 +18,9 @@ limitations under the License.
 package syscall
 
 import (
+	"os/exec"
+	"strings"
+
 	"golang.org/x/sys/unix"
 
 	"github.com/falcosecurity/event-generator/events"
@@ -29,10 +32,25 @@ var _ = events.Register(
 )
 
 func ChangeThreadNamespace(h events.Helper) error {
-	// It doesn't matter that the arguments to Setns are
-	// bogus. It's the attempt to call it that will trigger the
-	// rule.
-	h.Log().Debug("does not result in a falco notification in containers, unless container run with --privileged or --security-opt seccomp=unconfined")
-	unix.Setns(0, 0)
+	if h.InContainer() {
+		// skip if container does not have CAP_SYS_ADMIN capability, fallthrough in case of error
+		// read the CapEff value from /proc/self/status
+		if capEffValueBytes, err := exec.Command("sh", "-c", "cat /proc/self/status | grep CapEff | awk '{print $2}'").Output(); err == nil {
+			// convert the CapEff value to a string and trim whitespace
+			capEffValue := strings.TrimSpace(string(capEffValueBytes))
+			// check whether CAP_SYS_ADMIN capability exists in the decoded CapEff value
+			if hasCAPSysAdmin, err := checkCapability(capEffValue, "cap_sys_admin"); err == nil && !hasCAPSysAdmin {
+				return &events.ErrSkipped{
+					Reason: "privileged container required",
+				}
+			}
+		}
+	}
+	// it doesn't matter that the arguments to Setns are bogus
+	// it's the attempt to call it that will trigger the rule
+	if err := unix.Setns(0, 0); err != nil {
+		h.Log().WithError(err).Debug("failed to call setns (this is expected)")
+	}
+
 	return nil
 }

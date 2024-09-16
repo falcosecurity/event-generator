@@ -26,15 +26,21 @@ import (
 var _ = events.Register(PacketSocketCreatedInContainer)
 
 func PacketSocketCreatedInContainer(h events.Helper) error {
-	if h.InContainer() {
-		fd, err := syscall.Socket(syscall.AF_PACKET, syscall.SOCK_RAW, int(syscall.ETH_P_ALL))
-		if err != nil {
-			return err
+	if !h.InContainer() {
+		return &events.ErrSkipped{
+			Reason: "only applicable to containers",
 		}
-		defer syscall.Close(fd)
-		syscall.Close(fd)
 	}
-	return &events.ErrSkipped{
-		Reason: "'Packet Socket Created In Container' is applicable only to containers.",
+
+	fd, err := syscall.Socket(syscall.AF_PACKET, syscall.SOCK_RAW, int(syscall.ETH_P_ALL))
+	if err != nil {
+		return err
 	}
+	defer func() {
+		if err := syscall.Close(fd); err != nil {
+			h.Log().WithError(err).Error("failed to close socket")
+		}
+	}()
+
+	return nil
 }

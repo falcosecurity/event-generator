@@ -18,26 +18,24 @@ limitations under the License.
 package syscall
 
 import (
-    "os"
-    "os/exec"
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
 
-    "github.com/falcosecurity/event-generator/events"
+	"github.com/falcosecurity/event-generator/events"
 )
 
-var _ = events.Register(PotentialLocalPrivillegeEscalation)
+var _ = events.Register(PotentialLocalPrivilegeEscalationViaEnvironmentVariablesMisuse)
 
-func PotentialLocalPrivillegeEscalation(h events.Helper) error {
-    // Set the GLIBC_TUNABLES environment variable
-    cmd := exec.Command("bash", "-c", "id")
-    cmd.Env = os.Environ()
-    cmd.Env = append(cmd.Env, "GLIBC_TUNABLES=glibc.tune.hwcaps=-WAITED,glibc.tune.secrets=2")
+func PotentialLocalPrivilegeEscalationViaEnvironmentVariablesMisuse(h events.Helper) error {
+	// Set the GLIBC_TUNABLES environment variable
+	cmd := exec.Command("sh", "-c", "id")
+	cmd.Env = append(os.Environ(), "GLIBC_TUNABLES=glibc.tune.hwcaps=-WAITED,glibc.tune.secrets=2")
 
-    h.Log().Info("Process run with suspect environment variable which could be attempting privilege escalation")
-    err := cmd.Run()
-    if err != nil {
-        h.Log().WithError(err).Error("Failed to execute process with modified environment")
-        return err
-    }
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
+	}
 
-    return nil
+	return nil
 }

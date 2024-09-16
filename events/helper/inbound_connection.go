@@ -15,6 +15,7 @@ limitations under the License.
 package helper
 
 import (
+	"fmt"
 	"net"
 	"strconv"
 
@@ -24,38 +25,57 @@ import (
 var _ = events.Register(InboundConnection)
 
 func InboundConnection(h events.Helper) error {
-	address, _ := getAvailableLocalAddress()
+	address, err := getAvailableLocalAddress(h)
+	if err != nil {
+		return err
+	}
+
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return err
 	}
-	defer listener.Close()
+	defer func() {
+		if err := listener.Close(); err != nil {
+			h.Log().WithError(err).Error("failed to close listener")
+		}
+	}()
+
 	return nil
 }
 
-func getAvailableLocalAddress() (string, error) {
+func getAvailableLocalAddress(h events.Helper) (string, error) {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return "", err
 	}
+
 	for _, addr := range addrs {
 		ipNet, ok := addr.(*net.IPNet)
 		if !ok {
 			continue
 		}
+
 		if ipNet.IP.IsLoopback() || ipNet.IP.IsUnspecified() {
 			continue
 		}
+
 		ip := ipNet.IP.To4()
 		if ip == nil {
 			continue
 		}
+
 		listener, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: ip})
 		if err != nil {
 			continue
 		}
-		listener.Close()
-		return ip.String() + ":" + strconv.Itoa(listener.Addr().(*net.TCPAddr).Port), nil
+
+		if err := listener.Close(); err != nil {
+			h.Log().WithError(err).Error("failed to close listener")
+			continue
+		}
+
+		return fmt.Sprintf("%s:%s", ip.String(), strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)), nil
 	}
+
 	return "", err
 }

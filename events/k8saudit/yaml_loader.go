@@ -16,7 +16,7 @@ package k8saudit
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"path/filepath"
 	"strings"
 
@@ -80,7 +80,10 @@ func init() {
 				if err != nil {
 					return err
 				}
-				info.Refresh(obj, true)
+
+				if err := info.Refresh(obj, true); err != nil {
+					log.WithError(err).Error("refresh k8s resource")
+				}
 
 				count++
 				return nil
@@ -89,7 +92,7 @@ func init() {
 				return err
 			}
 			if count == 0 {
-				return fmt.Errorf("no objects passed to create")
+				return errors.New("no objects passed to create")
 			}
 			return nil
 		},

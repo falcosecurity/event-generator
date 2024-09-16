@@ -24,19 +24,25 @@ import (
 var _ = events.Register(PtraceAttachedToProcess)
 
 func PtraceAttachedToProcess(h events.Helper) error {
-	// Start a dummy process which sleeps for 1hr
+	// start a dummy process which sleeps for 1hr
 	cmd := exec.Command("sleep", "3600")
 	if err := cmd.Start(); err != nil {
-		h.Log().WithError(err).Error("Failed to start dummy process")
 		return err
 	}
 	pid := cmd.Process.Pid
 
-	h.Log().Infof("Attached to dummy process with PID %d using PTRACE_ATTACH", pid)
+	defer func() {
+		// try to detach the dummy process (may fail)
+		if err := syscall.PtraceDetach(pid); err != nil {
+			h.Log().WithError(err).Debug("failed to detach dummy process (might be ok)")
+		}
 
-	defer syscall.PtraceDetach(pid) // Detach the process at end
-	defer cmd.Process.Kill()        // Kill the dummy process at end
+		// kill the dummy process
+		if err := cmd.Process.Kill(); err != nil {
+			h.Log().WithError(err).Error("failed to kill dummy process")
+		}
+	}()
 
-	// Attach to the target process using PTRACE_ATTACH
+	// attach to the target process using PTRACE_ATTACH
 	return syscall.PtraceAttach(pid)
 }

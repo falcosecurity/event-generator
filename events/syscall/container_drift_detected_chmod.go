@@ -21,26 +21,32 @@ import (
 )
 
 var _ = events.Register(
-	ContainerDriftDetcted,
+	ContainerDriftDetectedChmod,
 	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
-func ContainerDriftDetcted(h events.Helper) error {
-	if h.InContainer() {
-		filename := "/created-by-event-generator"
-		if err := os.WriteFile(filename, nil, 0755); err != nil {
-			h.Log().WithError(err).Error("Error creating an empty file")
-			return err
+func ContainerDriftDetectedChmod(h events.Helper) error {
+	if !h.InContainer() {
+		return &events.ErrSkipped{
+			Reason: "only applicable to containers",
 		}
-		defer os.Remove(filename) // Remove file after function return
+	}
 
-		// Set execute permission on script file to make it executable
-		if err := os.Chmod(filename, 0755); err != nil {
-			h.Log().WithError(err).Error("Error setting execute permission on script file")
-			return err
+	// create a unique file under temp directory
+	file, err := os.CreateTemp("", "falco-event-generator-syscall-ContainerDriftDetectedChmod-")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.Remove(file.Name()); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp file")
 		}
+	}()
+
+	// set execute permission
+	if err := os.Chmod(file.Name(), os.FileMode(0755)); err != nil {
+		return err
 	}
-	return &events.ErrSkipped{
-		Reason: "'Container Drift Detected (chmod)' is applicable only to containers.",
-	}
+
+	return nil
 }

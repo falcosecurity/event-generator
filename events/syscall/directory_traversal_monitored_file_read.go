@@ -25,6 +25,11 @@ var _ = events.Register(DirectoryTraversalMonitoredFileRead)
 func DirectoryTraversalMonitoredFileRead(h events.Helper) error {
 	const filename = "/etc/../etc/../etc/shadow"
 	file, err := os.Open(filename)
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			h.Log().WithError(err).Error("failed to close /etc/shadow file")
+		}
+	}()
+
 	return err
 }

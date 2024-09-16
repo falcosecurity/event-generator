@@ -42,11 +42,13 @@ type helper struct {
 	hasLog  bool
 	builder *resource.Builder
 	cleanup func()
-	exePath string
 }
 
 func (h *helper) Log() *logger.Entry {
-	h.hasLog = true
+	// do not set hasLog (and silence info logs) if debug log is emmited
+	if h.log.Level != logger.DebugLevel {
+		h.hasLog = true
+	}
 	return h.log
 }
 
@@ -89,15 +91,20 @@ func (h *helper) SpawnAsWithSymlink(name string, action string, args ...string) 
 
 func (h *helper) spawnAs(name string, action string, copy bool, args ...string) error {
 	fullArgs := append([]string{fmt.Sprintf("^%s$", action)}, args...)
-	h.Log().WithField("args", strings.Join(fullArgs, " ")).Infof(`spawn as "%s"`, name)
+	h.Log().WithField("args", strings.Join(fullArgs, " ")).Infof("spawn as %q", name)
 	if h.Spawned() {
 		return ErrChildSpawn
 	}
-	tmpDir, err := os.MkdirTemp(os.TempDir(), "falco-event-generator")
+
+	tmpDir, err := os.MkdirTemp("", "falco-event-generator-syscall-spawned-")
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp directory")
+		}
+	}()
 
 	name = filepath.Join(tmpDir, name)
 	if copy {
@@ -105,7 +112,7 @@ func (h *helper) spawnAs(name string, action string, copy bool, args ...string) 
 		if data, err = os.ReadFile(h.runner.exePath); err != nil {
 			return err
 		}
-		if err = os.WriteFile(name, data, 0755); err != nil {
+		if err = os.WriteFile(name, data, os.FileMode(0755)); err != nil {
 			return err
 		}
 	} else {

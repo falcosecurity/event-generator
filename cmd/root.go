@@ -77,7 +77,9 @@ func New(configOptions *ConfigOptions) *cobra.Command {
 			debugFlags(flags)
 		},
 		Run: func(c *cobra.Command, args []string) {
-			c.Help()
+			if err := c.Help(); err != nil {
+				logger.WithError(err).Fatal("error running help")
+			}
 		},
 	}
 
@@ -202,14 +204,19 @@ func initConfig(configFile string) {
 // - config file (e.g. ~/.falco-event-generator.yaml)
 // - its default
 func initFlags(flags *pflag.FlagSet, exclude map[string]bool) {
-	viper.BindPFlags(flags)
+	if err := viper.BindPFlags(flags); err != nil {
+		logger.WithError(err).Fatal("error binding flags to configuration")
+	}
+
 	flags.VisitAll(func(f *pflag.Flag) {
 		if exclude[f.Name] {
 			return
 		}
 		viper.SetDefault(f.Name, f.DefValue)
 		if v := viper.GetString(f.Name); v != f.DefValue {
-			flags.Set(f.Name, v)
+			if err := flags.Set(f.Name, v); err != nil {
+				logger.WithError(err).WithField("flag", f.Name).Fatal("error setting flag")
+			}
 		}
 	})
 }

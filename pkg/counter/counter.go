@@ -255,7 +255,7 @@ func WithPid(pid int) Option {
 			return err
 		}
 		c.proc = &proc
-		procStat, err := c.proc.NewStat()
+		procStat, err := c.proc.Stat()
 		if err != nil {
 			return err
 		}

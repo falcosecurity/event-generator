@@ -49,8 +49,8 @@ func (c *Counter) statsByAction(n string) *stats {
 func (c *Counter) globalStats() (stats map[string]interface{}) {
 	stats = make(map[string]interface{})
 	if c.proc != nil {
-		delta := time.Now().Sub(c.lastT)
-		s, _ := c.proc.NewStat()
+		delta := time.Since(c.lastT)
+		s, _ := c.proc.Stat()
 		stats["cpu"] = float64((s.CPUTime() - c.lastS.CPUTime()) / delta.Seconds())
 		stats["res_mem"] = uint64(s.ResidentMemory())
 		stats["virt_mem"] = uint64(s.VirtualMemory())

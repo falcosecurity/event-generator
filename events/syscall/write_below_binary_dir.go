@@ -26,8 +26,29 @@ var _ = events.Register(
 )
 
 func WriteBelowBinaryDir(h events.Helper) error {
-	const filename = "/bin/created-by-event-generator"
-	h.Log().Infof("writing to %s", filename)
-	defer os.Remove(filename)
-	return os.WriteFile(filename, nil, os.FileMode(0755))
+	// ensure /bin exists
+	if _, err := os.Stat("/bin"); os.IsNotExist(err) {
+		if err := os.Mkdir("/bin", os.FileMode(0755)); err != nil {
+			return err
+		}
+		// remove /bin directory
+		defer func() {
+			if err := os.RemoveAll("/bin"); err != nil {
+				h.Log().WithError(err).Error("failed to remove /bin directory")
+			}
+		}()
+	}
+
+	// create a unique file under /bin directory
+	file, err := os.CreateTemp("/bin", "falco-event-generator-syscall-WriteBelowBinaryDir-")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.Remove(file.Name()); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp file")
+		}
+	}()
+
+	return nil
 }

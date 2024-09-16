@@ -31,20 +31,18 @@ var _ = events.Register(
 )
 
 func ReadSshInformation(h events.Helper) error {
-	// Creates .ssh directory inside tempDirectory
-	sshDir, cleanup, err := createSshDirectoryUnderHome()
+	// create .ssh directory inside tempDirectory
+	sshDir, cleanup, err := createSshDirectoryUnderHome(h)
 	if err != nil {
 		return err
 	}
-	defer cleanup() // Cleanup after function return
+	defer cleanup()
 
-	// Create known_hosts file. os.Create is enough to trigger the rule
+	// creating a dummy known_hosts file is enough to trigger the rule
 	filename := filepath.Join(sshDir, "known_hosts")
 	if _, err := os.Create(filename); err != nil {
 		return err
 	}
-
-	h.Log().Info("attempting to simulate SSH information read")
 
 	return nil
 }

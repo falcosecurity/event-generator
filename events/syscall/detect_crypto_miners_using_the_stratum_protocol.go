@@ -15,7 +15,9 @@ limitations under the License.
 package syscall
 
 import (
+	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -29,8 +31,11 @@ func DetectCryptoMinersUsingTheStratumProtocol(h events.Helper) error {
 	// NOTE: Crypto mining commands typically may resemble the following format,
 	// where 'minersoftware' is an executable:
 	// minersoftware -o stratum+tcp://example.com:3333 -u username -p password
-	// However, for testing purposes, we're using 'ls' as a placeholder.
-	cmd := exec.Command("ls", "-o stratum+tcp", "-u user", "-p pass")
-	cmd.Run()
+	// However, for testing purposes, we're using 'echo' as a placeholder.
+	cmd := exec.Command("echo", "-o stratum+tcp", "-u user", "-p pass")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
+	}
+
 	return nil
 }

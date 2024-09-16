@@ -24,22 +24,29 @@ import (
 var _ = events.Register(ClearLogActivities)
 
 func ClearLogActivities(h events.Helper) error {
-	// Create a unique temp directory
-	tempDirectoryName, err := os.MkdirTemp("/", "falco-event-generator-")
+	// create a unique temp directory
+	tmpDir, err := os.MkdirTemp("", "falco-event-generator-syscall-ClearLogActivities-")
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tempDirectoryName)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp directory")
+		}
+	}()
 
-	filename := filepath.Join(tempDirectoryName, "syslog")
+	filename := filepath.Join(tmpDir, "syslog")
 
-	// Open or create the file with write-only access and truncate its contents if it exists
-	file, err := os.OpenFile(filename, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	// open or create the file with write-only access and truncate its contents if it exists
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.FileMode(0644))
 	if err != nil {
-		h.Log().WithError(err).Error("Error opening file")
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			h.Log().WithError(err).Error("failed to close temp file")
+		}
+	}()
 
 	return nil
 }

@@ -15,7 +15,9 @@ limitations under the License.
 package syscall
 
 import (
+	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -26,16 +28,17 @@ var _ = events.Register(
 )
 
 func DecodingPayloadInContainer(h events.Helper) error {
-	if h.InContainer() {
-		encodedPayload := "ZGVjb2RlZF9ieV9ldmVudC1nZW5lcmF0b3I="
-		cmd := exec.Command("echo", encodedPayload, "|", "base64", "-d")
-
-		err := cmd.Run()
-		if err != nil {
-			return err
+	if !h.InContainer() {
+		return &events.ErrSkipped{
+			Reason: "only applicable to containers",
 		}
 	}
-	return &events.ErrSkipped{
-		Reason: "'Decoding Payload In Container' is applicable only to containers.",
+
+	encodedPayload := "ZGVjb2RlZF9ieV9ldmVudC1nZW5lcmF0b3I="
+	cmd := exec.Command("echo", encodedPayload, "|", "base64", "-d")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
 	}
+
+	return nil
 }

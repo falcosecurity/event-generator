@@ -29,10 +29,7 @@ func isFilePath(fl validator.FieldLevel) bool {
 	case reflect.String:
 		fileInfo, err := os.Stat(field.String())
 		if err != nil {
-			if !os.IsNotExist(err) {
-				return false
-			}
-			return true
+			return os.IsNotExist(err)
 		}
 
 		return !fileInfo.IsDir()

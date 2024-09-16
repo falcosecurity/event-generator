@@ -15,7 +15,6 @@ limitations under the License.
 package syscall
 
 import (
-	"os"
 	"os/exec"
 
 	"github.com/falcosecurity/event-generator/events"
@@ -27,26 +26,24 @@ var _ = events.Register(
 )
 
 func LaunchPackageManagementProcessInContainer(h events.Helper) error {
-	// Make sure it runs in container and user.name != _apt
-	if h.InContainer() {
-		if os.Getenv("USER") == "_apt" {
-			// Create a new user
-			username := "user-created-by-event-generator"
-			err := exec.Command("adduser", username).Run()
-			if err != nil {
-				return err
-			}
-			err = exec.Command("su", username).Run()
-			if err != nil {
-				return err
-			}
-			defer exec.Command("userdel", "-r", username).Run() // Remove the created user at end
+	if !h.InContainer() {
+		return &events.ErrSkipped{
+			Reason: "only applicable to containers",
 		}
-		// Now launch package management process
-		cmd := exec.Command("apt-get")
-		return cmd.Run()
 	}
-	return &events.ErrSkipped{
-		Reason: "'Launch Package Management Process In Container' is applicable only to containers.",
+
+	// check if the container has apk or apt-get package manager
+	arg := "version"
+	bin, err := exec.LookPath("apk")
+	if err != nil {
+		arg = "--version"
+		if bin, err = exec.LookPath("apt-get"); err != nil {
+			return &events.ErrSkipped{
+				Reason: "apk nor apt-get package manager executable file not found in $PATH",
+			}
+		}
 	}
+
+	// launch package management process
+	return exec.Command(bin, arg).Run()
 }

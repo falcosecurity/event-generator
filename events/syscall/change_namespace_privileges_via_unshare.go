@@ -18,7 +18,9 @@ limitations under the License.
 package syscall
 
 import (
+	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -29,16 +31,46 @@ var _ = events.Register(
 )
 
 func ChangeNamespacePrivilegesViaUnshare(h events.Helper) error {
-	if h.InContainer() {
-		cmd := exec.Command("unshare")
-
-		h.Log().Infof("Change namespace privileges via unshare")
-
-		if err := cmd.Run(); err != nil {
-			return err
+	if !h.InContainer() {
+		return &events.ErrSkipped{
+			Reason: "only applicable to containers",
 		}
 	}
-	return &events.ErrSkipped{
-		Reason: "'Change Namespace Privileges Via Unshare' is applicable only to containers.",
+
+	// read the CapEff value from /proc/self/status
+	capEffValueBytes, err := exec.Command("sh", "-c", "cat /proc/self/status | grep CapEff | awk '{print $2}'").Output()
+	if err != nil {
+		return err
 	}
+
+	// convert the CapEff value to a string and trim whitespace
+	capEffValue := strings.TrimSpace(string(capEffValueBytes))
+
+	// check whether CAP_SYS_ADMIN capability exists in the decoded CapEff value
+	hasCAPSysAdmin, err := checkCapability(capEffValue, "cap_sys_admin")
+	if err != nil {
+		return err
+	}
+
+	if hasCAPSysAdmin {
+		return &events.ErrSkipped{
+			Reason: "non-privileged container required",
+		}
+	}
+
+	unshare, err := exec.LookPath("unshare")
+	if err != nil {
+		// if we don't have an unshare, just bail
+		return &events.ErrSkipped{
+			Reason: "unshare executable file not found in $PATH",
+		}
+	}
+
+	// note: to trigger the rule, do not pass any arguments to unshare
+	cmd := exec.Command(unshare)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	return nil
 }
