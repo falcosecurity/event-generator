@@ -29,8 +29,9 @@ var _ = events.Register(
 func UserMgmtBinaries(h events.Helper) error {
 	if h.InContainer() {
 		return &events.ErrSkipped{
-			Reason: "'User mgmt binaries' is excluded in containers",
+			Reason: "not applicable to containers",
 		}
 	}
+
 	return h.SpawnAsWithSymlink("vipw", "helper.ExecLs")
 }

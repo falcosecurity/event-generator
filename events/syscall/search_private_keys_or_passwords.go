@@ -15,7 +15,10 @@ limitations under the License.
 package syscall
 
 import (
+	"fmt"
+	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -23,20 +26,18 @@ import (
 var _ = events.Register(SearchPrivateKeysOrPasswords)
 
 func SearchPrivateKeysOrPasswords(h events.Helper) error {
-	path, err := exec.LookPath("find")
+	find, err := exec.LookPath("find")
 	if err != nil {
 		// if we don't have a find, just bail
 		return &events.ErrSkipped{
-			Reason: "find utility not found in path",
+			Reason: "find executable file not found in $PATH",
 		}
 	}
-	cmd := exec.Command(path, "id_rsa")
-	err = cmd.Run()
 
-	// silently ignore find exit status 1
-	if exitErr, isExitErr := err.(*exec.ExitError); isExitErr {
-		h.Log().WithError(exitErr).Debug("silently ignore exit status")
-		return nil
+	cmd := exec.Command(find, os.TempDir(), "-maxdepth", "1", "-iname", "id_rsa")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
 	}
-	return err
+
+	return nil
 }

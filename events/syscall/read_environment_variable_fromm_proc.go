@@ -14,7 +14,9 @@ limitations under the License.
 package syscall
 
 import (
+	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -25,12 +27,16 @@ var _ = events.Register(
 )
 
 func ReadEnvironmentVariableFromProcFiles(h events.Helper) error {
-	if h.InContainer() {
-		cmd := exec.Command("cat", "/proc/self/environ")
-		err := cmd.Run()
-		if err != nil {
-			return err
+	if !h.InContainer() {
+		return &events.ErrSkipped{
+			Reason: "only applicable to containers",
 		}
 	}
+
+	cmd := exec.Command("cat", "/proc/self/environ")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
+	}
+
 	return nil
 }

@@ -26,8 +26,55 @@ var _ = events.Register(
 )
 
 func WriteBelowRpmDatabase(h events.Helper) error {
-	const filename = "/var/lib/rpm/created-by-event-generator"
-	h.Log().Infof("writing to %s", filename)
-	defer os.Remove(filename)
-	return os.WriteFile(filename, nil, os.FileMode(0755))
+	// ensure /var exists
+	if _, err := os.Stat("/var"); os.IsNotExist(err) {
+		if err := os.Mkdir("/var", os.FileMode(0755)); err != nil {
+			return err
+		}
+		// remove /var directory
+		defer func() {
+			if err := os.RemoveAll("/var"); err != nil {
+				h.Log().WithError(err).Error("failed to remove /var directory")
+			}
+		}()
+	}
+
+	// ensure /var/lib exists
+	if _, err := os.Stat("/var/lib"); os.IsNotExist(err) {
+		if err := os.Mkdir("/var/lib", os.FileMode(0755)); err != nil {
+			return err
+		}
+		// remove /var/lib subdirectory only
+		defer func() {
+			if err := os.RemoveAll("/var/lib"); err != nil {
+				h.Log().WithError(err).Error("failed to remove /var/lib directory")
+			}
+		}()
+	}
+
+	// ensure /var/lib/rpm exists
+	if _, err := os.Stat("/var/lib/rpm"); os.IsNotExist(err) {
+		if err := os.Mkdir("/var/lib/rpm", os.FileMode(0755)); err != nil {
+			return err
+		}
+		// remove /var/lib/rpm subdirectory only
+		defer func() {
+			if err := os.RemoveAll("/var/lib/rpm"); err != nil {
+				h.Log().WithError(err).Error("failed to remove /var/lib/rpm directory")
+			}
+		}()
+	}
+
+	// create a unique file under /var/lib/rpm directory
+	file, err := os.CreateTemp("/var/lib/rpm", "falco-event-generator-syscall-WriteBelowRpmDatabase-")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.Remove(file.Name()); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp file")
+		}
+	}()
+
+	return nil
 }

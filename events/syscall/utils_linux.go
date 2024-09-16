@@ -18,11 +18,14 @@ limitations under the License.
 package syscall
 
 import (
+	"fmt"
+	"math/rand/v2"
 	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
 	"strconv"
+	"strings"
 	sys "syscall"
 
 	"github.com/falcosecurity/event-generator/events"
@@ -36,7 +39,7 @@ import (
 // Thus, becameUser may or not affect other goroutines.
 func becameUser(h events.Helper, username string) error {
 	h.Log().WithField("user", username).
-		Info("became user")
+		Infof("became %q", username)
 
 	u, err := user.Lookup(username)
 	if err != nil {
@@ -68,7 +71,7 @@ func runAsUser(h events.Helper, username string, cmdName string, cmdArgs ...stri
 	h.Log().WithField("user", username).
 		WithField("cmdName", cmdName).
 		WithField("cmdArgs", cmdArgs).
-		Info("run command as another user")
+		Infof("run as %q", username)
 
 	u, err := user.Lookup(username)
 	if err != nil {
@@ -91,26 +94,56 @@ func runAsUser(h events.Helper, username string, cmdName string, cmdArgs ...stri
 		Uid: uint32(uid),
 		Gid: uint32(gid),
 	}
-	return cmd.Run()
+
+	// for easier debugging of errors, return the combined (stdout and stderr) output of the command execution
+	if out, err := cmd.CombinedOutput(); err != nil {
+		if o := strings.TrimSpace(string(out)); o != "" {
+			// note: we might need to unwrap the error later on if we want to check the exit code
+			// example: SystemUserInteractive event
+			return fmt.Errorf("%w: %s", err, o)
+		}
+		return err
+	}
+
+	return nil
 }
 
-// Creates a temp directory and .ssh directory inside it.
-func createSshDirectoryUnderHome() (string, func(), error) {
-	// Creates temporary data for testing.
-	var (
-		tempDirectoryName string
-		err               error
-	)
-	// Loop until a unique temporary directory is successfully created
-	if tempDirectoryName, err = os.MkdirTemp("/home", "falco-event-generator-"); err != nil {
+// createSshDirectoryUnderHome creates a temp directory under /home and .ssh directory inside it.
+func createSshDirectoryUnderHome(h events.Helper) (string, func(), error) {
+	// create a unique temp directory under /home
+	tmpDir, err := os.MkdirTemp("/home", "falco-event-generator-syscall-SshDirectory-")
+	if err != nil {
 		return "", func() {}, err
 	}
 
-	// Create the SSH directory
-	sshDir := filepath.Join(tempDirectoryName, ".ssh")
-	if err := os.Mkdir(sshDir, 0755); err != nil {
-		return "", func() { _ = os.RemoveAll(tempDirectoryName) }, err
+	// create .ssh subdirectory
+	sshDir := filepath.Join(tmpDir, ".ssh")
+	if err := os.Mkdir(sshDir, os.FileMode(0755)); err != nil {
+		return "", func() {
+			// any cleanup error should be logged but not returned
+			if err := os.RemoveAll(tmpDir); err != nil {
+				h.Log().WithError(err).Error("failed to remove temp directory")
+			}
+		}, err
 	}
 
-	return sshDir, func() { _ = os.RemoveAll(tempDirectoryName) }, nil
+	return sshDir, func() {
+		// any cleanup error should be logged but not returned
+		if err := os.RemoveAll(tmpDir); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp directory")
+		}
+	}, nil
+}
+
+// randomString generates a random string of the given length.
+func randomString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+	bytes := make([]byte, length)
+
+	for i := range bytes {
+		bytes[i] = charset[rand.IntN(len(charset))]
+	}
+
+	return string(bytes)
 }

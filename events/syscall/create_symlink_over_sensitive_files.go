@@ -15,8 +15,11 @@ limitations under the License.
 package syscall
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -24,20 +27,37 @@ import (
 var _ = events.Register(CreateSymlinkOverSensitiveFiles)
 
 func CreateSymlinkOverSensitiveFiles(h events.Helper) error {
-	path, err := exec.LookPath("ln")
+	ln, err := exec.LookPath("ln")
 	if err != nil {
 		// if we don't have a ln, just bail
 		return &events.ErrSkipped{
-			Reason: "ln utility not found in path",
+			Reason: "ln executable file not found in $PATH",
 		}
 	}
 
-	tmpDir, err := os.MkdirTemp(os.TempDir(), "event-generator-syscall-CreateSymlinkOverSensitiveFiles")
+	// create a unique temp directory
+	tmpDir, err := os.MkdirTemp("", "falco-event-generator-syscall-CreateSymlinkOverSensitiveFiles-")
 	if err != nil {
 		return err
 	}
-	defer os.ReadDir(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp directory")
+		}
+	}()
 
-	cmd := exec.Command(path, "-s", "/etc", tmpDir+"/etc_link")
-	return cmd.Run()
+	etcLink := filepath.Join(tmpDir, "etc_link")
+
+	// create a symbolic link to /etc directory
+	cmd := exec.Command(ln, "-s", "/etc", etcLink)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	// read symbolic-linked /etc directory
+	if _, err := os.ReadDir(etcLink); err != nil {
+		return err
+	}
+
+	return nil
 }

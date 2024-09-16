@@ -15,8 +15,9 @@ limitations under the License.
 package helper
 
 import (
-	"github.com/falcosecurity/event-generator/events"
 	"net"
+
+	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ = events.Register(OutboundConnection)
@@ -26,6 +27,11 @@ func OutboundConnection(h events.Helper) error {
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			h.Log().WithError(err).Error("failed to close connection")
+		}
+	}()
+
 	return nil
 }

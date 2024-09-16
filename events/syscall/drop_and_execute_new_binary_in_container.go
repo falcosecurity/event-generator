@@ -15,8 +15,10 @@ limitations under the License.
 package syscall
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -24,36 +26,56 @@ import (
 var _ = events.Register(DropAndExecuteNewBinaryInContainer)
 
 func DropAndExecuteNewBinaryInContainer(h events.Helper) error {
-	if h.InContainer() {
-		// Find the path of the ls binary
-		lsPath, err := exec.LookPath("ls")
-		if err != nil {
-			return &events.ErrSkipped{
-				Reason: "ls utility not found in path",
+	if !h.InContainer() {
+		return &events.ErrSkipped{
+			Reason: "only applicable to containers",
+		}
+	}
+
+	// find the path of the ls binary
+	ls, err := exec.LookPath("ls")
+	if err != nil {
+		return &events.ErrSkipped{
+			Reason: "ls executable file not found in $PATH",
+		}
+	}
+
+	// read the ls binary content
+	lsContent, err := os.ReadFile(ls)
+	if err != nil {
+		return err
+	}
+
+	// ensure /bin exists
+	if _, err := os.Stat("/bin"); os.IsNotExist(err) {
+		if err := os.Mkdir("/bin", os.FileMode(0755)); err != nil {
+			return err
+		}
+		// remove /bin directory
+		defer func() {
+			if err := os.RemoveAll("/bin"); err != nil {
+				h.Log().WithError(err).Error("failed to remove /bin directory")
 			}
-		}
-
-		// Read the ls binary content
-		lsContent, err := os.ReadFile(lsPath)
-		if err != nil {
-			return err
-		}
-
-		// New binary which is duplicate of ls binary
-		newBinaryPath := "/bin/ls-created-by-event-generator"
-
-		err = os.WriteFile(newBinaryPath, lsContent, 0755)
-		if err != nil {
-			h.Log().WithError(err).Error("failed to create new file in /bin")
-			return err
-		}
-		defer os.Remove(newBinaryPath) // CleanUp
-
-		executeCmd := exec.Command(newBinaryPath)
-		h.Log().Info("Executed a binary not part of base image")
-		executeCmd.Run() // Rule triggers even the command is not successful
+		}()
 	}
-	return &events.ErrSkipped{
-		Reason: "'Drop And Execute New Binary In Container' is applicable only to containers.",
+
+	// generate new "random" binary name
+	file := filepath.Join("/bin", fmt.Sprintf("falco-event-generator-syscall-DropAndExecuteNewBinaryInContainer-%s", randomString(6)))
+
+	// create file and set execute permission
+	if err = os.WriteFile(file, lsContent, os.FileMode(0755)); err != nil {
+		return err
 	}
+	defer func() {
+		if err := os.Remove(file); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp file")
+		}
+	}()
+
+	// note: executing the following command might fail, but enough to trigger the rule, so we ignore any error
+	if err := exec.Command(file).Run(); err != nil {
+		h.Log().WithError(err).Debug("failed to run ls command (might be ok)")
+	}
+
+	return nil
 }

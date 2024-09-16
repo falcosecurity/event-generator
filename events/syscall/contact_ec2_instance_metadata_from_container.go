@@ -17,8 +17,9 @@ limitations under the License.
 package syscall
 
 import (
-	"github.com/falcosecurity/event-generator/events"
 	"os/exec"
+
+	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ = events.Register(
@@ -27,27 +28,29 @@ var _ = events.Register(
 )
 
 func ContactEC2InstanceMetadataServiceFromContainer(h events.Helper) error {
-	if h.InContainer() {
-		path, err := exec.LookPath("nc")
-		if err != nil {
-			// If we don't have an netcat, just bail
-			return &events.ErrSkipped{
-				Reason: "netcat utility not found in path",
-			}
-		}
-		// The IP address 169.254.169.254 is reserved for the Cloud Instance Metadata Service,
-		// a common endpoint used by cloud instances (GCP, AWS and Azure) to access
-		// metadata about the instance itself. Detecting attempts to communicate with this
-		// IP address from a container can indicate potential unauthorized access to
-		// sensitive cloud infrastructure metadata.
-
-		cmd := exec.Command("timeout", "1s", path, "169.254.169.254", "80")
-
-		if err := cmd.Run(); err != nil {
-			return err
+	if !h.InContainer() {
+		return &events.ErrSkipped{
+			Reason: "only applicable to containers",
 		}
 	}
-	return &events.ErrSkipped{
-		Reason: "'Contact EC2 Instance Metadata Service From Container' is applicable only to containers.",
+
+	nc, err := exec.LookPath("nc")
+	if err != nil {
+		// if we don't have a netcat, just bail
+		return &events.ErrSkipped{
+			Reason: "netcat executable file not found in $PATH",
+		}
 	}
+
+	// The IP address 169.254.169.254 is reserved for the Cloud Instance Metadata Service,
+	// a common endpoint used by cloud instances (GCP, AWS and Azure) to access
+	// metadata about the instance itself. Detecting attempts to communicate with this
+	// IP address from a container can indicate potential unauthorized access to
+	// sensitive cloud infrastructure metadata.
+	// note: executing the following command might fail, but enough to trigger the rule, so we ignore any error
+	if err := exec.Command("timeout", "1s", nc, "169.254.169.254", "80").Run(); err != nil {
+		h.Log().WithError(err).Debug("failed to run netcat command (might be ok)")
+	}
+
+	return nil
 }

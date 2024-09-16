@@ -18,8 +18,10 @@ limitations under the License.
 package syscall
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -30,20 +32,21 @@ var _ = events.Register(
 )
 
 func SetSetuidorSetgidbit(h events.Helper) error {
-	// Create a unique temp file
-	file, err := os.CreateTemp("", "created-by-falco-event-generator-")
+	// create a unique file under temp directory
+	file, err := os.CreateTemp("", "falco-event-generator-syscall-SetSetuidorSetgidbit-")
 	if err != nil {
-		h.Log().WithError(err).Error("Error Creating an empty file")
 		return err
 	}
-	defer os.Remove(file.Name()) // Remove the file after function return
+	defer func() {
+		if err := os.Remove(file.Name()); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp file")
+		}
+	}()
 
-	// Set setuid bit with this command
+	// set setuid bit
 	cmd := exec.Command("chmod", "u+s", file.Name())
-
-	if err := cmd.Run(); err != nil {
-		h.Log().WithError(err).Error("Error running chmod commad")
-		return err
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
 	}
 
 	return nil

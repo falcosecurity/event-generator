@@ -21,5 +21,6 @@ import (
 var _ = events.Register(ReadSensitiveFileTrustedAfterStartup)
 
 func ReadSensitiveFileTrustedAfterStartup(h events.Helper) error {
+	// for the event to be triggered, the new process must run for at least 5 seconds
 	return h.SpawnAsWithSymlink("httpd", "syscall.ReadSensitiveFileUntrusted", "--sleep", "6s")
 }

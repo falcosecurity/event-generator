@@ -87,7 +87,7 @@ INFO action executed                               action=syscall.ReadSensitiveF
 
 Useful options:
 - `--loop` to run actions in a loop
-- `--sleep` to set the length of time to wait before running an action (default to `1s`)
+- `--sleep` to set the length of time to wait before running an action (default to `100ms`)
 
 Also, note that not all actions are enabled by default. To run all actions, use the `--all` option.
 
@@ -145,7 +145,7 @@ The `syscall` collection performs a variety of suspect actions detected by the [
 $ docker run -it --rm falcosecurity/event-generator run syscall --loop
 ```
 
-The above command loops forever, incessantly generating a sample event each second. 
+The above command loops forever, incessantly generating a sample event every 100 miliseconds. 
 
 
 ### Generate activity for the k8s audit rules

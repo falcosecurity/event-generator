@@ -15,6 +15,8 @@ limitations under the License.
 package helper
 
 import (
+	"bytes"
+	"errors"
 	"net"
 	"time"
 
@@ -24,48 +26,61 @@ import (
 var _ = events.Register(CombinedServerClient)
 
 func CombinedServerClient(h events.Helper) error {
-	errCh := make(chan error)
-	go func() {
-		errCh <- runServer()
-	}()
-
-	time.Sleep(1 * time.Second)
-	return runClient()
-}
-
-func runServer() error {
-	serverAddr, err := net.ResolveUDPAddr("udp", ":80")
+	serverAddr, err := net.ResolveUDPAddr("udp", "localhost:1234")
 	if err != nil {
 		return err
 	}
 
+	// start server
 	serverConn, err := net.ListenUDP("udp", serverAddr)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err := serverConn.Close(); err != nil {
+			h.Log().WithError(err).Error("failed to close server connection")
+		}
+	}()
 
-	defer serverConn.Close()
+	h.Log().Debug("server is listening on localhost:1234")
+
 	buf := make([]byte, 1024)
-	_, _, err = serverConn.ReadFromUDP(buf)
-	return err
-}
 
-func runClient() error {
-	serverAddr, err := net.ResolveUDPAddr("udp", "localhost:80")
-	if err != nil {
-		return err
-	}
+	// wait for client to send data
+	srvErr := make(chan error)
+	go func() {
+		defer close(srvErr)
+		_, _, err = serverConn.ReadFromUDP(buf)
+		srvErr <- err
+	}()
 
+	// connect to server and send data
 	clientConn, err := net.DialUDP("udp", nil, serverAddr)
 	if err != nil {
 		return err
 	}
-	defer clientConn.Close()
+	defer func() {
+		if err := clientConn.Close(); err != nil {
+			h.Log().WithError(err).Error("failed to close client connection")
+		}
+	}()
 
 	data := []byte{0xCA, 0xFE, 0xBA, 0xBE}
-	_, err = clientConn.Write(data)
-	if err != nil {
+	if _, err = clientConn.Write(data); err != nil {
 		return err
 	}
-	return nil
+
+	h.Log().Debugf("client sent: %X", data)
+
+	// wait for server to respond or timeout
+	select {
+	case err := <-srvErr:
+		if err != nil {
+			return err
+		}
+		h.Log().Debugf("server received: %X", bytes.Trim(buf, "\x00"))
+		return nil
+	case <-time.After(5 * time.Second):
+		return errors.New("timeout")
+	}
 }

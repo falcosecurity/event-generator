@@ -15,9 +15,10 @@ limitations under the License.
 package syscall
 
 import (
-	"github.com/falcosecurity/event-generator/events"
-	"io"
+	"errors"
 	"os"
+
+	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ = events.Register(
@@ -26,38 +27,28 @@ var _ = events.Register(
 )
 
 func ModifyContainerEntrypoint(h events.Helper) error {
-	if h.InContainer() {
-		file, err := os.OpenFile("/proc/self/fd/1", os.O_WRONLY, 0644)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-
-		// Get the current size of the file
-		fileInfo, err := file.Stat()
-		if err != nil {
-			return err
-		}
-		initialFileSize := fileInfo.Size()
-
-		// Write "written by event-generator" to the end of the file
-		data := []byte("written by event-generator")
-
-		_, err = file.Seek(0, io.SeekEnd)
-		if err != nil {
-			return err
-		}
-		_, err = file.Write(data)
-		if err != nil {
-			return err
-		}
-		// Truncate the file to its initial size to remove the written content
-		err = file.Truncate(initialFileSize)
-		if err != nil {
-			return err
+	if !h.InContainer() {
+		return &events.ErrSkipped{
+			Reason: "only applicable to containers",
 		}
 	}
-	return &events.ErrSkipped{
-		Reason: "'Modify Container Entrypoint' is applicable only to containers.",
+
+	// it is enough to open /proc/self/exe or a file under /proc/self/fd/ for writing to trigger the rule
+	file, err := os.OpenFile("/proc/self/fd/1", os.O_WRONLY, os.FileMode(0644))
+	if err != nil {
+		// skip permission denied errors
+		if errors.Is(err, os.ErrPermission) {
+			return &events.ErrSkipped{
+				Reason: "permission denied while trying to open /proc/self/fd/1 for writing",
+			}
+		}
+		return err
 	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			h.Log().WithError(err).Error("failed to close /proc/self/fd/1 file")
+		}
+	}()
+
+	return nil
 }

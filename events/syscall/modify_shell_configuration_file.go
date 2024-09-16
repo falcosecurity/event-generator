@@ -15,28 +15,35 @@ limitations under the License.
 package syscall
 
 import (
-    "os"
-    "path/filepath"
+	"os"
+	"path/filepath"
 
-    "github.com/falcosecurity/event-generator/events"
+	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ = events.Register(
-    ModifyShellConfigurationFile,
-    events.WithDisabled(), // this rule is not included in falco_rules.yaml (stable rules), so disable the action
+	ModifyShellConfigurationFile,
+	events.WithDisabled(), // this rule is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
 func ModifyShellConfigurationFile(h events.Helper) error {
-    // Define the path to the file
-    tmpDir := "/tmp"
-    tmpConfigFile := filepath.Join(tmpDir, ".bashrc")
+	// create a unique temp directory
+	tmpDir, err := os.MkdirTemp("", "falco-event-generator-syscall-ModifyShellConfigurationFile-")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp directory")
+		}
+	}()
 
-    // Modify the file
-    content := []byte("# written by event-generator\n")
-    err := os.WriteFile(tmpConfigFile, content, 0644)
-    if err != nil {
-        return err
-    }
+	shellrc := filepath.Join(tmpDir, ".bashrc")
 
-    return nil
+	// overwrite the content of a shell configuration file
+	if err := os.WriteFile(shellrc, []byte("# written by falco-event-generator\n"), os.FileMode(0644)); err != nil {
+		return err
+	}
+
+	return nil
 }

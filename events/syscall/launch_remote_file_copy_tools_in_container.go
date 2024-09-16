@@ -26,18 +26,16 @@ var _ = events.Register(
 )
 
 func LaunchRemoteFileCopyToolsInContainer(h events.Helper) error {
-	if h.InContainer() {
-		// Launch a remote file copy tool (e.g., scp) within the container
-		cmd := exec.Command("scp")
-
-		h.Log().Info("Remote file copy tool launched in container")
-		err := cmd.Run()
-		if err != nil {
-			h.Log().WithError(err).Error("Failed to launch remote file copy tool")
-			return err
+	if !h.InContainer() {
+		return &events.ErrSkipped{
+			Reason: "only applicable to containers",
 		}
 	}
-	return &events.ErrSkipped{
-		Reason: "'Launch Remote File Copy Tools In Container' is applicable only to containers.",
+
+	// note: executing the following command might fail, but enough to trigger the rule, so we ignore any error
+	if err := exec.Command("scp").Run(); err != nil {
+		h.Log().WithError(err).Debug("failed to run scp command (this is expected)")
 	}
+
+	return nil
 }

@@ -15,7 +15,9 @@ limitations under the License.
 package syscall
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -26,18 +28,24 @@ var _ = events.Register(
 )
 
 func ContainerDriftDetectedOpenCreate(h events.Helper) error {
-	if h.InContainer() {
-		// Create a unique file under tmp dir
-		file, err := os.CreateTemp(os.TempDir(), "created-by-falco-event-generator-")
-		if err != nil {
-			h.Log().WithError(err).Error("Error Creating an empty file")
-			return err
+	if !h.InContainer() {
+		return &events.ErrSkipped{
+			Reason: "only applicable to containers",
 		}
-		defer os.Remove(file.Name()) // Remove the file after function return
-		h.Log().Infof("writing to %s", file.Name())
-		return os.WriteFile(file.Name(), nil, os.FileMode(0755)) // Also set execute permission
 	}
-	return &events.ErrSkipped{
-		Reason: "'Container Drift Detected (open+create)' is applicable only to containers.",
+
+	// generate new "random" temp file name
+	file := filepath.Join(os.TempDir(), fmt.Sprintf("falco-event-generator-syscall-ContainerDriftDetectedOpenCreate-%s", randomString(6)))
+
+	// create file and set execute permission
+	if err := os.WriteFile(file, nil, os.FileMode(0755)); err != nil {
+		return err
 	}
+	defer func() {
+		if err := os.Remove(file); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp file")
+		}
+	}()
+
+	return nil
 }

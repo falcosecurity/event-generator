@@ -47,12 +47,12 @@ prepare: clean events/k8saudit/yaml/bundle.go
 
 .PHONY: ${output}
 ${output}:
-	$(GO) build -buildmode=pie -buildvcs=false -ldflags "$(LDFLAGS)" -o $@ ${main}
+	CGO_ENABLED=0 $(GO) build -buildmode=pie -buildvcs=false -ldflags "$(LDFLAGS)" -o $@ ${main}
 
 .PHONY: clean
 clean:
 	$(RM) -R ${output}
-	$(RM) -f events/k8saudit/yaml/bundle.go
+	$(RM) events/k8saudit/yaml/bundle.go
 	$(RM) -R ${output} ${docgen}
 
 .PHONY: test
@@ -78,11 +78,9 @@ image:
 	$(DOCKER) build \
 		-t "$(IMAGE_NAME_BRANCH)" \
 		-f Dockerfile .
-	$(DOCKER) tag $(IMAGE_NAME_BRANCH) $(IMAGE_NAME_COMMIT)
-	$(DOCKER) tag "$(IMAGE_NAME_BRANCH)" $(IMAGE_NAME_COMMIT)
-
+	$(DOCKER) tag "$(IMAGE_NAME_BRANCH)" "$(IMAGE_NAME_COMMIT)"
 
 .PHONY: push
 push:
-	$(DOCKER) push $(IMAGE_NAME_BRANCH)
-	$(DOCKER) push $(IMAGE_NAME_COMMIT)
+	$(DOCKER) push "$(IMAGE_NAME_BRANCH)"
+	$(DOCKER) push "$(IMAGE_NAME_COMMIT)"

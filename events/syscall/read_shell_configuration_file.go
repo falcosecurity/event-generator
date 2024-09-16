@@ -27,17 +27,38 @@ var _ = events.Register(
 )
 
 func ReadShellConfigurationFile(h events.Helper) error {
-	// Create a unique tempdirectory
-	tempDirectoryName, err := os.MkdirTemp("/", "created-by-event-generator-")
+	// create a unique temp directory
+	tmpDir, err := os.MkdirTemp("", "falco-event-generator-syscall-ReadShellConfigurationFile-")
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tempDirectoryName)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp directory")
+		}
+	}()
 
-	filename := filepath.Join(tempDirectoryName, ".bashrc")
-	// os.Create is enough to trigger the rule
-	if _, err := os.Create(filename); err != nil {
+	shellrc := filepath.Join(tmpDir, ".bashrc")
+
+	// create a dummy shell configuration file
+	file, err := os.Create(shellrc)
+	if err != nil {
 		return err
 	}
+	if err := file.Close(); err != nil {
+		h.Log().WithError(err).Error("failed to close temp file")
+	}
+
+	// open the file to trigger the rule
+	file, err = os.Open(shellrc)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			h.Log().WithError(err).Error("failed to close temp file")
+		}
+	}()
+
 	return nil
 }

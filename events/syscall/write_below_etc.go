@@ -26,8 +26,29 @@ var _ = events.Register(
 )
 
 func WriteBelowEtc(h events.Helper) error {
-	const filename = "/etc/created-by-event-generator"
-	h.Log().Infof("writing to %s", filename)
-	defer os.Remove(filename)
-	return os.WriteFile(filename, nil, os.FileMode(0755))
+	// ensure /etc exists
+	if _, err := os.Stat("/etc"); os.IsNotExist(err) {
+		if err := os.Mkdir("/etc", os.FileMode(0755)); err != nil {
+			return err
+		}
+		// remove /etc directory
+		defer func() {
+			if err := os.RemoveAll("/etc"); err != nil {
+				h.Log().WithError(err).Error("failed to remove /etc directory")
+			}
+		}()
+	}
+
+	// create a unique file under /etc directory
+	file, err := os.CreateTemp("/etc", "falco-event-generator-syscall-WriteBelowEtc-")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.Remove(file.Name()); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp file")
+		}
+	}()
+
+	return nil
 }

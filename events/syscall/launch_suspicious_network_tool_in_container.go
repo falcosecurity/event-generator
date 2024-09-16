@@ -26,16 +26,23 @@ var _ = events.Register(
 )
 
 func LaunchSuspiciousNetworkToolInContainer(h events.Helper) error {
-	if h.InContainer() {
-		cmd := exec.Command("nmap", "-sn", "192.168.1.0/24")
-
-		h.Log().Infof("Network tool launched in container")
-
-		if err := cmd.Run(); err != nil {
-			return err
+	if !h.InContainer() {
+		return &events.ErrSkipped{
+			Reason: "only applicable to containers",
 		}
 	}
-	return &events.ErrSkipped{
-		Reason: "'Launch Suspicious Network Tool In Container' is applicable only to containers.",
+
+	nmap, err := exec.LookPath("nmap")
+	if err != nil {
+		return &events.ErrSkipped{
+			Reason: "nmap executable file not found in $PATH",
+		}
 	}
+
+	// note: executing the following command might fail, but enough to trigger the rule, so we ignore any error
+	if err := exec.Command("timeout", "1s", nmap, "-sn", "192.168.1.0/24").Run(); err != nil {
+		h.Log().WithError(err).Debug("failed to run nmap command (might be ok)")
+	}
+
+	return nil
 }

@@ -28,11 +28,16 @@ var _ = events.Register(
 )
 
 func UnprivilegedDelegationofPageFaultsHandlingtoaUserspaceProcess(h events.Helper) error {
-	// To make user.uid != 0
-	if err := becameUser(h, "daemon"); err != nil {
-		return err
+	// ensure the process is spawned, otherwise we might hit unexpected side effect issues with becameUser()
+	if h.Spawned() {
+		// to make user.uid != 0
+		h.Log().Debug("setuid to something non-root")
+		if err := becameUser(h, "daemon"); err != nil {
+			return err
+		}
+		// attempt to create userfaultfd syscall is enough
+		_, _, _ = unix.Syscall(unix.SYS_USERFAULTFD, 0, 0, 0)
+		return nil
 	}
-	// Attempt to create userfaultfd syscall is enough
-	unix.Syscall(unix.SYS_USERFAULTFD, 0, 0, 0)
-	return nil
+	return h.SpawnAsWithSymlink("child", "syscall.UnprivilegedDelegationofPageFaultsHandlingtoaUserspaceProcess")
 }

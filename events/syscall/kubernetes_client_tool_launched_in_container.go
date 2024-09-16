@@ -18,30 +18,53 @@ limitations under the License.
 package syscall
 
 import (
+	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ = events.Register(
-	kubernetesClientToolLaunchedInContainer,
+	KubernetesClientToolLaunchedInContainer,
 	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
-func kubernetesClientToolLaunchedInContainer(h events.Helper) error {
-	if h.InContainer() {
-		kubectl, err := exec.LookPath("kubectl")
-		if err != nil {
-			return &events.ErrSkipped{
-				Reason: "kubectl is needed to launch this action",
-			}
+func KubernetesClientToolLaunchedInContainer(h events.Helper) error {
+	if !h.InContainer() {
+		return &events.ErrSkipped{
+			Reason: "only applicable to containers",
 		}
+	}
 
-		cmd := exec.Command(kubectl)
-		h.Log().Infof("Kubernetes Client Tool Launched In Container")
-		return cmd.Run()
+	kubectl, err := exec.LookPath("kubectl")
+	// if not present, create dummy kubectl executable
+	if err != nil {
+		// create a unique temp directory
+		tmpDir, err := os.MkdirTemp("", "falco-event-generator-syscall-KubernetesClientToolLaunchedInContainer-")
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := os.RemoveAll(tmpDir); err != nil {
+				h.Log().WithError(err).Error("failed to remove temp directory")
+			}
+		}()
+
+		kubectl = filepath.Join(tmpDir, "kubectl")
+
+		// create executable script file
+		if err := os.WriteFile(kubectl, []byte("#!/bin/sh\n\necho 'hello world'\n"), os.FileMode(0755)); err != nil {
+			return err
+		}
 	}
-	return &events.ErrSkipped{
-		Reason: "'Kubernetes Client Tool Launched In Container' is applicable only to containers.",
+
+	cmd := exec.Command(kubectl)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
 	}
+
+	return nil
 }

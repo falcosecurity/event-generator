@@ -97,7 +97,8 @@ func (t *Tester) PostRun(ctx context.Context, log *logger.Entry, n string, f eve
 		return nil
 	}, time.Millisecond*100)
 
-	if err == context.Canceled {
+	// "rpc error: code = Canceled desc = context canceled" is not directly mapped to context.Canceled
+	if errors.Is(err, context.Canceled) || strings.Contains(err.Error(), "context canceled") {
 		return nil
 	}
 	if err != nil {

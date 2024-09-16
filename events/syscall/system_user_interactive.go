@@ -18,6 +18,7 @@ limitations under the License.
 package syscall
 
 import (
+	"errors"
 	"os/exec"
 
 	"github.com/falcosecurity/event-generator/events"
@@ -28,10 +29,16 @@ var _ = events.Register(SystemUserInteractive)
 func SystemUserInteractive(h events.Helper) error {
 	err := runAsUser(h, "daemon", "/bin/login")
 
-	// silently ignore /bin/login exit status 1
-	if exitErr, isExitErr := err.(*exec.ExitError); isExitErr {
-		h.Log().WithError(exitErr).Debug("silently ignore exit status")
+	// we need to unwrap the error to get the exit code
+	unerr := errors.Unwrap(err)
+	if unerr == nil {
+		unerr = err
+	}
+	// silently ignore /bin/login exit code 1
+	if ee, ok := unerr.(*exec.ExitError); ok && ee.ProcessState.ExitCode() == 1 {
+		h.Log().WithError(err).Debug("login command run as user daemon failed with exit code 1 (might be ok)")
 		return nil
 	}
+
 	return err
 }

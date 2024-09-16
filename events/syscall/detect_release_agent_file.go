@@ -26,50 +26,49 @@ import (
 var _ = events.Register(DetectReleaseAgentFileContainerEscapes)
 
 func DetectReleaseAgentFileContainerEscapes(h events.Helper) error {
-	if h.InContainer() {
-		// Read the CapEff value from /proc/self/status
-		capEffValueBytes, err := exec.Command("sh", "-c", "cat /proc/self/status | grep CapEff | awk '{print $2}'").Output()
-		if err != nil {
-			return err
-		}
-
-		// Convert the CapEff value to a string and trim whitespace
-		capEffValue := strings.TrimSpace(string(capEffValueBytes))
-
-		// user.uid=0 or thread.cap_effective contains CAP_DAC_OVERRIDE reuired condition
-		if os.Getuid() != 0 {
-			hasCAPDacOverride, err := checkCapability(capEffValue, "cap_dac_override")
-			if err != nil {
-				return err
-			}
-			if !hasCAPDacOverride {
-				return &events.ErrSkipped{
-					Reason: "Conatiner with root user or CAP_DAC_OVERRIDE capability is required to execute this event",
-				}
-			}
-		}
-
-		// Check whether CAP_SYS_ADMIN capability exists in the decoded CapEff value
-		hasCAPSysAdmin, err := checkCapability(capEffValue, "cap_sys_admin")
-		if err != nil {
-			return err
-		}
-		if hasCAPSysAdmin {
-			// open_write and fd.name endswith release_agent
-			cmd := exec.Command("echo", "hello world", ">", "release_agent")
-			if err := cmd.Run(); err != nil {
-				return err
-			}
-			h.Log().Infof("Container escape using release_agent file")
-			return nil
-		}
+	if !h.InContainer() {
 		return &events.ErrSkipped{
-			Reason: "Conatiner with cap_sys_admin capability is required to execute this event",
+			Reason: "only applicable to containers",
 		}
 	}
-	return &events.ErrSkipped{
-		Reason: "'Detect release_agent File Container Escapes' rule is only for containers",
+
+	// read the CapEff value from /proc/self/status
+	capEffValueBytes, err := exec.Command("sh", "-c", "cat /proc/self/status | grep CapEff | awk '{print $2}'").Output()
+	if err != nil {
+		return err
 	}
+
+	// convert the CapEff value to a string and trim whitespace
+	capEffValue := strings.TrimSpace(string(capEffValueBytes))
+
+	// user.uid=0 or thread.cap_effective contains CAP_DAC_OVERRIDE reuired condition
+	if os.Getuid() != 0 {
+		hasCAPDacOverride, err := checkCapability(capEffValue, "cap_dac_override")
+		if err != nil {
+			return err
+		}
+
+		if !hasCAPDacOverride {
+			return &events.ErrSkipped{
+				Reason: "conatiner with root user or CAP_DAC_OVERRIDE capability is required to execute this event",
+			}
+		}
+	}
+
+	// check whether CAP_SYS_ADMIN capability exists in the decoded CapEff value
+	hasCAPSysAdmin, err := checkCapability(capEffValue, "cap_sys_admin")
+	if err != nil {
+		return err
+	}
+
+	if !hasCAPSysAdmin {
+		return &events.ErrSkipped{
+			Reason: "privileged container required",
+		}
+	}
+
+	// open_write and fd.name endswith release_agent
+	return exec.Command("sh", "-c", "echo 'hello world' > release_agent").Run()
 }
 
 // This function checks wether given capability exists or not by decoding the given hex
@@ -82,6 +81,7 @@ func checkCapability(hexValue string, capability string) (bool, error) {
 			Reason: "capsh utility is required to execute this event",
 		}
 	}
+
 	cmd := exec.Command(capsh, "--decode="+hexValue)
 
 	// Capture the output of the command

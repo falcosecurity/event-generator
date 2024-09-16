@@ -15,25 +15,26 @@ limitations under the License.
 package syscall
 
 import (
-	"github.com/falcosecurity/event-generator/events"
 	"os/exec"
+
+	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ = events.Register(DisallowedSSHConnectionNonStandardPort)
 
 func DisallowedSSHConnectionNonStandardPort(h events.Helper) error {
-	path, err := exec.LookPath("ssh")
+	ssh, err := exec.LookPath("ssh")
 	if err != nil {
-		// If we don't have an SSH, just bail
+		// if we don't have a SSH, just bail
 		return &events.ErrSkipped{
-			Reason: "ssh utility not found in path",
+			Reason: "ssh executable file not found in $PATH",
 		}
 	}
-	// non_standard_port : 443
-	cmd := exec.Command("timeout", "1s", path, "user@example.com", "-p", "443")
-	err = cmd.Run()
-	if err != nil {
-		return err
+
+	// note: executing the following command might fail, but enough to trigger the rule, so we ignore any error
+	if err := exec.Command("timeout", "1s", ssh, "user@example.com", "-p", "443").Run(); err != nil {
+		h.Log().WithError(err).Debug("failed to run ssh command (this is expected)")
 	}
+
 	return nil
 }

@@ -26,20 +26,28 @@ var _ = events.Register(
 )
 
 func WriteBelowMonitoredDir(h events.Helper) error {
-	const filename = "/lib/created-by-event-generator"
-
-	// Check if the directory exists
-	_, err := os.Stat("/lib")
-
-	if os.IsNotExist(err) {
-		// Create the directory if it doesn't exist
-		if err := os.MkdirAll("/lib", 0755); err != nil {
+	// ensure /lib directory exists
+	if _, err := os.Stat("/lib"); os.IsNotExist(err) {
+		if err := os.Mkdir("/lib", os.FileMode(0755)); err != nil {
 			return err
 		}
-		defer os.Remove("/lib")
+		defer func() {
+			if err := os.RemoveAll("/lib"); err != nil {
+				h.Log().WithError(err).Error("failed to remove /lib directory")
+			}
+		}()
 	}
 
-	h.Log().Infof("writing to %s", filename)
-	defer os.Remove(filename)
-	return os.WriteFile(filename, nil, os.FileMode(0755))
+	// create a unique file under /lib directory
+	file, err := os.CreateTemp("/lib", "falco-event-generator-syscall-WriteBelowMonitoredDir-")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.Remove(file.Name()); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp file")
+		}
+	}()
+
+	return nil
 }

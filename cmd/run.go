@@ -73,23 +73,27 @@ Without arguments it runs all actions, otherwise only those actions matching the
 
 	ns := flags.Lookup("namespace")
 	ns.DefValue = DefaultNamespace
-	ns.Value.Set(DefaultNamespace)
+	if err := ns.Value.Set(DefaultNamespace); err != nil {
+		panic(err)
+	}
 
 	return c, func(c *cobra.Command, args []string, options ...runner.Option) error {
-
 		flags := c.Flags()
 		ns, err := flags.GetString("namespace")
 		if err != nil {
 			return err
 		}
+
 		sleep, err := flags.GetDuration("sleep")
 		if err != nil {
 			return err
 		}
+
 		loop, err := flags.GetBool("loop")
 		if err != nil {
 			return err
 		}
+
 		all, err := flags.GetBool("all")
 		if err != nil {
 			return err

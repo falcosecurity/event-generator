@@ -21,14 +21,21 @@ import (
 )
 
 var _ = events.Register(
-	CreateHiddenFileOrDirectory,
+	CreateHiddenFilesOrDirectories,
 	events.WithDisabled(), // this rule is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
-func CreateHiddenFileOrDirectory(h events.Helper) error {
-	// Create a hidden directory
-	const directoryname = "/.created-by-event-generator"
-	h.Log().Infof("Created a hidden directory %s", directoryname)
-	defer os.Remove(directoryname) // Remove after function return
-	return os.Mkdir(directoryname, 0755)
+func CreateHiddenFilesOrDirectories(h events.Helper) error {
+	// create a unique hidden temp directory
+	tmpDir, err := os.MkdirTemp("", ".falco-event-generator-syscall-CreateHiddenFilesOrDirectories-")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp directory")
+		}
+	}()
+
+	return nil
 }

@@ -44,16 +44,24 @@ func init() {
 		return name
 	})
 
-	V.RegisterValidation("filepath", isFilePath)
-	V.RegisterValidation("logrus", isLogrusLevel)
+	if err := V.RegisterValidation("filepath", isFilePath); err != nil {
+		panic(err)
+	}
+
+	if err := V.RegisterValidation("logrus", isLogrusLevel); err != nil {
+		panic(err)
+	}
+
 	V.RegisterAlias("format", "eq=text|eq=json")
 
 	eng := en.New()
 	uni := ut.New(eng, eng)
 	T, _ = uni.GetTranslator("en")
-	en_translations.RegisterDefaultTranslations(V, T)
+	if err := en_translations.RegisterDefaultTranslations(V, T); err != nil {
+		panic(err)
+	}
 
-	V.RegisterTranslation(
+	if err := V.RegisterTranslation(
 		"filepath",
 		T,
 		func(ut ut.Translator) error {
@@ -63,9 +71,11 @@ func init() {
 			t, _ := ut.T("filepath", fe.Field())
 			return t
 		},
-	)
+	); err != nil {
+		panic(err)
+	}
 
-	V.RegisterTranslation(
+	if err := V.RegisterTranslation(
 		"logrus",
 		T,
 		func(ut ut.Translator) error {
@@ -75,9 +85,11 @@ func init() {
 			t, _ := ut.T("logrus", fe.Value().(string))
 			return t
 		},
-	)
+	); err != nil {
+		panic(err)
+	}
 
-	V.RegisterTranslation(
+	if err := V.RegisterTranslation(
 		"format",
 		T,
 		func(ut ut.Translator) error {
@@ -87,5 +99,7 @@ func init() {
 			t, _ := ut.T("format", fe.Value().(string))
 			return t
 		},
-	)
+	); err != nil {
+		panic(err)
+	}
 }

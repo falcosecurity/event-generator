@@ -17,7 +17,6 @@ package runner
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -107,9 +106,8 @@ func (r *Runner) trigger(ctx context.Context, n string, f events.Action) (trigge
 }
 
 func (r *Runner) runOnce(ctx context.Context, m map[string]events.Action) (err error, shutdown bool) {
-
 	if len(m) == 0 {
-		return fmt.Errorf("no action selected"), false
+		return errors.New("no action selected"), false
 	}
 
 	var cList []func()
@@ -128,7 +126,8 @@ func (r *Runner) runOnce(ctx context.Context, m map[string]events.Action) (err e
 			cList = append(cList, cleanup)
 		}
 		if err != nil {
-			return err, false
+			// log error and fallthrough
+			r.log.WithError(err).WithField("action", n).Error("action error")
 		}
 		select {
 		case <-ctx.Done():
@@ -139,7 +138,7 @@ func (r *Runner) runOnce(ctx context.Context, m map[string]events.Action) (err e
 	}
 
 	if !actionsTriggered {
-		return fmt.Errorf("none of the selected actions is enabled"), false
+		return errors.New("none of the selected actions is enabled"), false
 	}
 
 	return nil, false

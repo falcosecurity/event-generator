@@ -22,8 +22,5 @@ import (
 func isLogrusLevel(fl validator.FieldLevel) bool {
 	level := fl.Field().String()
 	_, err := logger.ParseLevel(level)
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }

@@ -50,8 +50,9 @@ func genBundle(path string) error {
 			return nil
 		}
 
-		if bundle[filepath.Base(filename)], err = os.ReadFile(filename); err != nil {
-			return err
+		var errFileRead error
+		if bundle[filepath.Base(filename)], errFileRead = os.ReadFile(filename); errFileRead != nil {
+			return errFileRead
 		}
 
 		return nil

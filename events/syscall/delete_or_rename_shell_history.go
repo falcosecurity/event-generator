@@ -15,33 +15,40 @@ limitations under the License.
 package syscall
 
 import (
-    "os"
-    "path/filepath"
+	"os"
+	"path/filepath"
 
-    "github.com/falcosecurity/event-generator/events"
+	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ = events.Register(
-    DeleteOrRenameShellHistory,
-    events.WithDisabled(), // this rule is not included in falco_rules.yaml (stable rules), so disable the action    
+	DeleteOrRenameShellHistory,
+	events.WithDisabled(), // this rule is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
 func DeleteOrRenameShellHistory(h events.Helper) error {
-    // Define the path to the file
-    tmpDir := "/tmp"
-    tmpFile := filepath.Join(tmpDir, "ash_history")
+	// create a unique temp directory
+	tmpDir, err := os.MkdirTemp("", "falco-event-generator-syscall-DeleteOrRenameShellHistory-")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp directory")
+		}
+	}()
 
-    // Create the file
-    file, err := os.Create(tmpFile)
-    if err != nil {
-        return err
-    }
-    file.Close()
+	history := filepath.Join(tmpDir, "ash_history")
 
-    // Remove the file
-    if err := os.Remove(tmpFile); err != nil {
-        return err
-    }
+	// create the file
+	if err := os.WriteFile(history, nil, os.FileMode(0600)); err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.Remove(history); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp file")
+		}
+	}()
 
-    return nil
+	return nil
 }

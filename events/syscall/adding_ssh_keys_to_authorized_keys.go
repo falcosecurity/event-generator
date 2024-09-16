@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 // SPDX-License-Identifier: Apache-2.0
 /*
 Copyright (C) 2024 The Falco Authors.
@@ -27,16 +30,15 @@ var _ = events.Register(
 )
 
 func AddingSshKeysToAuthorizedKeys(h events.Helper) error {
-	// Creates .ssh directory inside tempDirectory
-	sshDir, cleanup, err := createSshDirectoryUnderHome()
+	// create .ssh directory inside tempDirectory
+	sshDir, cleanup, err := createSshDirectoryUnderHome(h)
 	if err != nil {
 		return err
 	}
-	defer cleanup() // Cleanup after function return
+	defer cleanup()
 
 	filename := filepath.Join(sshDir, "authorized_keys")
-	h.Log().Infof("writing to %s", filename)
 
-	// Create authorized_keys file, and write into it
-	return os.WriteFile(filename, []byte("ssh-rsa <ssh_public_key>\n"), os.FileMode(0755))
+	// create authorized_keys file, and write into it
+	return os.WriteFile(filename, []byte("ssh-rsa <ssh_public_key>\n"), os.FileMode(0600))
 }

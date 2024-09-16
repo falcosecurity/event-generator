@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 // SPDX-License-Identifier: Apache-2.0
 /*
 Copyright (C) 2024 The Falco Authors.
@@ -18,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"golang.org/x/sys/unix"
 
@@ -48,15 +52,17 @@ func FilelessExecutionViaMemfdCreate(h events.Helper) error {
 		h.Log().WithError(err).Error("failed to write binary data to memory")
 		return err
 	}
-	defer unix.Close(fd)
+	defer func() {
+		if err := unix.Close(fd); err != nil {
+			h.Log().WithError(err).Error("failed to close memory file descriptor")
+		}
+	}()
 
 	// Execute the binary from memory
-	executeCmd := exec.Command("/proc/self/fd/"+fmt.Sprintf("%d", fd), "run", "helper.DoNothing")
-	if err := executeCmd.Run(); err != nil {
-		h.Log().WithError(err).Error("failed to execute binary from memory")
-		return err
+	cmd := exec.Command("/proc/self/fd/"+fmt.Sprintf("%d", fd), "run", "helper.DoNothing")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
 	}
 
-	h.Log().Infof("Successful fileless execution via memfd_create")
 	return nil
 }

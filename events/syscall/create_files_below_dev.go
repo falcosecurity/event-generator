@@ -15,6 +15,7 @@ limitations under the License.
 package syscall
 
 import (
+	"errors"
 	"os"
 
 	"github.com/falcosecurity/event-generator/events"
@@ -26,8 +27,33 @@ var _ = events.Register(
 )
 
 func CreateFilesBelowDev(h events.Helper) error {
-	const filename = "/dev/created-by-event-generator"
-	h.Log().Infof("writing to %s", filename)
-	defer os.Remove(filename)
-	return os.WriteFile(filename, nil, os.FileMode(0755))
+	// ensure /dev exists
+	if _, err := os.Stat("/dev"); os.IsNotExist(err) {
+		if err := os.Mkdir("/dev", os.FileMode(0755)); err != nil {
+			return err
+		}
+		// remove /dev directory
+		defer func() {
+			if err := os.RemoveAll("/dev"); err != nil {
+				h.Log().WithError(err).Error("failed to remove /dev directory")
+			}
+		}()
+	}
+
+	// create a unique file under /dev directory
+	file, err := os.CreateTemp("/dev", "falco-event-generator-syscall-CreateFilesBelowDev-")
+	if err != nil {
+		// to trigger the rule, it is enough to try, so we ignore permission denied errors
+		if errors.Is(err, os.ErrPermission) {
+			return nil
+		}
+		return err
+	}
+	defer func() {
+		if err := os.Remove(file.Name()); err != nil {
+			h.Log().WithError(err).Error("failed to remove temp file")
+		}
+	}()
+
+	return nil
 }

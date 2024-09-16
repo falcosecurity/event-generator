@@ -29,23 +29,20 @@ var _ = events.Register(
 )
 
 func ScheduleCronJobs(h events.Helper) error {
-	// This just lists crons, but sufficies to trigger the event
-	// Cron detection is not enabled by default, see `consider_all_cron_jobs` in rules.yaml
-
-	path, err := exec.LookPath("crontab")
+	crontab, err := exec.LookPath("crontab")
 	if err != nil {
 		// if we don't have a crontab, just bail
 		return &events.ErrSkipped{
-			Reason: "crontab utility not found in path",
+			Reason: "crontab executable file not found in $PATH",
 		}
 	}
-	cmd := exec.Command(path, "-l")
-	err = cmd.Run()
 
-	// silently ignore crontab exit status 1
-	if exitErr, isExitErr := err.(*exec.ExitError); isExitErr {
-		h.Log().WithError(exitErr).Debug("silently ignore exit status")
+	// this just lists crons, but enough to trigger the rule, so we ignore crontab exit code 1
+	err = exec.Command(crontab, "-l").Run()
+	if ee, ok := err.(*exec.ExitError); ok && ee.ProcessState.ExitCode() == 1 {
+		h.Log().WithError(err).Debug("crontab command failed with exit code 1 (might be ok)")
 		return nil
 	}
+
 	return err
 }
