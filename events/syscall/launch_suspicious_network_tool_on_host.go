@@ -15,7 +15,9 @@ limitations under the License.
 package syscall
 
 import (
+	"context"
 	"os/exec"
+	"time"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -37,7 +39,7 @@ func LaunchSuspiciousNetworkToolOnHost(h events.Helper) error {
 	}
 
 	// note: executing the following command might fail, but enough to trigger the rule, so we ignore any error
-	if err := exec.Command("timeout", "1s", nmap, "-sn", "172.17.0.1/32").Run(); err != nil {
+	if err := runCmd(context.Background(), 1*time.Second, nmap, "-sn", "172.17.0.1/32"); err != nil {
 		h.Log().WithError(err).Debug("failed to run nmap command (might be ok)")
 	}
 

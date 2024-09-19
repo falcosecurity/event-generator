@@ -17,7 +17,9 @@ limitations under the License.
 package syscall
 
 import (
+	"context"
 	"os/exec"
+	"time"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -48,7 +50,7 @@ func ContactEC2InstanceMetadataServiceFromContainer(h events.Helper) error {
 	// IP address from a container can indicate potential unauthorized access to
 	// sensitive cloud infrastructure metadata.
 	// note: executing the following command might fail, but enough to trigger the rule, so we ignore any error
-	if err := exec.Command("timeout", "1s", nc, "169.254.169.254", "80").Run(); err != nil {
+	if err := runCmd(context.Background(), 1*time.Second, nc, "169.254.169.254", "80"); err != nil {
 		h.Log().WithError(err).Debug("failed to run netcat command (might be ok)")
 	}
 

@@ -18,7 +18,9 @@ limitations under the License.
 package syscall
 
 import (
+	"context"
 	"os/exec"
+	"time"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -38,7 +40,7 @@ func UnexpectedUDPTraffic(h events.Helper) error {
 	}
 
 	// note: executing the following command might fail, but enough to trigger the rule, so we ignore any error
-	if err := exec.Command("timeout", "1s", nc, "-u", "example.com", "22").Run(); err != nil {
+	if err := runCmd(context.Background(), 1*time.Second, nc, "-u", "example.com", "22"); err != nil {
 		h.Log().WithError(err).Debug("failed to run nc command (this is expected)")
 	}
 
