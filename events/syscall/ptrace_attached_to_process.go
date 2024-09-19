@@ -41,6 +41,8 @@ func PtraceAttachedToProcess(h events.Helper) error {
 		if err := cmd.Process.Kill(); err != nil {
 			h.Log().WithError(err).Error("failed to kill dummy process")
 		}
+		// wait for the dummy process to exit, to avoid creating a zombie
+		_ = cmd.Wait()
 	}()
 
 	// attach to the target process using PTRACE_ATTACH

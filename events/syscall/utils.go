@@ -14,7 +14,12 @@ limitations under the License.
 
 package syscall
 
-import "math/rand/v2"
+import (
+	"context"
+	"math/rand/v2"
+	"os/exec"
+	"time"
+)
 
 // randomString generates a random string of the given length.
 func randomString(length int) string {
@@ -27,4 +32,12 @@ func randomString(length int) string {
 	}
 
 	return string(bytes)
+}
+
+// runCmd runs a command with a timeout.
+func runCmd(ctx context.Context, timeout time.Duration, name string, args ...string) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	return exec.CommandContext(ctx, name, args...).Run()
 }

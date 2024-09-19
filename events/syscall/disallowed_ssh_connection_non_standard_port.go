@@ -15,7 +15,9 @@ limitations under the License.
 package syscall
 
 import (
+	"context"
 	"os/exec"
+	"time"
 
 	"github.com/falcosecurity/event-generator/events"
 )
@@ -32,7 +34,7 @@ func DisallowedSSHConnectionNonStandardPort(h events.Helper) error {
 	}
 
 	// note: executing the following command might fail, but enough to trigger the rule, so we ignore any error
-	if err := exec.Command("timeout", "1s", ssh, "user@example.com", "-p", "443").Run(); err != nil {
+	if err := runCmd(context.Background(), 1*time.Second, ssh, "user@example.com", "-p", "443"); err != nil {
 		h.Log().WithError(err).Debug("failed to run ssh command (this is expected)")
 	}
 
