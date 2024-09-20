@@ -27,13 +27,13 @@ import (
 )
 
 var _ = events.Register(
-	SetSetuidorSetgidbit,
+	SetSetuidOrSetgidBit,
 	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
-func SetSetuidorSetgidbit(h events.Helper) error {
+func SetSetuidOrSetgidBit(h events.Helper) error {
 	// create a unique file under temp directory
-	file, err := os.CreateTemp("", "falco-event-generator-syscall-SetSetuidorSetgidbit-")
+	file, err := os.CreateTemp("", "falco-event-generator-syscall-SetSetuidOrSetgidBit-")
 	if err != nil {
 		return err
 	}
