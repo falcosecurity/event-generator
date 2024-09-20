@@ -18,7 +18,10 @@ import (
 	"github.com/falcosecurity/event-generator/events"
 )
 
-var _ = events.Register(JavaProcessClassFileDownload)
+var _ = events.Register(
+	JavaProcessClassFileDownload,
+	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
+)
 
 func JavaProcessClassFileDownload(h events.Helper) error {
 	return h.SpawnAs("java", "helper.CombinedServerClient")
