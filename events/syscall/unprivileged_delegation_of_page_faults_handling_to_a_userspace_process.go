@@ -23,11 +23,11 @@ import (
 )
 
 var _ = events.Register(
-	UnprivilegedDelegationofPageFaultsHandlingtoaUserspaceProcess,
+	UnprivilegedDelegationOfPageFaultsHandlingToAUserspaceProcess,
 	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
 )
 
-func UnprivilegedDelegationofPageFaultsHandlingtoaUserspaceProcess(h events.Helper) error {
+func UnprivilegedDelegationOfPageFaultsHandlingToAUserspaceProcess(h events.Helper) error {
 	// ensure the process is spawned, otherwise we might hit unexpected side effect issues with becameUser()
 	if h.Spawned() {
 		// to make user.uid != 0
@@ -39,5 +39,5 @@ func UnprivilegedDelegationofPageFaultsHandlingtoaUserspaceProcess(h events.Help
 		_, _, _ = unix.Syscall(unix.SYS_USERFAULTFD, 0, 0, 0)
 		return nil
 	}
-	return h.SpawnAsWithSymlink("child", "syscall.UnprivilegedDelegationofPageFaultsHandlingtoaUserspaceProcess")
+	return h.SpawnAsWithSymlink("child", "syscall.UnprivilegedDelegationOfPageFaultsHandlingToAUserspaceProcess")
 }
