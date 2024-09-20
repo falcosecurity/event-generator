@@ -26,7 +26,10 @@ import (
 	"github.com/falcosecurity/event-generator/events"
 )
 
-var _ = events.Register(PotentialLocalPrivilegeEscalationViaEnvironmentVariablesMisuse)
+var _ = events.Register(
+	PotentialLocalPrivilegeEscalationViaEnvironmentVariablesMisuse,
+	events.WithDisabled(), // this rules is not included in falco_rules.yaml (stable rules), so disable the action
+)
 
 func PotentialLocalPrivilegeEscalationViaEnvironmentVariablesMisuse(h events.Helper) error {
 	// Set the GLIBC_TUNABLES environment variable
