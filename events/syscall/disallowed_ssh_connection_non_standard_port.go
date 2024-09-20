@@ -34,7 +34,8 @@ func DisallowedSSHConnectionNonStandardPort(h events.Helper) error {
 	}
 
 	// note: executing the following command might fail, but enough to trigger the rule, so we ignore any error
-	if err := runCmd(context.Background(), 1*time.Second, ssh, "user@example.com", "-p", "443"); err != nil {
+	// in some cases it takes more than one second to establish the connection
+	if err := runCmd(context.Background(), 5*time.Second, ssh, "user@example.com", "-p", "443"); err != nil {
 		h.Log().WithError(err).Debug("failed to run ssh command (this is expected)")
 	}
 
