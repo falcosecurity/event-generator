@@ -14,7 +14,13 @@ Generate a variety of suspect actions that are detected by Falco rulesets.
     For example, some actions modify files and directories below /bin, /etc, /dev, etc.
     Make sure you fully understand what is the purpose of this tool before running any action.
 
-**Notice** — From version `v0.11.0` the `event-generator` requires Falco 0.37.0 or newer. Previous versions of the `event-generator` might be compatible with older versions of Falco, however, we do not guarantee it.
+**Release notes**
+
+| Version | Notes |
+| ------- | ----- |
+| before `v0.11` |  Previous versions of the `event-generator` might be compatible Falco versions up to 0.36, however, we do not guarantee it. |
+| `v0.11` | Requires Falco 0.37.0 or newer. `k8saudit` is maintained on a best-effort basis. |
+| `v0.12` | Requires Falco 0.38.0 or newer. Events collection has been aligned with the `stable` Falco ruleset. |
 
 ## Usage
 
@@ -25,8 +31,12 @@ The full command line documentation is [here](./docs/event-generator.md).
 ```shell
 $ event-generator list --all
 
+helper.CombinedServerClient
+helper.DoNothing
 helper.ExecLs
+helper.InboundConnection
 helper.NetworkActivity
+helper.OutboundConnection
 helper.RunShell
 k8saudit.ClusterRoleWithPodExecCreated
 k8saudit.ClusterRoleWithWildcardCreated
@@ -41,24 +51,71 @@ k8saudit.K8SConfigMapCreated
 k8saudit.K8SDeploymentCreated
 k8saudit.K8SServiceCreated
 k8saudit.K8SServiceaccountCreated
+syscall.AddingSshKeysToAuthorizedKeys
+syscall.ChangeNamespacePrivilegesViaUnshare
 syscall.ChangeThreadNamespace
+syscall.ClearLogActivities
+syscall.ContactEC2InstanceMetadataServiceFromContainer
+syscall.ContainerDriftDetectedChmod
+syscall.ContainerDriftDetectedOpenCreate
 syscall.CreateFilesBelowDev
+syscall.CreateHardlinkOverSensitiveFiles
+syscall.CreateHiddenFilesOrDirectories
 syscall.CreateSymlinkOverSensitiveFiles
 syscall.DbProgramSpawnedProcess
+syscall.DebugfsLaunchedInPrivilegedContainer
+syscall.DecodingPayloadInContainer
+syscall.DeleteOrRenameShellHistory
+syscall.DetectCryptoMinersUsingTheStratumProtocol
+syscall.DetectReleaseAgentFileContainerEscapes
 syscall.DirectoryTraversalMonitoredFileRead
+syscall.DisallowedSSHConnectionNonStandardPort
+syscall.DropAndExecuteNewBinaryInContainer
+syscall.ExecutionFromDevShm
+syscall.FilelessExecutionViaMemfdCreate
+syscall.FindAwsCredentials
+syscall.InterpretedProcsInboundNetworkActivity
+syscall.InterpretedProcsOutboundNetworkActivity
+syscall.JavaProcessClassFileDownload
+syscall.KubernetesClientToolLaunchedInContainer
+syscall.LaunchIngressRemoteFileCopyToolsInContainer
+syscall.LaunchPackageManagementProcessInContainer
+syscall.LaunchRemoteFileCopyToolsInContainer
+syscall.LaunchSuspiciousNetworkToolInContainer
+syscall.LaunchSuspiciousNetworkToolOnHost
 syscall.MkdirBinaryDirs
 syscall.ModifyBinaryDirs
+syscall.ModifyContainerEntrypoint
+syscall.ModifyShellConfigurationFile
+syscall.MountLaunchedInPrivilegedContainer
+syscall.NetcatRemoteCodeExecutionInContainer
 syscall.NonSudoSetuid
+syscall.PacketSocketCreatedInContainer
+syscall.PolkitLocalPrivilegeEscalationVulnerabilityCVE20214034
+syscall.PotentialLocalPrivilegeEscalationViaEnvironmentVariablesMisuse
+syscall.ProgramRunWithDisallowedHttpProxyEnv
+syscall.PtraceAntiDebugAttempt
+syscall.PtraceAttachedToProcess
+syscall.ReadEnvironmentVariableFromProcFiles
 syscall.ReadSensitiveFileTrustedAfterStartup
 syscall.ReadSensitiveFileUntrusted
+syscall.ReadShellConfigurationFile
+syscall.ReadSshInformation
+syscall.RemoveBulkDataFromDisk
 syscall.RunShellUntrusted
 syscall.ScheduleCronJobs
 syscall.SearchPrivateKeysOrPasswords
+syscall.SetSetuidOrSetgidBit
+syscall.SudoPotentialPrivilegeEscalation
 syscall.SystemProcsNetworkActivity
 syscall.SystemUserInteractive
+syscall.UnexpectedUDPTraffic
+syscall.UnprivilegedDelegationOfPageFaultsHandlingToAUserspaceProcess
 syscall.UserMgmtBinaries
 syscall.WriteBelowBinaryDir
 syscall.WriteBelowEtc
+syscall.WriteBelowMonitoredDir
+syscall.WriteBelowRoot
 syscall.WriteBelowRpmDatabase
 ```
 
@@ -141,6 +198,8 @@ The above commands apply to the `event-generator` namespace. Use a different nam
 ### Generate System Call activity
 The `syscall` collection performs a variety of suspect actions detected by the [default Falco ruleset](https://github.com/falcosecurity/rules/tree/main/rules).
 
+Note that only actions for [stable rules](https://github.com/falcosecurity/rules/blob/main/rules/falco_rules.yaml) are enabled by default. To enable all other actions, use the `--all` option.
+
 ```shell
 $ docker run -it --rm falcosecurity/event-generator run syscall --loop
 ```
@@ -148,7 +207,9 @@ $ docker run -it --rm falcosecurity/event-generator run syscall --loop
 The above command loops forever, incessantly generating a sample event every 100 miliseconds. 
 
 
-### Generate activity for the k8s audit rules
+### Generate activity for the k8saudit rules
+> The `k8saudit` events collection in the `event-generator` is maintained on a best-effort basis and may not fully work.
+
 The `k8saudit` collection generates activity that matches the [k8s audit event ruleset](https://github.com/falcosecurity/plugins/blob/master/plugins/k8saudit/rules/k8s_audit_rules.yaml).
 
 Note that all `k8saudit` are disabled by default. To enable them, use the `--all` option.
