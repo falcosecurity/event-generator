@@ -1,4 +1,16 @@
-event-generator
-dist/
-events/k8saudit/yaml/bundle.go
-evtgen-docgen
+# Ignore everything
+*
+
+# Allow files and directories
+!/Makefile
+!/main.go
+!/go.mod
+!/go.sum
+!/cmd
+!/pkg
+!/tools/file-bundler
+!/events
+
+# Exclude files and directories inside allowed directories
+**/*.md
+**/*_test.go
