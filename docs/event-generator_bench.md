@@ -9,18 +9,18 @@ Benchmark a running Falco instance.
 This command generates a high number of Event Per Second (EPS), to test the events throughput allowed by Falco.
 The number of EPS is controlled by the "--sleep" option: reduce the sleeping duration to increase the EPS.
 If the "--loop" option is set, the sleeping duration is halved on each round.
-The "--pid" option can be used to monitor the Falco process. 
+The "--pid" option can be used to monitor the Falco process.
 	
 N.B.:
 	- the Falco gRPC Output must be enabled to use this command
 	- "outputs.rate" and "outputs.max_burst" values within the Falco configuration must be increased,
 	  otherwise EPS will be rate-limited by the throttling mechanism
-	- since not all actions can be used for benchmarking, 
+	- since not all actions can be used for benchmarking,
 	  only those actions matching the given regular expression are used
 
 One commmon way to use this command is as following:
 
-	event-generator bench "ChangeThreadNamespace|ReadSensitiveFileUntrusted" --all --loop --sleep 10ms --pid $(pidof -s falco) 
+	event-generator bench "ChangeThreadNamespace|ReadSensitiveFileUntrusted" --all --loop --sleep 10ms --pid $(pidof -s falco)
 
 
 
