@@ -61,7 +61,7 @@ test: events/k8saudit/yaml/bundle.go
 	$(GO) test ${TEST_FLAGS} ./...
 
 events/k8saudit/yaml/bundle.go: events/k8saudit/yaml events/k8saudit/yaml/*.yaml
-	$(GO) run ./tools/file-bundler/ $<
+	GOOS= GOARCH= $(GO) run ./tools/file-bundler/ $<
 
 .PHONY: ${docgen}
 ${docgen}: ${PWD}/tools/docgen/docgen.go
