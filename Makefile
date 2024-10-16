@@ -11,6 +11,7 @@
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
 #
+
 SHELL=/bin/bash -o pipefail
 
 GO ?= go
@@ -84,3 +85,47 @@ image:
 push:
 	$(DOCKER) push "$(IMAGE_NAME_BRANCH)"
 	$(DOCKER) push "$(IMAGE_NAME_COMMIT)"
+
+# Install gci if not available
+.PHONY: gci
+gci:
+ifeq (, $(shell which gci))
+	@go install github.com/daixiang0/gci@v0.13.5
+GCI=$(GOBIN)/gci
+else
+GCI=$(shell which gci)
+endif
+
+# Install addlicense if not available
+.PHONY: addlicense
+addlicense:
+ifeq (, $(shell which addlicense))
+	@go install github.com/google/addlicense@v1.1.1
+ADDLICENSE=$(GOBIN)/addlicense
+else
+ADDLICENSE=$(shell which addlicense)
+endif
+
+# Run go fmt against code and add the licence header
+.PHONY: fmt
+fmt: gci addlicense
+	go mod tidy
+	go fmt ./...
+	find . -type f -name '*.go' -a -exec $(GCI) write -s standard -s default -s "prefix(github.com/falcosecurity/event-generator)" {} \;
+	find . -type f -name '*.go' -exec $(ADDLICENSE) -l apache -s -c "The Falco Authors" -y "$(shell date +%Y)" {} \;
+
+# Install golangci-lint if not available
+.PHONY: golangci-lint
+golangci-lint:
+ifeq (, $(shell which golangci-lint))
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
+GOLANGCILINT=$(GOBIN)/golangci-lint
+else
+GOLANGCILINT=$(shell which golangci-lint)
+endif
+
+# It works when called in a branch different than main.
+# "--new-from-rev REV Show only new issues created after git revision REV"
+.PHONY: lint
+lint: golangci-lint
+	$(GOLANGCILINT) run --new-from-rev main
