@@ -22,9 +22,10 @@ import (
 
 	"github.com/falcosecurity/client-go/pkg/api/outputs"
 	"github.com/falcosecurity/client-go/pkg/client"
-	"github.com/falcosecurity/event-generator/events"
 	"github.com/prometheus/procfs"
 	logger "github.com/sirupsen/logrus"
+
+	"github.com/falcosecurity/event-generator/events"
 )
 
 type stat struct {

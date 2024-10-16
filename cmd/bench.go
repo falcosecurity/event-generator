@@ -18,11 +18,11 @@ import (
 	"errors"
 	"time"
 
-	"github.com/falcosecurity/event-generator/pkg/counter"
-	"github.com/falcosecurity/event-generator/pkg/runner"
-
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/falcosecurity/event-generator/pkg/counter"
+	"github.com/falcosecurity/event-generator/pkg/runner"
 )
 
 var errRoundDurationMustBeLongerThanSleep = errors.New("--round-duration must be longer than --sleep")

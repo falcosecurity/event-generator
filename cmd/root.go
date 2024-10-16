@@ -21,19 +21,17 @@ import (
 	"strings"
 	"syscall"
 
-	// register event collections
-	_ "github.com/falcosecurity/event-generator/events/k8saudit"
-	_ "github.com/falcosecurity/event-generator/events/syscall"
-
-	// Initialize all k8s client auth plugins
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-
 	homedir "github.com/mitchellh/go-homedir"
 	logger "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	// Initialize all k8s client auth plugins.
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+
+	// register event collections.
+	_ "github.com/falcosecurity/event-generator/events/k8saudit"
+	_ "github.com/falcosecurity/event-generator/events/syscall"
 )
 
 func init() {

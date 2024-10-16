@@ -19,13 +19,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/falcosecurity/event-generator/events"
-	"github.com/falcosecurity/event-generator/pkg/runner"
-
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
+
+	"github.com/falcosecurity/event-generator/events"
+	"github.com/falcosecurity/event-generator/pkg/runner"
 )
 
 // DefaultNamespace const contains the name of the default Kubernetes namespace.

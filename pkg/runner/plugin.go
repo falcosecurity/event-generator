@@ -17,8 +17,9 @@ package runner
 import (
 	"context"
 
-	"github.com/falcosecurity/event-generator/events"
 	logger "github.com/sirupsen/logrus"
+
+	"github.com/falcosecurity/event-generator/events"
 )
 
 type Plugin interface {

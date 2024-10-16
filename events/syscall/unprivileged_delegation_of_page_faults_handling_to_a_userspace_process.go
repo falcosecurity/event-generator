@@ -18,8 +18,9 @@ limitations under the License.
 package syscall
 
 import (
-	"github.com/falcosecurity/event-generator/events"
 	"golang.org/x/sys/unix"
+
+	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ = events.Register(
