@@ -19,8 +19,9 @@ import (
 	"regexp"
 
 	"github.com/falcosecurity/client-go/pkg/client"
-	"github.com/falcosecurity/event-generator/events"
 	"github.com/spf13/pflag"
+
+	"github.com/falcosecurity/event-generator/events"
 )
 
 func parseEventsArg(arg string) (map[string]events.Action, error) {

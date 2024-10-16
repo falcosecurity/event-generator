@@ -21,10 +21,11 @@ import (
 	"path"
 	"strings"
 
-	"github.com/falcosecurity/event-generator/cmd"
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+
+	"github.com/falcosecurity/event-generator/cmd"
 )
 
 const outputDir = "docs"

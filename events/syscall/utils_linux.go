@@ -27,8 +27,9 @@ import (
 	"strings"
 	sys "syscall"
 
-	"github.com/falcosecurity/event-generator/events"
 	"golang.org/x/sys/unix"
+
+	"github.com/falcosecurity/event-generator/events"
 )
 
 // becameUser calls looks up the username UID then calls "setuid" syscall.

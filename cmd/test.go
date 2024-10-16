@@ -17,10 +17,10 @@ package cmd
 import (
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/falcosecurity/event-generator/pkg/runner"
 	"github.com/falcosecurity/event-generator/pkg/tester"
-
-	"github.com/spf13/cobra"
 )
 
 // NewTest instantiates the test subcommand.

@@ -19,12 +19,12 @@ import (
 	"regexp"
 	"sort"
 
+	"github.com/spf13/cobra"
+
+	"github.com/falcosecurity/event-generator/events"
 	// register event collections
 	_ "github.com/falcosecurity/event-generator/events/k8saudit"
 	_ "github.com/falcosecurity/event-generator/events/syscall"
-
-	"github.com/falcosecurity/event-generator/events"
-	"github.com/spf13/cobra"
 )
 
 // NewList instantiates the list subcommand.

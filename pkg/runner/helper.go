@@ -23,9 +23,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/falcosecurity/event-generator/events"
 	logger "github.com/sirupsen/logrus"
 	"k8s.io/cli-runtime/pkg/resource"
+
+	"github.com/falcosecurity/event-generator/events"
 )
 
 var _ events.Helper = &helper{}

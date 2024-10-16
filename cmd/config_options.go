@@ -18,9 +18,10 @@ import (
 	"errors"
 
 	"github.com/creasty/defaults"
-	"github.com/falcosecurity/event-generator/cmd/internal/validate"
 	"github.com/go-playground/validator/v10"
 	logger "github.com/sirupsen/logrus"
+
+	"github.com/falcosecurity/event-generator/cmd/internal/validate"
 )
 
 // ConfigOptions represent the persistent configuration flags of event-generator.

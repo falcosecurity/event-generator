@@ -22,9 +22,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/falcosecurity/event-generator/events"
 	logger "github.com/sirupsen/logrus"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
+
+	"github.com/falcosecurity/event-generator/events"
 )
 
 type Runner struct {

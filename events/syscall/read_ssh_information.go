@@ -18,11 +18,10 @@ limitations under the License.
 package syscall
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/falcosecurity/event-generator/events"
-
-	"os"
 )
 
 var _ = events.Register(
