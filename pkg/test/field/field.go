@@ -47,6 +47,8 @@ const (
 	// TypeUndefined specifies an undefined field type. This is a special value indicating the absence of a Type for a
 	// Field. The value of a Field marked as undefined cannot be assigned nor set to any other Field value.
 	TypeUndefined Type = "undefined"
+	// TypeFD specifies that the field contains a file descriptor.
+	TypeFD Type = "fd"
 )
 
 const (
