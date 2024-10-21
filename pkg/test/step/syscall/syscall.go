@@ -24,6 +24,7 @@ const (
 	NameOpen    = "open"
 	NameOpenAt  = "openat"
 	NameOpenAt2 = "openat2"
+	NameSymLink = "symlink"
 )
 
 // Description contains information to build a new Syscall test step.
