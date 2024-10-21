@@ -23,6 +23,7 @@ type Type string
 
 const (
 	TypeUndefined Type = "undefined"
+	TypeFD        Type = "fd"
 )
 
 // Paths returns the field paths of the fields contained in the provided fieldContainer.
