@@ -267,6 +267,8 @@ const (
 	SyscallNameOpenAt2 SyscallName = "openat2"
 	// SyscallNameSymLink specifies the name of the symlink system call.
 	SyscallNameSymLink SyscallName = "symlink"
+	// SyscallNameSymLinkAt specifies the name of the symlinkat system call.
+	SyscallNameSymLinkAt SyscallName = "symlinkat"
 )
 
 // UnmarshalYAML populates the SyscallName instance by unmarshalling the content of the provided YAML node.
@@ -282,6 +284,7 @@ func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
 	case SyscallNameOpenAt:
 	case SyscallNameOpenAt2:
 	case SyscallNameSymLink:
+	case SyscallNameSymLinkAt:
 	default:
 		return fmt.Errorf("unknown syscall %q", value)
 	}
