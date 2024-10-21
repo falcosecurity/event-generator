@@ -273,6 +273,8 @@ const (
 	SyscallNameLink SyscallName = "link"
 	// SyscallNameLinkAt specifies the name of the linkat system call.
 	SyscallNameLinkAt SyscallName = "linkat"
+	// SyscallNameInitModule specifies the name of the init_module system call.
+	SyscallNameInitModule SyscallName = "init_module"
 )
 
 // UnmarshalYAML populates the SyscallName instance by unmarshalling the content of the provided YAML node.
@@ -291,6 +293,7 @@ func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
 	case SyscallNameSymLinkAt:
 	case SyscallNameLink:
 	case SyscallNameLinkAt:
+	case SyscallNameInitModule:
 	default:
 		return fmt.Errorf("unknown syscall %q", value)
 	}

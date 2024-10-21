@@ -63,6 +63,8 @@ const (
 	TypeOpenHow Type = "open_how"
 	// TypeLinkAtFlags specifies that the field contains the linkat system call flags.
 	TypeLinkAtFlags Type = "linkat_flags"
+	// TypeModuleParams specifies that the field contains the init_module system call params.
+	TypeModuleParams Type = "module_params"
 )
 
 const (
