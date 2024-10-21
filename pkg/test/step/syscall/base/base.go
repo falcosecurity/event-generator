@@ -174,6 +174,12 @@ func setArgFieldValue(argField *field.Field, value string) error {
 			return fmt.Errorf("cannot parse value as finit_module flags: %v", err)
 		}
 		argFieldValue.SetInt(int64(finitModuleFlags))
+	case field.TypeDup3Flags:
+		dup3Flags, err := parseDup3Flags(value)
+		if err != nil {
+			return fmt.Errorf("cannot parse value as dup3 flags: %v", err)
+		}
+		argFieldValue.SetInt(int64(dup3Flags))
 	case field.TypeUndefined:
 		return fmt.Errorf("argument field type is undefined")
 	default:

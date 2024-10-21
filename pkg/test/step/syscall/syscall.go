@@ -32,6 +32,7 @@ const (
 	NameFinitModule = "finit_module"
 	NameDup         = "dup"
 	NameDup2        = "dup2"
+	NameDup3        = "dup3"
 )
 
 // Description contains information to build a new Syscall test step.

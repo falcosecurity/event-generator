@@ -33,6 +33,7 @@ const (
 	TypeLinkAtFlags      Type = "linkat_flags"
 	TypeModuleParams     Type = "module_params"
 	TypeFinitModuleFlags Type = "finit_module_flags"
+	TypeDup3Flags        Type = "dup3_flags"
 )
 
 // Paths returns the field paths of the fields contained in the provided fieldContainer.
