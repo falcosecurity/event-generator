@@ -253,8 +253,10 @@ func (s *TestStepSyscallSpec) fieldBindings() []*TestStepFieldBinding {
 type SyscallName string
 
 const (
-	// SyscallNameUndefined specifies system call name is not defined.
+	// SyscallNameUndefined specifies that the system call name is not defined.
 	SyscallNameUndefined SyscallName = "undefined"
+	// SyscallNameWrite specifies the name of the write system call.
+	SyscallNameWrite SyscallName = "write"
 )
 
 // UnmarshalYAML populates the SyscallName instance by unmarshalling the content of the provided YAML node.
@@ -264,7 +266,7 @@ func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
 		return err
 	}
 	switch SyscallName(value) {
-	case SyscallNameUndefined:
+	case SyscallNameWrite:
 	default:
 		return fmt.Errorf("unknown syscall %q", value)
 	}
