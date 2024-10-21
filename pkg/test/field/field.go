@@ -77,6 +77,8 @@ const (
 	TypeSocketType Type = "socket_type"
 	// TypeSocketProtocol specifies that the field contains the socket system call protocol.
 	TypeSocketProtocol Type = "socket_protocol"
+	// TypeSendFlags specifies that the field contains the sendto system call flags.
+	TypeSendFlags Type = "send_flags"
 )
 
 const (
