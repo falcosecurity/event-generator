@@ -44,6 +44,8 @@ const (
 	NameOpenAt = "openat"
 	// NameOpenAt2 specifies the name of the openat2 system call test step.
 	NameOpenAt2 = "openat2"
+	// NameSymLink specifies the name of the symlink system call test step.
+	NameSymLink = "symlink"
 )
 
 // Description contains information to build a new Syscall test step.
