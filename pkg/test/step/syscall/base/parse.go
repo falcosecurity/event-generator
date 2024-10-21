@@ -223,3 +223,41 @@ func parseSocketAddress(value string) (unix.Sockaddr, error) {
 	}
 	return sockaddr, nil
 }
+
+func parseSocketDomain(value string) (int, error) {
+	if socketDomainNum, ok := socketDomains[value]; ok {
+		return socketDomainNum, nil
+	}
+
+	socketDomain, err := strconv.ParseInt(value, 10, 0)
+	if err != nil {
+		return 0, err
+	}
+	return int(socketDomain), nil
+}
+
+func parseSocketType(value string) (int, error) {
+	if socketType, ok := socketTypes[value]; ok {
+		return socketType, nil
+	}
+
+	socketType, err := strconv.ParseInt(value, 10, 0)
+	if err != nil {
+		return 0, err
+	}
+
+	return int(socketType), nil
+}
+
+func parseSocketProtocol(value string) (int, error) {
+	if socketProtocol, ok := socketProtocols[value]; ok {
+		return socketProtocol, nil
+	}
+
+	socketProtocol, err := strconv.ParseInt(value, 10, 0)
+	if err != nil {
+		return 0, err
+	}
+
+	return int(socketProtocol), nil
+}

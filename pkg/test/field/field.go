@@ -35,6 +35,9 @@ const (
 	TypeFinitModuleFlags Type = "finit_module_flags"
 	TypeDup3Flags        Type = "dup3_flags"
 	TypeSocketAddress    Type = "socket_address"
+	TypeSocketDomain     Type = "socket_domain"
+	TypeSocketType       Type = "socket_type"
+	TypeSocketProtocol   Type = "socket_protocol"
 )
 
 // Paths returns the field paths of the fields contained in the provided fieldContainer.
