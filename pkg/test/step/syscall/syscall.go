@@ -48,6 +48,8 @@ const (
 	NameSymLink = "symlink"
 	// NameSymLinkAt specifies the name of the symlinkat system call test step.
 	NameSymLinkAt = "symlinkat"
+	// NameLink specifies the name of the link system call test step.
+	NameLink = "link"
 )
 
 // Description contains information to build a new Syscall test step.
