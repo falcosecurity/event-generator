@@ -30,6 +30,7 @@ const (
 	NameLinkAt      = "linkat"
 	NameInitModule  = "init_module"
 	NameFinitModule = "finit_module"
+	NameDup         = "dup"
 )
 
 // Description contains information to build a new Syscall test step.
