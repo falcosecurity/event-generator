@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"golang.org/x/sys/unix"
 	"gopkg.in/yaml.v3"
+	"net"
 	"strconv"
 	"strings"
 )
@@ -176,4 +177,49 @@ func parseDup3Flags(flags string) (int, error) {
 	}
 
 	return 0, fmt.Errorf("unknown flags %q", flags)
+}
+
+func parseSocketAddress(value string) (unix.Sockaddr, error) {
+	if strings.HasPrefix(value, "unix://") {
+		value = value[len("unix://"):]
+		sockaddr := &unix.SockaddrUnix{Name: value}
+		return sockaddr, nil
+	}
+
+	host, port, err := net.SplitHostPort(value)
+	if err != nil {
+		return nil, fmt.Errorf("cannot split address in host and port parts: %v", err)
+	}
+
+	portNumber, err := strconv.ParseInt(port, 10, 0)
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse port number: %v", err)
+	}
+
+	if portNumber <= 0 || portNumber > 65535 {
+		return nil, fmt.Errorf("port number out of range (0, 65535]")
+	}
+
+	if zoneIndex := strings.IndexRune(host, '%'); zoneIndex != -1 {
+		host = host[zoneIndex+1:]
+	}
+
+	addr := net.ParseIP(host)
+	if addr == nil {
+		return nil, fmt.Errorf("cannot parse %q IP address", host)
+	}
+
+	if isIPv6 := strings.ContainsRune(host, ':'); isIPv6 {
+		sockaddr := &unix.SockaddrInet6{
+			Port: int(portNumber),
+			Addr: [16]byte(addr),
+		}
+		return sockaddr, nil
+	}
+
+	sockaddr := &unix.SockaddrInet4{
+		Port: int(portNumber),
+		Addr: [4]byte(addr.To4()),
+	}
+	return sockaddr, nil
 }

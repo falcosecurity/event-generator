@@ -243,6 +243,7 @@ const (
 	SyscallNameDup         SyscallName = "dup"
 	SyscallNameDup2        SyscallName = "dup2"
 	SyscallNameDup3        SyscallName = "dup3"
+	SyscallNameConnect     SyscallName = "connect"
 )
 
 func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
@@ -265,6 +266,7 @@ func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
 	case SyscallNameDup:
 	case SyscallNameDup2:
 	case SyscallNameDup3:
+	case SyscallNameConnect:
 	default:
 		return fmt.Errorf("unknown syscall %q", value)
 	}
