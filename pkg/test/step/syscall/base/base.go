@@ -203,6 +203,24 @@ func setArgFieldValue(argField *field.Field, value string) error {
 			return fmt.Errorf("cannot parse value as socket address: %w", err)
 		}
 		argFieldValue.Set(reflect.ValueOf(sockaddr))
+	case field.TypeSocketDomain:
+		socketDomain, err := parseSocketDomain(value)
+		if err != nil {
+			return fmt.Errorf("cannot parse value as socket domain: %w", err)
+		}
+		argFieldValue.SetInt(int64(socketDomain))
+	case field.TypeSocketType:
+		socketType, err := parseSocketType(value)
+		if err != nil {
+			return fmt.Errorf("cannot parse value as socket type: %w", err)
+		}
+		argFieldValue.SetInt(int64(socketType))
+	case field.TypeSocketProtocol:
+		socketProtocol, err := parseSocketProtocol(value)
+		if err != nil {
+			return fmt.Errorf("cannot parse value as socket protocol: %w", err)
+		}
+		argFieldValue.SetInt(int64(socketProtocol))
 	case field.TypeUndefined:
 		return fmt.Errorf("argument field type is undefined")
 	default:
