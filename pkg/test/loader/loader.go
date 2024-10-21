@@ -237,6 +237,7 @@ const (
 	SyscallNameSymLink   SyscallName = "symlink"
 	SyscallNameSymLinkAt SyscallName = "symlinkat"
 	SyscallNameLink      SyscallName = "link"
+	SyscallNameLinkAt    SyscallName = "linkat"
 )
 
 func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
@@ -253,6 +254,7 @@ func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
 	case SyscallNameSymLink:
 	case SyscallNameSymLinkAt:
 	case SyscallNameLink:
+	case SyscallNameLinkAt:
 	default:
 		return fmt.Errorf("unknown syscall %q", value)
 	}

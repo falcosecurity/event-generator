@@ -22,14 +22,15 @@ type Field struct {
 type Type string
 
 const (
-	TypeUndefined Type = "undefined"
-	TypeFD        Type = "fd"
-	TypeBuffer    Type = "buffer"
-	TypeBufferLen Type = "buffer_len"
-	TypeFilePath  Type = "file_path"
-	TypeOpenFlags Type = "open_flags"
-	TypeOpenMode  Type = "open_mode"
-	TypeOpenHow   Type = "open_how"
+	TypeUndefined   Type = "undefined"
+	TypeFD          Type = "fd"
+	TypeBuffer      Type = "buffer"
+	TypeBufferLen   Type = "buffer_len"
+	TypeFilePath    Type = "file_path"
+	TypeOpenFlags   Type = "open_flags"
+	TypeOpenMode    Type = "open_mode"
+	TypeOpenHow     Type = "open_how"
+	TypeLinkAtFlags Type = "linkat_flags"
 )
 
 // Paths returns the field paths of the fields contained in the provided fieldContainer.

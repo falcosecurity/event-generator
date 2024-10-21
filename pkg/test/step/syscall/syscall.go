@@ -27,6 +27,7 @@ const (
 	NameSymLink   = "symlink"
 	NameSymLinkAt = "symlinkat"
 	NameLink      = "link"
+	NameLinkAt    = "linkat"
 )
 
 // Description contains information to build a new Syscall test step.
