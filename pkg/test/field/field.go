@@ -49,6 +49,10 @@ const (
 	TypeUndefined Type = "undefined"
 	// TypeFD specifies that the field contains a file descriptor.
 	TypeFD Type = "fd"
+	// TypeBuffer specifies that the field contains a buffer.
+	TypeBuffer Type = "buffer"
+	// TypeBufferLen specifies that the field contains a buffer length.
+	TypeBufferLen Type = "buffer_len"
 )
 
 const (

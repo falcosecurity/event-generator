@@ -33,6 +33,11 @@ type Builder interface {
 // Name is the static name of a syscall test step.
 type Name string
 
+const (
+	// NameWrite specifies the name of the write system call test step.
+	NameWrite = "write"
+)
+
 // Description contains information to build a new Syscall test step.
 type Description struct {
 	RawArgs       map[string]string
