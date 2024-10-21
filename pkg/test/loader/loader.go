@@ -230,6 +230,7 @@ type SyscallName string
 
 const (
 	SyscallNameWrite SyscallName = "write"
+	SyscallNameRead  SyscallName = "read"
 )
 
 func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
@@ -239,6 +240,7 @@ func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
 	}
 	switch SyscallName(value) {
 	case SyscallNameWrite:
+	case SyscallNameRead:
 	default:
 		return fmt.Errorf("unknown syscall %q", value)
 	}
