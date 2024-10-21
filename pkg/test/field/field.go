@@ -67,6 +67,8 @@ const (
 	TypeModuleParams Type = "module_params"
 	// TypeFinitModuleFlags specifies that the field contains the finit_module system call flags.
 	TypeFinitModuleFlags Type = "finit_module_flags"
+	// TypeDup3Flags specifies that the field contains the dup3 system call flags.
+	TypeDup3Flags Type = "dup3_flags"
 )
 
 const (
