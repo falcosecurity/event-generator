@@ -26,6 +26,9 @@ const (
 	TypeFD        Type = "fd"
 	TypeBuffer    Type = "buffer"
 	TypeBufferLen Type = "buffer_len"
+	TypeFilePath  Type = "file_path"
+	TypeOpenFlags Type = "open_flags"
+	TypeOpenMode  Type = "open_mode"
 )
 
 // Paths returns the field paths of the fields contained in the provided fieldContainer.

@@ -21,6 +21,7 @@ type Name string
 const (
 	NameWrite = "write"
 	NameRead  = "read"
+	NameOpen  = "open"
 )
 
 // Description contains information to build a new Syscall test step.
