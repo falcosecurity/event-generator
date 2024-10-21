@@ -64,6 +64,8 @@ const (
 	NameDup3 = "dup3"
 	// NameConnect specifies the name of the connect system call test step.
 	NameConnect = "connect"
+	// NameSocket specifies the name of the socket system call test step.
+	NameSocket = "socket"
 )
 
 // Description contains information to build a new Syscall test step.
