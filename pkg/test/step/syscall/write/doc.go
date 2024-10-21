@@ -13,31 +13,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package base
-
-import (
-	"fmt"
-	"strconv"
-)
-
-func parseFD(value string) (int, error) {
-	fd, err := strconv.ParseInt(value, 10, 0)
-	if err != nil {
-		return 0, err
-	}
-
-	return int(fd), nil
-}
-
-func parseBufferLen(value string) (int, error) {
-	bufferLen, err := strconv.ParseInt(value, 10, 0)
-	if err != nil {
-		return 0, err
-	}
-
-	if bufferLen < 0 {
-		return 0, fmt.Errorf("value is negative")
-	}
-
-	return int(bufferLen), nil
-}
+// Package write provides the implementation of a write system call test step.
+package write
