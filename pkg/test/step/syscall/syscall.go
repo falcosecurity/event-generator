@@ -42,6 +42,8 @@ const (
 	NameOpen = "open"
 	// NameOpenAt specifies the name of the openat system call test step.
 	NameOpenAt = "openat"
+	// NameOpenAt2 specifies the name of the openat2 system call test step.
+	NameOpenAt2 = "openat2"
 )
 
 // Description contains information to build a new Syscall test step.
