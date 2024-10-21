@@ -147,3 +147,20 @@ func parseOpenHowResolve(value string) (int, error) {
 
 	return flags, nil
 }
+
+func parseLinkAtFlags(value string) (int, error) {
+	if flags, err := strconv.ParseInt(value, 10, 0); err == nil {
+		return int(flags), nil
+	}
+
+	flags := 0
+	for _, flag := range strings.Split(value, "|") {
+		flagValue, ok := linkAtFlags[flag]
+		if !ok {
+			return 0, fmt.Errorf("unknown flag %q", flag)
+		}
+		flags |= flagValue
+	}
+
+	return flags, nil
+}
