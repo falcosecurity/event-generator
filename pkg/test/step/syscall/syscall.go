@@ -58,6 +58,8 @@ const (
 	NameFinitModule = "finit_module"
 	// NameDup specifies the name of the dup system call test step.
 	NameDup = "dup"
+	// NameDup2 specifies the name of the dup2 system call test step.
+	NameDup2 = "dup2"
 )
 
 // Description contains information to build a new Syscall test step.

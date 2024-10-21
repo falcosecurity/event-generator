@@ -279,6 +279,8 @@ const (
 	SyscallNameFinitModule SyscallName = "finit_module"
 	// SyscallNameDup specifies the name of the dup system call.
 	SyscallNameDup SyscallName = "dup"
+	// SyscallNameDup2 specifies the name of the dup2 system call.
+	SyscallNameDup2 SyscallName = "dup2"
 )
 
 // UnmarshalYAML populates the SyscallName instance by unmarshalling the content of the provided YAML node.
@@ -300,6 +302,7 @@ func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
 	case SyscallNameInitModule:
 	case SyscallNameFinitModule:
 	case SyscallNameDup:
+	case SyscallNameDup2:
 	default:
 		return fmt.Errorf("unknown syscall %q", value)
 	}
