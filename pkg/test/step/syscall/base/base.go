@@ -128,6 +128,14 @@ func setArgFieldValue(argField *field.Field, value string) error {
 			return fmt.Errorf("cannot parse value as FD: %v", err)
 		}
 		argFieldValue.SetInt(int64(fd))
+	case field.TypeBuffer:
+		argFieldValue.Set(reflect.ValueOf([]byte(value)))
+	case field.TypeBufferLen:
+		bufferLen, err := parseBufferLen(value)
+		if err != nil {
+			return fmt.Errorf("cannot parse value as buffer length: %v", err)
+		}
+		argFieldValue.SetInt(int64(bufferLen))
 	case field.TypeUndefined:
 		return fmt.Errorf("argument field type is undefined")
 	default:

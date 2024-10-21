@@ -24,6 +24,8 @@ type Type string
 const (
 	TypeUndefined Type = "undefined"
 	TypeFD        Type = "fd"
+	TypeBuffer    Type = "buffer"
+	TypeBufferLen Type = "buffer_len"
 )
 
 // Paths returns the field paths of the fields contained in the provided fieldContainer.
