@@ -183,6 +183,8 @@ func setArgFieldValue(argField *field.Field, value string) error {
 			return fmt.Errorf("cannot parse value as linkat flags: %w", err)
 		}
 		argFieldValue.SetInt(int64(linkAtFlags))
+	case field.TypeModuleParams:
+		argFieldValue.SetString(value)
 	case field.TypeUndefined:
 		return fmt.Errorf("argument field type is undefined")
 	default:
