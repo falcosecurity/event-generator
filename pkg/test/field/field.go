@@ -71,6 +71,12 @@ const (
 	TypeDup3Flags Type = "dup3_flags"
 	// TypeSocketAddress specifies that the field contains a sockaddr.
 	TypeSocketAddress Type = "socket_address"
+	// TypeSocketDomain specifies that the field contains the socket system call domain.
+	TypeSocketDomain Type = "socket_domain"
+	// TypeSocketType specifies that the field contains the socket system call type.
+	TypeSocketType Type = "socket_type"
+	// TypeSocketProtocol specifies that the field contains the socket system call protocol.
+	TypeSocketProtocol Type = "socket_protocol"
 )
 
 const (
