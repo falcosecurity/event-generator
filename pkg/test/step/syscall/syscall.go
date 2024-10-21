@@ -54,6 +54,8 @@ const (
 	NameLinkAt = "linkat"
 	// NameInitModule specifies the name of the init_module system call test step.
 	NameInitModule = "init_module"
+	// NameFinitModule specifies the name of the finit_module system call test step.
+	NameFinitModule = "finit_module"
 )
 
 // Description contains information to build a new Syscall test step.

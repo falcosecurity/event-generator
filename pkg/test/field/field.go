@@ -65,6 +65,8 @@ const (
 	TypeLinkAtFlags Type = "linkat_flags"
 	// TypeModuleParams specifies that the field contains the init_module system call params.
 	TypeModuleParams Type = "module_params"
+	// TypeFinitModuleFlags specifies that the field contains the finit_module system call flags.
+	TypeFinitModuleFlags Type = "finit_module_flags"
 )
 
 const (
