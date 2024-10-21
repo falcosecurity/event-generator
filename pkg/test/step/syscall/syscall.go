@@ -66,6 +66,8 @@ const (
 	NameConnect = "connect"
 	// NameSocket specifies the name of the socket system call test step.
 	NameSocket = "socket"
+	// NameSendTo specifies the name of the sendto system call test step.
+	NameSendTo = "sendto"
 )
 
 // Description contains information to build a new Syscall test step.
