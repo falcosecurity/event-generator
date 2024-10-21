@@ -168,6 +168,12 @@ func setArgFieldValue(argField *field.Field, value string) error {
 		argFieldValue.SetInt(int64(linkAtFlags))
 	case field.TypeModuleParams:
 		argFieldValue.SetString(value)
+	case field.TypeFinitModuleFlags:
+		finitModuleFlags, err := parseFinitModuleFlags(value)
+		if err != nil {
+			return fmt.Errorf("cannot parse value as finit_module flags: %v", err)
+		}
+		argFieldValue.SetInt(int64(finitModuleFlags))
 	case field.TypeUndefined:
 		return fmt.Errorf("argument field type is undefined")
 	default:
