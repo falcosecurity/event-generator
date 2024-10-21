@@ -283,6 +283,8 @@ const (
 	SyscallNameDup2 SyscallName = "dup2"
 	// SyscallNameDup3 specifies the name of the dup3 system call.
 	SyscallNameDup3 SyscallName = "dup3"
+	// SyscallNameConnect specifies the name of the connect system call.
+	SyscallNameConnect SyscallName = "connect"
 )
 
 // UnmarshalYAML populates the SyscallName instance by unmarshalling the content of the provided YAML node.
@@ -306,6 +308,7 @@ func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
 	case SyscallNameDup:
 	case SyscallNameDup2:
 	case SyscallNameDup3:
+	case SyscallNameConnect:
 	default:
 		return fmt.Errorf("unknown syscall %q", value)
 	}

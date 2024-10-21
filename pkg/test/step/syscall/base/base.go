@@ -197,6 +197,12 @@ func setArgFieldValue(argField *field.Field, value string) error {
 			return fmt.Errorf("cannot parse value as dup3 flags: %w", err)
 		}
 		argFieldValue.SetInt(int64(dup3Flags))
+	case field.TypeSocketAddress:
+		sockaddr, err := parseSocketAddress(value)
+		if err != nil {
+			return fmt.Errorf("cannot parse value as socket address: %w", err)
+		}
+		argFieldValue.Set(reflect.ValueOf(sockaddr))
 	case field.TypeUndefined:
 		return fmt.Errorf("argument field type is undefined")
 	default:
