@@ -46,3 +46,12 @@ var openModes = map[string]int{
 	"S_ISGID": unix.S_ISGID, // set-group-ID bit (see inode(7)).
 	"S_ISVTX": unix.S_ISVTX, // sticky bit (see inode(7)).
 }
+
+var openHowResolveFlags = map[string]int{
+	"RESOLVE_NO_XDEV":       unix.RESOLVE_NO_XDEV,
+	"RESOLVE_NO_MAGICLINKS": unix.RESOLVE_NO_MAGICLINKS,
+	"RESOLVE_NO_SYMLINKS":   unix.RESOLVE_NO_SYMLINKS,
+	"RESOLVE_BENEATH":       unix.RESOLVE_BENEATH,
+	"RESOLVE_IN_ROOT":       unix.RESOLVE_IN_ROOT,
+	"RESOLVE_CACHED":        0x20,
+}

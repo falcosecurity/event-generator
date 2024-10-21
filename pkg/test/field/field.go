@@ -29,6 +29,7 @@ const (
 	TypeFilePath  Type = "file_path"
 	TypeOpenFlags Type = "open_flags"
 	TypeOpenMode  Type = "open_mode"
+	TypeOpenHow   Type = "open_how"
 )
 
 // Paths returns the field paths of the fields contained in the provided fieldContainer.

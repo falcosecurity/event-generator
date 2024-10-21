@@ -154,6 +154,12 @@ func setArgFieldValue(argField *field.Field, value string) error {
 			return fmt.Errorf("cannot parse value as open mode: %v", err)
 		}
 		argFieldValue.SetInt(int64(openMode))
+	case field.TypeOpenHow:
+		openHow, err := parseOpenHow(value)
+		if err != nil {
+			return fmt.Errorf("cannot parse value as open_how struct: %v", err)
+		}
+		argFieldValue.Set(reflect.ValueOf(*openHow))
 	case field.TypeUndefined:
 		return fmt.Errorf("argument field type is undefined")
 	default:

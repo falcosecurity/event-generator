@@ -19,10 +19,11 @@ type Builder interface {
 type Name string
 
 const (
-	NameWrite  = "write"
-	NameRead   = "read"
-	NameOpen   = "open"
-	NameOpenAt = "openat"
+	NameWrite   = "write"
+	NameRead    = "read"
+	NameOpen    = "open"
+	NameOpenAt  = "openat"
+	NameOpenAt2 = "openat2"
 )
 
 // Description contains information to build a new Syscall test step.

@@ -229,10 +229,11 @@ func (s *TestStepSyscallSpec) fieldBindings() ([]*TestStepFieldBinding, error) {
 type SyscallName string
 
 const (
-	SyscallNameWrite  SyscallName = "write"
-	SyscallNameRead   SyscallName = "read"
-	SyscallNameOpen   SyscallName = "open"
-	SyscallNameOpenAt SyscallName = "openat"
+	SyscallNameWrite   SyscallName = "write"
+	SyscallNameRead    SyscallName = "read"
+	SyscallNameOpen    SyscallName = "open"
+	SyscallNameOpenAt  SyscallName = "openat"
+	SyscallNameOpenAt2 SyscallName = "openat2"
 )
 
 func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
@@ -245,6 +246,7 @@ func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
 	case SyscallNameRead:
 	case SyscallNameOpen:
 	case SyscallNameOpenAt:
+	case SyscallNameOpenAt2:
 	default:
 		return fmt.Errorf("unknown syscall %q", value)
 	}
