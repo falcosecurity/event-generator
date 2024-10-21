@@ -40,6 +40,8 @@ const (
 	NameRead = "read"
 	// NameOpen specifies the name of the open system call test step.
 	NameOpen = "open"
+	// NameOpenAt specifies the name of the openat system call test step.
+	NameOpenAt = "openat"
 )
 
 // Description contains information to build a new Syscall test step.
