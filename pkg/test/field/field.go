@@ -61,6 +61,8 @@ const (
 	TypeOpenMode Type = "open_mode"
 	// TypeOpenHow specifies that the field contains the openat2 system call open_how parameter.
 	TypeOpenHow Type = "open_how"
+	// TypeLinkAtFlags specifies that the field contains the linkat system call flags.
+	TypeLinkAtFlags Type = "linkat_flags"
 )
 
 const (

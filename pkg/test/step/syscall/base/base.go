@@ -177,6 +177,12 @@ func setArgFieldValue(argField *field.Field, value string) error {
 			return fmt.Errorf("cannot parse value as open_how struct: %w", err)
 		}
 		argFieldValue.Set(reflect.ValueOf(*openHow))
+	case field.TypeLinkAtFlags:
+		linkAtFlags, err := parseLinkAtFlags(value)
+		if err != nil {
+			return fmt.Errorf("cannot parse value as linkat flags: %w", err)
+		}
+		argFieldValue.SetInt(int64(linkAtFlags))
 	case field.TypeUndefined:
 		return fmt.Errorf("argument field type is undefined")
 	default:

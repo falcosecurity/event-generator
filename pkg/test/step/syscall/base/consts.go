@@ -70,3 +70,8 @@ var openHowResolveFlags = map[string]int{
 	"RESOLVE_IN_ROOT":       unix.RESOLVE_IN_ROOT,
 	"RESOLVE_CACHED":        0x20,
 }
+
+var linkAtFlags = map[string]int{
+	"AT_SYMLINK_FOLLOW": unix.AT_SYMLINK_FOLLOW,
+	"AT_EMPTY_PATH":     unix.AT_EMPTY_PATH,
+}
