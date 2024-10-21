@@ -181,3 +181,15 @@ func parseFinitModuleFlags(value string) (int, error) {
 
 	return flags, nil
 }
+
+func parseDup3Flags(flags string) (int, error) {
+	if flags == "O_CLOEXEC" {
+		return unix.O_CLOEXEC, nil
+	}
+
+	if flags == "0" {
+		return 0, nil
+	}
+
+	return 0, fmt.Errorf("unknown flags %q", flags)
+}
