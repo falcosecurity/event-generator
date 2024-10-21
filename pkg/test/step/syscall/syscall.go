@@ -35,6 +35,7 @@ const (
 	NameDup3        = "dup3"
 	NameConnect     = "connect"
 	NameSocket      = "socket"
+	NameSendTo      = "sendto"
 )
 
 // Description contains information to build a new Syscall test step.

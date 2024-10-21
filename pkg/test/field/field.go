@@ -38,6 +38,7 @@ const (
 	TypeSocketDomain     Type = "socket_domain"
 	TypeSocketType       Type = "socket_type"
 	TypeSocketProtocol   Type = "socket_protocol"
+	TypeSendFlags        Type = "send_flags"
 )
 
 // Paths returns the field paths of the fields contained in the provided fieldContainer.

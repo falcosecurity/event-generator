@@ -159,3 +159,13 @@ var socketProtocols = map[string]int{
 	"IPPROTO_SMC":      256,                   // Shared Memory Communications
 	"IPPROTO_MPTCP":    unix.IPPROTO_MPTCP,    // Multipath TCP connection
 }
+
+var sendFlags = map[string]int{
+	"MSG_CONFIRM":   unix.MSG_CONFIRM,
+	"MSG_DONTROUTE": unix.MSG_DONTROUTE,
+	"MSG_DONTWAIT":  unix.MSG_DONTWAIT,
+	"MSG_EOR":       unix.MSG_EOR,
+	"MSG_MORE":      unix.MSG_MORE,
+	"MSG_NOSIGNAL":  unix.MSG_NOSIGNAL,
+	"MSG_OOB":       unix.MSG_OOB,
+}

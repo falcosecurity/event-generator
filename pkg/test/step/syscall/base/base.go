@@ -204,7 +204,12 @@ func setArgFieldValue(argField *field.Field, value string) error {
 			return fmt.Errorf("cannot parse value as socket protocol: %v", err)
 		}
 		argFieldValue.SetInt(int64(socketProtocol))
-
+	case field.TypeSendFlags:
+		sendFlags, err := parseSendFlags(value)
+		if err != nil {
+			return fmt.Errorf("cannot parse value as send flags: %v", err)
+		}
+		argFieldValue.SetInt(int64(sendFlags))
 	case field.TypeUndefined:
 		return fmt.Errorf("argument field type is undefined")
 	default:
