@@ -53,6 +53,12 @@ const (
 	TypeBuffer Type = "buffer"
 	// TypeBufferLen specifies that the field contains a buffer length.
 	TypeBufferLen Type = "buffer_len"
+	// TypeFilePath specifies that the field contains a file path.
+	TypeFilePath Type = "file_path"
+	// TypeOpenFlags specifies that the field contains the open system call flags.
+	TypeOpenFlags Type = "open_flags"
+	// TypeOpenMode specifies that the field contains the open system call modes.
+	TypeOpenMode Type = "open_mode"
 )
 
 const (
