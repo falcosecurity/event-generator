@@ -153,6 +153,24 @@ func setArgFieldValue(argField *field.Field, value string) error {
 			return fmt.Errorf("cannot parse value as buffer length: %w", err)
 		}
 		argFieldValue.SetInt(int64(bufferLen))
+	case field.TypeFilePath:
+		filePath, err := parseFilePath(value)
+		if err != nil {
+			return fmt.Errorf("cannot parse value as file path: %w", err)
+		}
+		argFieldValue.Set(reflect.ValueOf(filePath))
+	case field.TypeOpenFlags:
+		openFlags, err := parseOpenFlags(value)
+		if err != nil {
+			return fmt.Errorf("cannot parse value as open flags: %w", err)
+		}
+		argFieldValue.SetInt(int64(openFlags))
+	case field.TypeOpenMode:
+		openMode, err := parseOpenMode(value)
+		if err != nil {
+			return fmt.Errorf("cannot parse value as open mode: %w", err)
+		}
+		argFieldValue.SetInt(int64(openMode))
 	case field.TypeUndefined:
 		return fmt.Errorf("argument field type is undefined")
 	default:

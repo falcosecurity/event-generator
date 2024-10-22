@@ -38,6 +38,8 @@ const (
 	NameWrite = "write"
 	// NameRead specifies the name of the read system call test step.
 	NameRead = "read"
+	// NameOpen specifies the name of the open system call test step.
+	NameOpen = "open"
 )
 
 // Description contains information to build a new Syscall test step.
