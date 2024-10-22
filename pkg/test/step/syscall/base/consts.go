@@ -82,6 +82,10 @@ var finitModuleFlags = map[string]int{
 	"MODULE_INIT_COMPRESSED_FILE":    unix.MODULE_INIT_COMPRESSED_FILE,
 }
 
+var dup3Flags = map[string]int{
+	"O_CLOEXEC": unix.O_CLOEXEC,
+}
+
 var socketDomains = map[string]int{
 	"AF_UNSPEC":     unix.AF_UNSPEC,
 	"AF_UNIX":       unix.AF_UNIX,      // Unix domain sockets

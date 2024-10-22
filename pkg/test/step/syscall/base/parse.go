@@ -25,70 +25,33 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func parseFD(value string) (int, error) {
-	fd, err := strconv.ParseInt(value, 10, 0)
-	if err != nil {
-		return 0, err
-	}
-
-	return int(fd), nil
-}
+var (
+	errNegativeValue      = fmt.Errorf("value is negative")
+	errUnexpectedNullByte = fmt.Errorf("unexpected NULL byte")
+	errPortOutOfRange     = fmt.Errorf("port number out of range (0, 65535]")
+)
 
 func parseBufferLen(value string) (int, error) {
-	bufferLen, err := strconv.ParseInt(value, 10, 0)
+	bufferLen, err := strconv.Atoi(value)
 	if err != nil {
 		return 0, err
 	}
 
 	if bufferLen < 0 {
-		return 0, fmt.Errorf("value is negative")
+		return 0, errNegativeValue
 	}
 
-	return int(bufferLen), nil
+	return bufferLen, nil
 }
 
 func parseFilePath(value string) ([]byte, error) {
 	if strings.IndexByte(value, 0) != -1 {
-		return nil, fmt.Errorf("unexpected NULL byte")
+		return nil, errUnexpectedNullByte
 	}
 
 	filePath := make([]byte, len(value)+1)
 	copy(filePath, value)
 	return filePath, nil
-}
-
-func parseOpenFlags(value string) (int, error) {
-	if flags, err := strconv.ParseInt(value, 10, 0); err == nil {
-		return int(flags), nil
-	}
-
-	flags := 0
-	for _, flag := range strings.Split(value, "|") {
-		flagValue, ok := openFlags[flag]
-		if !ok {
-			return 0, fmt.Errorf("unknown flag %q", flag)
-		}
-		flags |= flagValue
-	}
-
-	return flags, nil
-}
-
-func parseOpenMode(value string) (int, error) {
-	if flags, err := strconv.ParseInt(value, 10, 0); err == nil {
-		return int(flags), nil
-	}
-
-	flags := 0
-	for _, flag := range strings.Split(value, "|") {
-		flagValue, ok := openModes[flag]
-		if !ok {
-			return 0, fmt.Errorf("unknown mode %q", flag)
-		}
-		flags |= flagValue
-	}
-
-	return flags, nil
 }
 
 func parseOpenHow(value string) (*unix.OpenHow, error) {
@@ -106,96 +69,34 @@ func parseOpenHow(value string) (*unix.OpenHow, error) {
 
 	openHow := &unix.OpenHow{}
 	if openHowView.Flags == "" {
-		flags, err := parseOpenFlags(openHowView.Flags)
+		flags, err := parseFlags(openHowView.Flags, openFlags)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing flags: %w", err)
 		}
+		//nolint:gosec // Disable G115
 		openHow.Flags = uint64(flags)
 	}
 
 	if openHowView.Mode == "" {
-		mode, err := parseOpenMode(openHowView.Mode)
+		mode, err := parseFlags(openHowView.Mode, openModes)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing mode: %w", err)
 		}
+		//nolint:gosec // Disable G115
 		openHow.Mode = uint64(mode)
 	}
 
 	if openHowView.Resolve == "" {
-		resolve, err := parseOpenHowResolve(openHowView.Resolve)
+		resolve, err := parseFlags(openHowView.Resolve, openHowResolveFlags)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing resolve: %w", err)
 		}
+		//nolint:gosec // Disable G115
 		openHow.Mode = uint64(resolve)
 	}
 
 	return openHow, nil
 }
-
-func parseOpenHowResolve(value string) (int, error) {
-	if flags, err := strconv.ParseInt(value, 10, 0); err == nil {
-		return int(flags), nil
-	}
-
-	flags := 0
-	for _, flag := range strings.Split(value, "|") {
-		flagValue, ok := openHowResolveFlags[flag]
-		if !ok {
-			return 0, fmt.Errorf("unknown flag %q", flag)
-		}
-		flags |= flagValue
-	}
-
-	return flags, nil
-}
-
-func parseLinkAtFlags(value string) (int, error) {
-	if flags, err := strconv.ParseInt(value, 10, 0); err == nil {
-		return int(flags), nil
-	}
-
-	flags := 0
-	for _, flag := range strings.Split(value, "|") {
-		flagValue, ok := linkAtFlags[flag]
-		if !ok {
-			return 0, fmt.Errorf("unknown flag %q", flag)
-		}
-		flags |= flagValue
-	}
-
-	return flags, nil
-}
-
-func parseFinitModuleFlags(value string) (int, error) {
-	if flags, err := strconv.ParseInt(value, 10, 0); err == nil {
-		return int(flags), nil
-	}
-
-	flags := 0
-	for _, flag := range strings.Split(value, "|") {
-		flagValue, ok := finitModuleFlags[flag]
-		if !ok {
-			return 0, fmt.Errorf("unknown flag %q", flag)
-		}
-		flags |= flagValue
-	}
-
-	return flags, nil
-}
-
-func parseDup3Flags(flags string) (int, error) {
-	if flags == "O_CLOEXEC" {
-		return unix.O_CLOEXEC, nil
-	}
-
-	if flags == "0" {
-		return 0, nil
-	}
-
-	return 0, fmt.Errorf("unknown flags %q", flags)
-}
-
-var errPortOutOfRange = fmt.Errorf("port number out of range (0, 65535]")
 
 func parseSocketAddress(value string) (unix.Sockaddr, error) {
 	if strings.HasPrefix(value, "unix://") {
@@ -242,52 +143,22 @@ func parseSocketAddress(value string) (unix.Sockaddr, error) {
 	return sockaddr, nil
 }
 
-func parseSocketDomain(value string) (int, error) {
-	if socketDomainNum, ok := socketDomains[value]; ok {
-		return socketDomainNum, nil
+func parseSingleValue(value string, valuesMap map[string]int) (int, error) {
+	if parsedValue, ok := valuesMap[value]; ok {
+		return parsedValue, nil
 	}
 
-	socketDomain, err := strconv.ParseInt(value, 10, 0)
-	if err != nil {
-		return 0, err
-	}
-	return int(socketDomain), nil
+	return strconv.Atoi(value)
 }
 
-func parseSocketType(value string) (int, error) {
-	if socketType, ok := socketTypes[value]; ok {
-		return socketType, nil
-	}
-
-	socketType, err := strconv.ParseInt(value, 10, 0)
-	if err != nil {
-		return 0, err
-	}
-
-	return int(socketType), nil
-}
-
-func parseSocketProtocol(value string) (int, error) {
-	if socketProtocol, ok := socketProtocols[value]; ok {
-		return socketProtocol, nil
-	}
-
-	socketProtocol, err := strconv.ParseInt(value, 10, 0)
-	if err != nil {
-		return 0, err
-	}
-
-	return int(socketProtocol), nil
-}
-
-func parseSendFlags(value string) (int, error) {
-	if flags, err := strconv.ParseInt(value, 10, 0); err == nil {
-		return int(flags), nil
+func parseFlags(value string, flagsMap map[string]int) (int, error) {
+	if flags, err := strconv.Atoi(value); err == nil {
+		return flags, nil
 	}
 
 	flags := 0
 	for _, flag := range strings.Split(value, "|") {
-		flagValue, ok := sendFlags[flag]
+		flagValue, ok := flagsMap[flag]
 		if !ok {
 			return 0, fmt.Errorf("unknown flag %q", flag)
 		}

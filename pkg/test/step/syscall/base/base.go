@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strconv"
 
 	"github.com/falcosecurity/event-generator/pkg/test/field"
 	"github.com/falcosecurity/event-generator/pkg/test/step"
@@ -136,11 +137,13 @@ func setArgFieldValues(argFieldContainer reflect.Value, rawArgs map[string]strin
 
 // setArgFieldValue sets the value of the field identified by the provided field info to the provided value, parsing it
 // differently depending on the field type.
+//
+//nolint:gocyclo // Disable cyclomatic complexity check.
 func setArgFieldValue(argField *field.Field, value string) error {
 	argFieldValue := argField.Value
 	switch argFieldType := argField.Type; argFieldType {
 	case field.TypeFD:
-		fd, err := parseFD(value)
+		fd, err := strconv.Atoi(value)
 		if err != nil {
 			return fmt.Errorf("cannot parse value as FD: %w", err)
 		}
@@ -160,13 +163,13 @@ func setArgFieldValue(argField *field.Field, value string) error {
 		}
 		argFieldValue.Set(reflect.ValueOf(filePath))
 	case field.TypeOpenFlags:
-		openFlags, err := parseOpenFlags(value)
+		openFlags, err := parseFlags(value, openFlags)
 		if err != nil {
 			return fmt.Errorf("cannot parse value as open flags: %w", err)
 		}
 		argFieldValue.SetInt(int64(openFlags))
 	case field.TypeOpenMode:
-		openMode, err := parseOpenMode(value)
+		openMode, err := parseFlags(value, openModes)
 		if err != nil {
 			return fmt.Errorf("cannot parse value as open mode: %w", err)
 		}
@@ -178,7 +181,7 @@ func setArgFieldValue(argField *field.Field, value string) error {
 		}
 		argFieldValue.Set(reflect.ValueOf(*openHow))
 	case field.TypeLinkAtFlags:
-		linkAtFlags, err := parseLinkAtFlags(value)
+		linkAtFlags, err := parseFlags(value, linkAtFlags)
 		if err != nil {
 			return fmt.Errorf("cannot parse value as linkat flags: %w", err)
 		}
@@ -186,13 +189,13 @@ func setArgFieldValue(argField *field.Field, value string) error {
 	case field.TypeModuleParams:
 		argFieldValue.SetString(value)
 	case field.TypeFinitModuleFlags:
-		finitModuleFlags, err := parseFinitModuleFlags(value)
+		finitModuleFlags, err := parseFlags(value, finitModuleFlags)
 		if err != nil {
 			return fmt.Errorf("cannot parse value as finit_module flags: %w", err)
 		}
 		argFieldValue.SetInt(int64(finitModuleFlags))
 	case field.TypeDup3Flags:
-		dup3Flags, err := parseDup3Flags(value)
+		dup3Flags, err := parseFlags(value, dup3Flags)
 		if err != nil {
 			return fmt.Errorf("cannot parse value as dup3 flags: %w", err)
 		}
@@ -204,25 +207,25 @@ func setArgFieldValue(argField *field.Field, value string) error {
 		}
 		argFieldValue.Set(reflect.ValueOf(sockaddr))
 	case field.TypeSocketDomain:
-		socketDomain, err := parseSocketDomain(value)
+		socketDomain, err := parseSingleValue(value, socketDomains)
 		if err != nil {
 			return fmt.Errorf("cannot parse value as socket domain: %w", err)
 		}
 		argFieldValue.SetInt(int64(socketDomain))
 	case field.TypeSocketType:
-		socketType, err := parseSocketType(value)
+		socketType, err := parseSingleValue(value, socketTypes)
 		if err != nil {
 			return fmt.Errorf("cannot parse value as socket type: %w", err)
 		}
 		argFieldValue.SetInt(int64(socketType))
 	case field.TypeSocketProtocol:
-		socketProtocol, err := parseSocketProtocol(value)
+		socketProtocol, err := parseSingleValue(value, socketProtocols)
 		if err != nil {
 			return fmt.Errorf("cannot parse value as socket protocol: %w", err)
 		}
 		argFieldValue.SetInt(int64(socketProtocol))
 	case field.TypeSendFlags:
-		sendFlags, err := parseSendFlags(value)
+		sendFlags, err := parseFlags(value, sendFlags)
 		if err != nil {
 			return fmt.Errorf("cannot parse value as send flags: %w", err)
 		}
