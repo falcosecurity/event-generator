@@ -36,6 +36,8 @@ type Name string
 const (
 	// NameWrite specifies the name of the write system call test step.
 	NameWrite = "write"
+	// NameRead specifies the name of the read system call test step.
+	NameRead = "read"
 )
 
 // Description contains information to build a new Syscall test step.

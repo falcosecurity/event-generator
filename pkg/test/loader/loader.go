@@ -257,6 +257,8 @@ const (
 	SyscallNameUndefined SyscallName = "undefined"
 	// SyscallNameWrite specifies the name of the write system call.
 	SyscallNameWrite SyscallName = "write"
+	// SyscallNameRead specifies the name of the read system call.
+	SyscallNameRead SyscallName = "read"
 )
 
 // UnmarshalYAML populates the SyscallName instance by unmarshalling the content of the provided YAML node.
@@ -267,6 +269,7 @@ func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
 	}
 	switch SyscallName(value) {
 	case SyscallNameWrite:
+	case SyscallNameRead:
 	default:
 		return fmt.Errorf("unknown syscall %q", value)
 	}
