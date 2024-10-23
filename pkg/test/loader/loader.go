@@ -52,7 +52,7 @@ func (l *Loader) Load(r io.Reader) (*Configuration, error) {
 
 // Configuration contains the description of the tests.
 type Configuration struct {
-	Tests []Test `yaml:"tests" validate:"min=1,unique=Name"`
+	Tests []Test `yaml:"tests" validate:"min=1,unique=Name,dive"`
 }
 
 // validate validates the current configuration.
@@ -67,6 +67,27 @@ func (c *Configuration) validate() error {
 		return err
 	}
 
+	for testIndex := range c.Tests {
+		test := &c.Tests[testIndex]
+		if err := validateNameUniqueness(test); err != nil {
+			return fmt.Errorf("error validating name uniqueness in test %q (index: %d): %w", test.Name,
+				testIndex, err)
+		}
+	}
+
+	return nil
+}
+
+// validateNameUniqueness validates that names used for test resources and steps are unique.
+func validateNameUniqueness(test *Test) error {
+	for resourceIndex, testResource := range test.Resources {
+		for stepIndex, testStep := range test.Steps {
+			if testStep.Name == testResource.Name {
+				return fmt.Errorf("test resource %d and test step %d have the same name %q", resourceIndex,
+					stepIndex, testResource.Name)
+			}
+		}
+	}
 	return nil
 }
 
@@ -102,7 +123,8 @@ type Test struct {
 	Context        *TestContext       `yaml:"context"`
 	BeforeScript   *string            `yaml:"before" validate:"omitempty,min=1"`
 	AfterScript    *string            `yaml:"after" validate:"omitempty,min=1"`
-	Steps          []TestStep         `yaml:"steps" validate:"min=1,unique=Name"`
+	Resources      []TestResource     `yaml:"resources" validate:"omitempty,unique=Name,dive"`
+	Steps          []TestStep         `yaml:"steps" validate:"min=1,unique=Name,dive"`
 	ExpectedOutput TestExpectedOutput `yaml:"expectedOutput"`
 }
 
@@ -147,6 +169,118 @@ type ContainerContext struct {
 // ancestors.
 type ProcessContext struct {
 	Name string `yaml:"name" validate:"required"`
+}
+
+// TestResource describes a test resource.
+type TestResource struct {
+	Type TestResourceType `yaml:"type" validate:"-"`
+	Name string           `yaml:"name" validate:"required"`
+	Spec any              `yaml:"-" validate:"-"`
+}
+
+// UnmarshalYAML populates the TestResource instance by unmarshalling the content of the provided YAML node.
+func (r *TestResource) UnmarshalYAML(node *yaml.Node) error {
+	var v struct {
+		Type TestResourceType `yaml:"type"`
+		Name string           `yaml:"name"`
+	}
+	if err := node.Decode(&v); err != nil {
+		return err
+	}
+
+	decodedType := v.Type
+	var spec any
+	switch decodedType {
+	case TestResourceTypeClientServer:
+		var clientServerSpec TestResourceClientServerSpec
+		if err := node.Decode(&clientServerSpec); err != nil {
+			return fmt.Errorf("error decoding clientServer test resource spec: %w", err)
+		}
+
+		spec = &clientServerSpec
+	default:
+		panic(fmt.Sprintf("unknown test resource type %q", decodedType))
+	}
+
+	r.Name = v.Name
+	r.Type = decodedType
+	r.Spec = spec
+	return nil
+}
+
+// TestResourceType is the type of test resource.
+type TestResourceType string
+
+const (
+	// TestResourceTypeClientServer specifies that the resource runs a client and a server.
+	TestResourceTypeClientServer TestResourceType = "clientServer"
+)
+
+// UnmarshalYAML populates the TestResourceType instance by unmarshalling the content of the provided YAML node.
+func (t *TestResourceType) UnmarshalYAML(node *yaml.Node) error {
+	var value string
+	if err := node.Decode(&value); err != nil {
+		return err
+	}
+
+	switch TestResourceType(value) {
+	case TestResourceTypeClientServer:
+	default:
+		return fmt.Errorf("unknown test step type %q", value)
+	}
+
+	*t = TestResourceType(value)
+	return nil
+}
+
+// TestResourceClientServerSpec describes a clientServer test resource.
+type TestResourceClientServerSpec struct {
+	L4Proto TestResourceClientServerL4Proto `yaml:"l4Proto" validate:"-"`
+	Address string                          `yaml:"address" validate:"required"`
+}
+
+// TestResourceClientServerL4Proto is the transport protocol used by the clientServer test resource client and the
+// server.
+type TestResourceClientServerL4Proto string
+
+const (
+	// TestResourceClientServerL4ProtoUDP4 specifies that the clientServer test resource will use UDP over IPv4 to
+	// implement the communication between client and server.
+	TestResourceClientServerL4ProtoUDP4 TestResourceClientServerL4Proto = "udp4"
+	// TestResourceClientServerL4ProtoUDP6 specifies that the clientServer test resource will use UDP over IPv6 to
+	// implement the communication between client and server.
+	TestResourceClientServerL4ProtoUDP6 TestResourceClientServerL4Proto = "udp6"
+	// TestResourceClientServerL4ProtoTCP4 specifies that the clientServer test resource will use TCP over IPv4 to
+	// implement the communication between client and server.
+	TestResourceClientServerL4ProtoTCP4 TestResourceClientServerL4Proto = "tcp4"
+	// TestResourceClientServerL4ProtoTCP6 specifies that the clientServer test resource will use TCP over IPv6 to
+	// implement the communication between client and server.
+	TestResourceClientServerL4ProtoTCP6 TestResourceClientServerL4Proto = "tcp6"
+	// TestResourceClientServerL4ProtoUnix specifies that the clientServer test resource will use Unix sockets to
+	// implement the communication between client and server.
+	TestResourceClientServerL4ProtoUnix TestResourceClientServerL4Proto = "unix"
+)
+
+// UnmarshalYAML populates the TestResourceClientServerL4Proto instance by unmarshalling the content of the provided
+// YAML node.
+func (t *TestResourceClientServerL4Proto) UnmarshalYAML(node *yaml.Node) error {
+	var value string
+	if err := node.Decode(&value); err != nil {
+		return err
+	}
+
+	switch TestResourceClientServerL4Proto(value) {
+	case TestResourceClientServerL4ProtoUDP4:
+	case TestResourceClientServerL4ProtoUDP6:
+	case TestResourceClientServerL4ProtoTCP4:
+	case TestResourceClientServerL4ProtoTCP6:
+	case TestResourceClientServerL4ProtoUnix:
+	default:
+		return fmt.Errorf("unknown clientServer test resource l4 proto %q", value)
+	}
+
+	*t = TestResourceClientServerL4Proto(value)
+	return nil
 }
 
 // TestStep describes a test step.
