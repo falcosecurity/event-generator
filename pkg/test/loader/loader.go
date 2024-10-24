@@ -193,6 +193,8 @@ func (r *TestResource) UnmarshalYAML(node *yaml.Node) error {
 	switch decodedType {
 	case TestResourceTypeClientServer:
 		spec = &TestResourceClientServerSpec{}
+	case TestResourceTypeFD:
+		spec = &TestResourceFDSpec{}
 	default:
 		panic(fmt.Sprintf("unknown test resource type %q", decodedType))
 	}
@@ -213,6 +215,8 @@ type TestResourceType string
 const (
 	// TestResourceTypeClientServer specifies that the resource runs a client and a server.
 	TestResourceTypeClientServer TestResourceType = "clientServer"
+	// TestResourceTypeFD specifies that the resource creates a file descriptor.
+	TestResourceTypeFD TestResourceType = "fd"
 )
 
 // UnmarshalYAML populates the TestResourceType instance by unmarshalling the content of the provided YAML node.
@@ -224,6 +228,7 @@ func (t *TestResourceType) UnmarshalYAML(node *yaml.Node) error {
 
 	switch TestResourceType(value) {
 	case TestResourceTypeClientServer:
+	case TestResourceTypeFD:
 	default:
 		return fmt.Errorf("unknown test step type %q", value)
 	}
@@ -280,6 +285,130 @@ func (t *TestResourceClientServerL4Proto) UnmarshalYAML(node *yaml.Node) error {
 
 	*t = TestResourceClientServerL4Proto(value)
 	return nil
+}
+
+// TestResourceFDSpec describes an fd test resource.
+type TestResourceFDSpec struct {
+	Subtype TestResourceFDSubtype `yaml:"subtype" validate:"-"`
+	Spec    any                   `yaml:"-"`
+}
+
+// UnmarshalYAML populates the TestResourceFDSpec instance by unmarshalling the content of the provided YAML node.
+func (s *TestResourceFDSpec) UnmarshalYAML(node *yaml.Node) error {
+	var v struct {
+		Subtype TestResourceFDSubtype `yaml:"subtype"`
+	}
+	if err := node.Decode(&v); err != nil {
+		return err
+	}
+
+	decodedSubtype := v.Subtype
+	var spec any
+	switch decodedSubtype {
+	case TestResourceFDSubtypeFile:
+		spec = &TestResourceFDFileSpec{}
+	case TestResourceFDSubtypeDirectory:
+		spec = &TestResourceFDDirectorySpec{}
+	case TestResourceFDSubtypePipe:
+		spec = &TestResourceFDPipeSpec{}
+	case TestResourceFDSubtypeEvent:
+		spec = &TestResourceFDEventSpec{}
+	case TestResourceFDSubtypeSignal:
+		spec = &TestResourceFDSignalSpec{}
+	case TestResourceFDSubtypeEpoll:
+		spec = &TestResourceFDEpollSpec{}
+	case TestResourceFDSubtypeInotify:
+		spec = &TestResourceFDInotifySpec{}
+	case TestResourceFDSubtypeMem:
+		spec = &TestResourceFDMemSpec{}
+	default:
+		panic(fmt.Sprintf("unknown fd test resource subtype %q", decodedSubtype))
+	}
+
+	if err := node.Decode(spec); err != nil {
+		return fmt.Errorf("error decoding fd test resource %s spec: %w", decodedSubtype, err)
+	}
+
+	s.Subtype = decodedSubtype
+	s.Spec = spec
+	return nil
+}
+
+// TestResourceFDSubtype is the subtype of fd test resource.
+type TestResourceFDSubtype string
+
+const (
+	// TestResourceFDSubtypeFile specifies to create a file descriptor referring to a regular file.
+	TestResourceFDSubtypeFile TestResourceFDSubtype = "file"
+	// TestResourceFDSubtypeDirectory specifies to create a file descriptor referring to a directory.
+	TestResourceFDSubtypeDirectory TestResourceFDSubtype = "directory"
+	// TestResourceFDSubtypePipe specifies to create a "read" and "write" file descriptor referring to the ends of a
+	// pipe.
+	TestResourceFDSubtypePipe TestResourceFDSubtype = "pipe"
+	// TestResourceFDSubtypeEvent specifies to create an event file descriptor.
+	TestResourceFDSubtypeEvent TestResourceFDSubtype = "event"
+	// TestResourceFDSubtypeSignal specifies to create a signal file descriptor.
+	TestResourceFDSubtypeSignal TestResourceFDSubtype = "signalfd"
+	// TestResourceFDSubtypeEpoll specifies to create an epoll file descriptor.
+	TestResourceFDSubtypeEpoll TestResourceFDSubtype = "eventpoll"
+	// TestResourceFDSubtypeInotify specifies to create an inotify file descriptor.
+	TestResourceFDSubtypeInotify TestResourceFDSubtype = "inotify"
+	// TestResourceFDSubtypeMem specifies to create a mem file descriptor.
+	TestResourceFDSubtypeMem TestResourceFDSubtype = "memfd"
+)
+
+// UnmarshalYAML populates the TestResourceFDSubtype instance by unmarshalling the content of the provided YAML node.
+func (t *TestResourceFDSubtype) UnmarshalYAML(node *yaml.Node) error {
+	var value string
+	if err := node.Decode(&value); err != nil {
+		return err
+	}
+
+	switch TestResourceFDSubtype(value) {
+	case TestResourceFDSubtypeFile:
+	case TestResourceFDSubtypeDirectory:
+	case TestResourceFDSubtypePipe:
+	case TestResourceFDSubtypeEvent:
+	case TestResourceFDSubtypeSignal:
+	case TestResourceFDSubtypeEpoll:
+	case TestResourceFDSubtypeInotify:
+	case TestResourceFDSubtypeMem:
+	default:
+		return fmt.Errorf("unknown fd test resource subtype %q", value)
+	}
+
+	*t = TestResourceFDSubtype(value)
+	return nil
+}
+
+// TestResourceFDFileSpec describes a regular file fd test resource.
+type TestResourceFDFileSpec struct {
+	FilePath string `yaml:"filePath" validate:"required"`
+}
+
+// TestResourceFDDirectorySpec describes a directory fd test resource.
+type TestResourceFDDirectorySpec struct {
+	DirPath string `yaml:"dirPath" validate:"required"`
+}
+
+// TestResourceFDPipeSpec describes a pipe fd test resource.
+type TestResourceFDPipeSpec struct{}
+
+// TestResourceFDEventSpec describes an event fd test resource.
+type TestResourceFDEventSpec struct{}
+
+// TestResourceFDSignalSpec describes a signal fd test resource.
+type TestResourceFDSignalSpec struct{}
+
+// TestResourceFDEpollSpec describes an epoll fd test resource.
+type TestResourceFDEpollSpec struct{}
+
+// TestResourceFDInotifySpec describes an inotify fd test resource.
+type TestResourceFDInotifySpec struct{}
+
+// TestResourceFDMemSpec describes a mem fd test resource.
+type TestResourceFDMemSpec struct {
+	FileName string `yaml:"fileName" validate:"required"`
 }
 
 // TestStep describes a test step.
