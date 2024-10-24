@@ -175,7 +175,7 @@ type ProcessContext struct {
 type TestResource struct {
 	Type TestResourceType `yaml:"type" validate:"-"`
 	Name string           `yaml:"name" validate:"required"`
-	Spec any              `yaml:"-" validate:"-"`
+	Spec any              `yaml:"-"`
 }
 
 // UnmarshalYAML populates the TestResource instance by unmarshalling the content of the provided YAML node.
@@ -287,7 +287,7 @@ func (t *TestResourceClientServerL4Proto) UnmarshalYAML(node *yaml.Node) error {
 type TestStep struct {
 	Type          TestStepType            `yaml:"type" validate:"-"`
 	Name          string                  `yaml:"name" validate:"required"`
-	Spec          any                     `yaml:"-" validate:"-"`
+	Spec          any                     `yaml:"-"`
 	FieldBindings []*TestStepFieldBinding `yaml:"-" validate:"-"`
 }
 
