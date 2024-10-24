@@ -17,7 +17,6 @@ package socket
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 
 	"golang.org/x/sys/unix"
@@ -57,7 +56,6 @@ func (s *socketSyscall) run(_ context.Context) error {
 		return err
 	}
 
-	fmt.Printf("running socket: returned fd: %v\n", fd)
 	s.Ret = fd
 	return nil
 }
