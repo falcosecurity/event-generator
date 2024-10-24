@@ -6,6 +6,7 @@ require (
 	github.com/creasty/defaults v1.8.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/falcosecurity/client-go v0.6.1
+	github.com/go-logr/logr v1.4.2
 	github.com/go-playground/locales v0.14.1
 	github.com/go-playground/universal-translator v0.18.1
 	github.com/go-playground/validator/v10 v10.22.1
@@ -17,6 +18,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0
+	github.com/vishvananda/netlink v1.3.0
 	golang.org/x/sys v0.26.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/apimachinery v0.31.1
@@ -50,7 +52,6 @@ require (
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.5 // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
-	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
@@ -93,6 +94,7 @@ require (
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.7.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
+	github.com/vishvananda/netns v0.0.4 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.starlark.net v0.0.0-20240725214946-42030a7cedce // indirect
