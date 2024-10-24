@@ -192,14 +192,13 @@ func (r *TestResource) UnmarshalYAML(node *yaml.Node) error {
 	var spec any
 	switch decodedType {
 	case TestResourceTypeClientServer:
-		var clientServerSpec TestResourceClientServerSpec
-		if err := node.Decode(&clientServerSpec); err != nil {
-			return fmt.Errorf("error decoding clientServer test resource spec: %w", err)
-		}
-
-		spec = &clientServerSpec
+		spec = &TestResourceClientServerSpec{}
 	default:
 		panic(fmt.Sprintf("unknown test resource type %q", decodedType))
+	}
+
+	if err := node.Decode(spec); err != nil {
+		return fmt.Errorf("error decoding clientServer test resource spec: %w", err)
 	}
 
 	r.Name = v.Name
