@@ -18,6 +18,8 @@ package resource
 import (
 	"context"
 
+	"github.com/go-logr/logr"
+
 	"github.com/falcosecurity/event-generator/pkg/test/field"
 	"github.com/falcosecurity/event-generator/pkg/test/loader"
 )
@@ -37,5 +39,5 @@ type Resource interface {
 type Builder interface {
 	// Build builds a new test resource.
 	// TODO: replace loader.TestResource with a dedicated type.
-	Build(testResource *loader.TestResource) (Resource, error)
+	Build(logger logr.Logger, testResource *loader.TestResource) (Resource, error)
 }
