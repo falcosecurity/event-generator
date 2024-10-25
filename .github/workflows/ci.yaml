@@ -5,7 +5,7 @@ on:
 jobs:
   build-and-test:
     name: build-and-test-${{ matrix.arch }}
-    runs-on: ${{ (matrix.arch == 'arm64' && 'actuated-arm64-8cpu-16gb') || 'ubuntu-22.04' }}
+    runs-on: ${{ (matrix.arch == 'arm64' && 'github-arm64-2c-8gb') || 'ubuntu-22.04' }}
     strategy:
       matrix:
         arch: [amd64, arm64]
