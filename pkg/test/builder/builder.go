@@ -56,17 +56,20 @@ func New(resourceBuilder resource.Builder, stepBuilder step.Builder) (test.Build
 
 func (b *builder) Build(logger logr.Logger, testDesc *loader.Test) (test.Test, error) {
 	// Create a unique test script from "before" and "after" scripts.
-	testScript := shell.New(logger, testDesc.BeforeScript, testDesc.AfterScript)
+	scriptLogger := logger.WithName("script")
+	testScript := shell.New(scriptLogger, testDesc.BeforeScript, testDesc.AfterScript)
 
 	// Build test resources.
 	resourcesNum := len(testDesc.Resources)
 	testResources := make([]resource.Resource, 0, resourcesNum)
 	for resourceIndex := 0; resourceIndex < resourcesNum; resourceIndex++ {
 		rawResource := &testDesc.Resources[resourceIndex]
-		logger := logger.WithValues("resourceIndex", resourceIndex)
-		testResource, err := b.resourceBuilder.Build(logger, rawResource)
+		resourceName := rawResource.Name
+		resourceLogger := logger.WithName("resource").WithValues("resourceName", resourceName,
+			"resourceIndex", resourceIndex)
+		testResource, err := b.resourceBuilder.Build(resourceLogger, rawResource)
 		if err != nil {
-			return nil, &test.ResourceBuildError{ResourceName: rawResource.Name, ResourceIndex: resourceIndex, Err: err}
+			return nil, &test.ResourceBuildError{ResourceName: resourceName, ResourceIndex: resourceIndex, Err: err}
 		}
 
 		testResources = append(testResources, testResource)
