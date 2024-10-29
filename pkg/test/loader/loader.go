@@ -55,6 +55,16 @@ type Configuration struct {
 	Tests []Test `yaml:"tests" validate:"min=1,unique=Name,dive"`
 }
 
+// Write writes the configuration to the provided writer.
+func (c *Configuration) Write(w io.Writer) error {
+	enc := yaml.NewEncoder(w)
+	if err := enc.Encode(c); err != nil {
+		return fmt.Errorf("error encoding configuration: %w", err)
+	}
+
+	return nil
+}
+
 // validate validates the current configuration.
 func (c *Configuration) validate() error {
 	// Register custom validations and validate configuration
@@ -118,12 +128,12 @@ func validateRuleName(fl validator.FieldLevel) bool {
 type Test struct {
 	Rule           string             `yaml:"rule" validate:"rule_name"`
 	Name           string             `yaml:"name" validate:"required"`
-	Description    *string            `yaml:"description" validate:"omitempty,min=1"`
+	Description    *string            `yaml:"description,omitempty" validate:"omitempty,min=1"`
 	Runner         TestRunnerType     `yaml:"runner" validate:"-"`
-	Context        *TestContext       `yaml:"context"`
-	BeforeScript   *string            `yaml:"before" validate:"omitempty,min=1"`
-	AfterScript    *string            `yaml:"after" validate:"omitempty,min=1"`
-	Resources      []TestResource     `yaml:"resources" validate:"omitempty,unique=Name,dive"`
+	Context        *TestContext       `yaml:"context,omitempty" validate:"omitempty"`
+	BeforeScript   *string            `yaml:"before,omitempty" validate:"omitempty,min=1"`
+	AfterScript    *string            `yaml:"after,omitempty" validate:"omitempty,min=1"`
+	Resources      []TestResource     `yaml:"resources,omitempty" validate:"omitempty,unique=Name,dive"`
 	Steps          []TestStep         `yaml:"steps" validate:"min=1,unique=Name,dive"`
 	ExpectedOutput TestExpectedOutput `yaml:"expectedOutput"`
 }
@@ -155,14 +165,14 @@ func (r *TestRunnerType) UnmarshalYAML(node *yaml.Node) error {
 
 // TestContext contains information regarding the running context of a test.
 type TestContext struct {
-	Container *ContainerContext `yaml:"container"`
-	Processes []ProcessContext  `yaml:"processes" validate:"-"`
+	Container *ContainerContext `yaml:"container,omitempty"`
+	Processes []ProcessContext  `yaml:"processes,omitempty" validate:"omitempty,dive"`
 }
 
 // ContainerContext contains information regarding the container instance that will run a test.
 type ContainerContext struct {
 	Image string  `yaml:"image" validate:"required"`
-	Name  *string `yaml:"name" validate:"omitempty,min=1"`
+	Name  *string `yaml:"name,omitempty" validate:"omitempty,min=1"`
 }
 
 // ProcessContext contains information regarding the process that will run a test, or information about one of its
@@ -207,6 +217,96 @@ func (r *TestResource) UnmarshalYAML(node *yaml.Node) error {
 	r.Type = decodedType
 	r.Spec = spec
 	return nil
+}
+
+// MarshalYAML returns an inner representation of the TestResource instance that is used, in place of the instance, to
+// marshal the content.
+// TODO: this method should be implemented with a pointer receiver but unfortunately, the yaml.v3 library is only able
+// to call it if it is implemented with a value receiver. Uniform the receivers once the library is replaced.
+func (r TestResource) MarshalYAML() (interface{}, error) {
+	switch resourceType := r.Type; resourceType {
+	case TestResourceTypeClientServer:
+		return struct {
+			Type TestResourceType              `yaml:"type"`
+			Name string                        `yaml:"name"`
+			Spec *TestResourceClientServerSpec `yaml:"spec,inline"`
+		}{Type: resourceType, Name: r.Name, Spec: r.Spec.(*TestResourceClientServerSpec)}, nil
+	case TestResourceTypeFD:
+		return r.marshalFD()
+	default:
+		return nil, fmt.Errorf("unknown test resource type %q", resourceType)
+	}
+}
+
+// marshalFD returns an inner representation of the fd test resource instance that is used, in place of the instance, to
+// marshal the content.
+// TODO: this function contains a lot of repetitions for TestResource common fields. However, it is not possible to
+// provide an addition MarshalYAML method for TestResourceFDSpec, as it will not be called by the library if the Spec
+// field specify "inline" (as it should be in our case). Take care of replace this with a more elegant solution once
+// yaml.v3 is replaced.
+func (r *TestResource) marshalFD() (interface{}, error) {
+	spec := r.Spec.(*TestResourceFDSpec)
+	subSpec := spec.Spec
+	switch subtype := spec.Subtype; subtype {
+	case TestResourceFDSubtypeFile:
+		return struct {
+			Type    TestResourceType        `yaml:"type"`
+			Name    string                  `yaml:"name"`
+			Subtype TestResourceFDSubtype   `yaml:"subtype"`
+			Spec    *TestResourceFDFileSpec `yaml:"subspec,inline"`
+		}{Type: r.Type, Name: r.Name, Subtype: subtype, Spec: subSpec.(*TestResourceFDFileSpec)}, nil
+	case TestResourceFDSubtypeDirectory:
+		return struct {
+			Type    TestResourceType             `yaml:"type"`
+			Name    string                       `yaml:"name"`
+			Subtype TestResourceFDSubtype        `yaml:"subtype"`
+			Spec    *TestResourceFDDirectorySpec `yaml:"subspec,inline"`
+		}{Type: r.Type, Name: r.Name, Subtype: subtype, Spec: subSpec.(*TestResourceFDDirectorySpec)}, nil
+	case TestResourceFDSubtypePipe:
+		return struct {
+			Type    TestResourceType        `yaml:"type"`
+			Name    string                  `yaml:"name"`
+			Subtype TestResourceFDSubtype   `yaml:"subtype"`
+			Spec    *TestResourceFDPipeSpec `yaml:"subspec,inline"`
+		}{Type: r.Type, Name: r.Name, Subtype: subtype, Spec: subSpec.(*TestResourceFDPipeSpec)}, nil
+	case TestResourceFDSubtypeEvent:
+		return struct {
+			Type    TestResourceType         `yaml:"type"`
+			Name    string                   `yaml:"name"`
+			Subtype TestResourceFDSubtype    `yaml:"subtype"`
+			Spec    *TestResourceFDEventSpec `yaml:"subspec,inline"`
+		}{Type: r.Type, Name: r.Name, Subtype: subtype, Spec: subSpec.(*TestResourceFDEventSpec)}, nil
+	case TestResourceFDSubtypeSignal:
+		return struct {
+			Type    TestResourceType          `yaml:"type"`
+			Name    string                    `yaml:"name"`
+			Subtype TestResourceFDSubtype     `yaml:"subtype"`
+			Spec    *TestResourceFDSignalSpec `yaml:"subspec,inline"`
+		}{Type: r.Type, Name: r.Name, Subtype: subtype, Spec: subSpec.(*TestResourceFDSignalSpec)}, nil
+	case TestResourceFDSubtypeEpoll:
+		return struct {
+			Type    TestResourceType         `yaml:"type"`
+			Name    string                   `yaml:"name"`
+			Subtype TestResourceFDSubtype    `yaml:"subtype"`
+			Spec    *TestResourceFDEpollSpec `yaml:"subspec,inline"`
+		}{Type: r.Type, Name: r.Name, Subtype: subtype, Spec: subSpec.(*TestResourceFDEpollSpec)}, nil
+	case TestResourceFDSubtypeInotify:
+		return struct {
+			Type    TestResourceType           `yaml:"type"`
+			Name    string                     `yaml:"name"`
+			Subtype TestResourceFDSubtype      `yaml:"subtype"`
+			Spec    *TestResourceFDInotifySpec `yaml:"subspec,inline"`
+		}{Type: r.Type, Name: r.Name, Subtype: subtype, Spec: subSpec.(*TestResourceFDInotifySpec)}, nil
+	case TestResourceFDSubtypeMem:
+		return struct {
+			Type    TestResourceType       `yaml:"type"`
+			Name    string                 `yaml:"name"`
+			Subtype TestResourceFDSubtype  `yaml:"subtype"`
+			Spec    *TestResourceFDMemSpec `yaml:"subspec,inline"`
+		}{Type: r.Type, Name: r.Name, Subtype: subtype, Spec: subSpec.(*TestResourceFDMemSpec)}, nil
+	default:
+		return nil, fmt.Errorf("unknown fd test resource subtype %q", subtype)
+	}
 }
 
 // TestResourceType is the type of test resource.
@@ -451,6 +551,31 @@ func (s *TestStep) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
+// MarshalYAML returns an inner representation of the TestStep instance that is used, in place of the instance, to
+// marshal the content.
+// TODO: this method should be implemented with a pointer receiver but unfortunately, the yaml.v3 library is only able
+// to call it if it is implemented with a value receiver. Uniform the receivers once the library is replaced.
+func (s TestStep) MarshalYAML() (interface{}, error) {
+	switch stepType := s.Type; stepType {
+	case TestStepTypeSyscall:
+		spec := s.Spec.(*TestStepSyscallSpec)
+		args := make(map[string]string, len(spec.Args)+len(s.FieldBindings))
+		for arg, argValue := range spec.Args {
+			args[arg] = argValue
+		}
+		for _, fieldBinding := range s.FieldBindings {
+			args[fieldBinding.LocalField] = fmt.Sprintf("${%s.%s}", fieldBinding.SrcStep, fieldBinding.SrcField)
+		}
+		return struct {
+			Type TestStepType         `yaml:"type"`
+			Name string               `yaml:"name"`
+			Spec *TestStepSyscallSpec `yaml:"spec,inline"`
+		}{Type: stepType, Name: s.Name, Spec: &TestStepSyscallSpec{Syscall: spec.Syscall, Args: args}}, nil
+	default:
+		return nil, fmt.Errorf("unknown test step type %q", stepType)
+	}
+}
+
 // TestStepType is the type of test step.
 type TestStepType string
 
@@ -587,10 +712,10 @@ func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
 
 // TestExpectedOutput is the expected output for a test.
 type TestExpectedOutput struct {
-	Source       *string           `yaml:"source" validate:"-"`
-	Time         *string           `yaml:"time" validate:"-"`
-	Hostname     *string           `yaml:"hostname" validate:"-"`
-	Priority     *string           `yaml:"priority" validate:"-"`
-	Output       *string           `yaml:"output" validate:"-"`
-	OutputFields map[string]string `yaml:"outputFields" validate:"-"`
+	Source       *string           `yaml:"source,omitempty" validate:"omitempty,min=1"`
+	Time         *string           `yaml:"time,omitempty" validate:"omitempty,min=1"`
+	Hostname     *string           `yaml:"hostname,omitempty" validate:"omitempty,min=1"`
+	Priority     *string           `yaml:"priority,omitempty" validate:"omitempty,min=1"`
+	Output       *string           `yaml:"output,omitempty" validate:"omitempty,min=1"`
+	OutputFields map[string]string `yaml:"outputFields,omitempty" validate:"omitempty,min=1"`
 }
