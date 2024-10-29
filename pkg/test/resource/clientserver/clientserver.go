@@ -614,10 +614,10 @@ func (cs *clientServer) Destroy(_ context.Context) error {
 
 	// Close any open FD.
 	for fd := range cs.openFDs {
-		cs.logger.V(1).Info("Closing FD", "fd", fd)
 		if err := unix.Close(fd); err != nil {
 			cs.logger.Error(err, "Error closing FD", "fd", fd)
 		}
+		cs.logger.V(1).Info("Closed FD", "fd", fd)
 	}
 	cs.openFDs = make(map[int]struct{})
 	cs.fields.Client.FD = -1
