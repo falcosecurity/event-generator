@@ -47,7 +47,7 @@ func New() (resource.Builder, error) {
 func (b *builder) Build(logger logr.Logger, testResource *loader.TestResource) (resource.Resource, error) {
 	resourceType := testResource.Type
 	resourceName := testResource.Name
-	logger = logger.WithValues("resourceType", resourceType, "resourceName", resourceName)
+	logger = logger.WithValues("resourceType", resourceType)
 	switch resourceType {
 	case loader.TestResourceTypeClientServer:
 		clientServerSpec, ok := testResource.Spec.(*loader.TestResourceClientServerSpec)
@@ -79,7 +79,7 @@ func (b *builder) Build(logger logr.Logger, testResource *loader.TestResource) (
 func (b *builder) buildFD(logger logr.Logger, resourceName string,
 	fdSpec *loader.TestResourceFDSpec) (resource.Resource, error) {
 	subtype := fdSpec.Subtype
-	logger = logger.WithValues("resourceSubtype", subtype)
+	logger = logger.WithValues("fdSubtype", subtype)
 	switch subtype {
 	case loader.TestResourceFDSubtypeFile:
 		subSpec, ok := fdSpec.Spec.(*loader.TestResourceFDFileSpec)
