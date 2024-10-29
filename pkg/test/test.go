@@ -79,3 +79,12 @@ type StepBuildError struct {
 func (e *StepBuildError) Error() string {
 	return fmt.Sprintf("error building step %q, index %d: %v", e.StepName, e.StepIndex, e.Err)
 }
+
+// Script wraps the execution of a test script. The test script is logically divided into two part: a "before" part and
+// an "after" part. The two parts can be executed in the same environment or not, depends on the particular
+// implementation choice.
+type Script interface {
+	// RunBefore runs the "before" part of the script. The execution will block until the "before" script execution is
+	// completed. It returns a function that can be used to run the "after" part.
+	RunBefore(ctx context.Context) (func(ctx context.Context) error, error)
+}
