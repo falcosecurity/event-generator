@@ -178,7 +178,19 @@ type ContainerContext struct {
 // ProcessContext contains information regarding the process that will run a test, or information about one of its
 // ancestors.
 type ProcessContext struct {
-	Name string `yaml:"name" validate:"required"`
+	// ExePath is the executable path.
+	ExePath string `yaml:"exePath" validate:"required"`
+	// Args is a string containing the space-separated list of command line arguments. If a single argument contains
+	// spaces, the entire argument must be quoted in order to not be considered as multiple arguments. If omitted or
+	// empty, it defaults to "".
+	Args *string `yaml:"args,omitempty" validate:"omitempty,min=1"`
+	// Exe is the argument in position 0 (a.k.a. argv[0]) of the process. If omitted or empty, it defaults to Name if
+	// this is specified; otherwise, it defaults to filepath.Base(ExePath).
+	Exe *string `yaml:"exe,omitempty" validate:"omitempty,min=1"`
+	// Name is the process name. If omitted or empty, it defaults to filepath.Base(ExePath).
+	Name *string `yaml:"name,omitempty" validate:"omitempty,min=1"`
+	// Env is the set of environment variables that must be provided to the process (in addition to the default ones).
+	Env map[string]string `yaml:"env,omitempty" validate:"omitempty,min=1"`
 }
 
 // TestResource describes a test resource.
