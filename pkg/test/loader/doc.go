@@ -13,5 +13,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package loader defines a Loader, able to unmarshall a YAML document into a Configuration.
+// Package loader defines a Loader, able to unmarshall a YAML document into a Description.
 package loader

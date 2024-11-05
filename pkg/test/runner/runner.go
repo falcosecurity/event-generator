@@ -43,8 +43,9 @@ type Description struct {
 	Type loader.TestRunnerType
 	// Environ is a list of strings representing the environment, in the form "key=value".
 	Environ []string
-	// TestConfigEnvKey is the key identifying the environment variable used to store the serialized test configuration.
-	TestConfigEnvKey string
+	// TestDescriptionEnvKey is the key identifying the environment variable used to store the serialized test
+	// description.
+	TestDescriptionEnvKey string
 	// ProcIDEnvKey is the key identifying the environment variable used to store the process identifier in the form
 	// "test<testIndex>,child<childIndex>".
 	ProcIDEnvKey string
