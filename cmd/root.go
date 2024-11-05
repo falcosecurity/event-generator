@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	"os"
 	"os/signal"
 	"strings"
@@ -32,6 +33,7 @@ import (
 	// register event collections.
 	_ "github.com/falcosecurity/event-generator/events/k8saudit"
 	_ "github.com/falcosecurity/event-generator/events/syscall"
+	"github.com/falcosecurity/event-generator/pkg/log"
 )
 
 func init() {
@@ -57,7 +59,7 @@ func New(configOptions *ConfigOptions) *cobra.Command {
 
 			// at this stage configOptions is bound to command line flags only
 			validateConfig(*configOptions)
-			initLogger(configOptions.LogLevel, configOptions.LogFormat)
+			initLoggers(configOptions.LogLevel, configOptions.LogFormat)
 			logger.Debug("running with args: ", strings.Join(os.Args, " "))
 			initConfig(configOptions.ConfigFile)
 
@@ -73,6 +75,10 @@ func New(configOptions *ConfigOptions) *cobra.Command {
 			})
 			// validateConfig(*configOptions) // enable if other flags were bound to configOptions
 			debugFlags(flags)
+
+			// Inject logr logger into context.
+			ctx := logr.NewContext(c.Context(), log.Logger)
+			c.SetContext(ctx)
 		},
 		Run: func(c *cobra.Command, args []string) {
 			if err := c.Help(); err != nil {
@@ -146,8 +152,10 @@ func initEnv() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 }
 
-// initLogger configures the logger
-func initLogger(logLevel string, logFormat string) {
+// initLoggers configures the logrus and the logr loggers.
+// TODO: let the two loggers coexists until we decide to completely replace logrus with logr.
+func initLoggers(logLevel, logFormat string) {
+	logProfile := log.ProfileDevelopment
 	switch logFormat {
 	case "text":
 		// do nothing, default option
@@ -155,6 +163,7 @@ func initLogger(logLevel string, logFormat string) {
 		logger.SetFormatter(&logger.JSONFormatter{
 			DisableTimestamp: true,
 		})
+		logProfile = log.ProfileProduction
 	default:
 		logger.Fatalf(`"%s" log format is not supported`, logFormat)
 	}
@@ -163,6 +172,11 @@ func initLogger(logLevel string, logFormat string) {
 		logger.Fatal(err)
 	}
 	logger.SetLevel(lvl)
+
+	if err := log.InitLogger(logProfile); err != nil {
+		log.DefaultLogger.Error(err, "Error initializing logger")
+		os.Exit(1)
+	}
 }
 
 // initConfig reads in config file, if any
