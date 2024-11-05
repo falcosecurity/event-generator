@@ -40,8 +40,9 @@ type hostRunner struct {
 	environ []string
 	// testBuilder is the builder used to build a test.
 	testBuilder test.Builder
-	// testConfigEnvKey is the key identifying the environment variable used to store the serialized test configuration.
-	testConfigEnvKey string
+	// testDescriptionEnvKey is the key identifying the environment variable used to store the serialized test
+	// description.
+	testDescriptionEnvKey string
 	// procIDEnvKey is the key identifying the environment variable used to store the process identifier in the form
 	// "test<testIndex>,child<childIndex>".
 	procIDEnvKey string
@@ -53,14 +54,14 @@ type hostRunner struct {
 var _ runner.Runner = (*hostRunner)(nil)
 
 // New creates a new host runner.
-func New(logger logr.Logger, testBuilder test.Builder, environ []string, testConfigEnvKey, procIDEnvKey,
+func New(logger logr.Logger, testBuilder test.Builder, environ []string, testDescriptionEnvKey, procIDEnvKey,
 	procID string) (runner.Runner, error) {
 	if testBuilder == nil {
 		return nil, fmt.Errorf("test builder must not be nil")
 	}
 
-	if testConfigEnvKey == "" {
-		return nil, fmt.Errorf("testConfigEnvKey must not be empty")
+	if testDescriptionEnvKey == "" {
+		return nil, fmt.Errorf("testDescriptionEnvKey must not be empty")
 	}
 
 	if procIDEnvKey == "" {
@@ -68,12 +69,12 @@ func New(logger logr.Logger, testBuilder test.Builder, environ []string, testCon
 	}
 
 	r := &hostRunner{
-		logger:           logger,
-		testBuilder:      testBuilder,
-		environ:          environ,
-		testConfigEnvKey: testConfigEnvKey,
-		procIDEnvKey:     procIDEnvKey,
-		procID:           procID,
+		logger:                logger,
+		testBuilder:           testBuilder,
+		environ:               environ,
+		testDescriptionEnvKey: testDescriptionEnvKey,
+		procIDEnvKey:          procIDEnvKey,
+		procID:                procID,
 	}
 	return r, nil
 }
@@ -223,12 +224,12 @@ func (r *hostRunner) buildEnv(testIndex int, testDesc *loader.Test, userEnv map[
 		env = append(env, fmt.Sprintf("%s=%s", key, value))
 	}
 
-	// Set test config environment variable to the serialized test configuration.
-	config, err := marshalTestConfig(testDesc)
+	// Set test description environment variable to the serialized test description.
+	description, err := marshalTestDescription(testDesc)
 	if err != nil {
-		return nil, fmt.Errorf("error serializing new test configuration: %w", err)
+		return nil, fmt.Errorf("error serializing new test description: %w", err)
 	}
-	env = append(env, buildEnvVar(r.testConfigEnvKey, config))
+	env = append(env, buildEnvVar(r.testDescriptionEnvKey, description))
 
 	// Set process ID environment variable.
 	procID, err := r.buildProcID(testIndex)
@@ -245,11 +246,11 @@ func buildEnvVar(envKey, envValue string) string {
 	return fmt.Sprintf("%s=%s", envKey, envValue)
 }
 
-// marshalTestConfig returns the serialized content of a test configuration object containing only the provided test.
-func marshalTestConfig(testDesc *loader.Test) (string, error) {
-	conf := &loader.Configuration{Tests: []loader.Test{*testDesc}}
+// marshalTestDescription returns the serialized content of a test description object containing only the provided test.
+func marshalTestDescription(testDesc *loader.Test) (string, error) {
+	desc := &loader.Description{Tests: []loader.Test{*testDesc}}
 	sb := &strings.Builder{}
-	if err := conf.Write(sb); err != nil {
+	if err := desc.Write(sb); err != nil {
 		return "", err
 	}
 

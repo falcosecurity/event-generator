@@ -25,7 +25,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Loader loads tests configurations.
+// Loader loads tests descriptions.
 type Loader struct{}
 
 // New creates a new Loader.
@@ -33,41 +33,41 @@ func New() *Loader {
 	return &Loader{}
 }
 
-// Load loads the configuration from the provided reader.
-func (l *Loader) Load(r io.Reader) (*Configuration, error) {
+// Load loads the description from the provided reader.
+func (l *Loader) Load(r io.Reader) (*Description, error) {
 	dec := yaml.NewDecoder(r)
 	// Force the decoding to fail if the YAML document contains unknown fields
 	dec.KnownFields(true)
-	conf := &Configuration{}
-	if err := dec.Decode(conf); err != nil {
-		return nil, fmt.Errorf("error decoding configuration: %w", err)
+	desc := &Description{}
+	if err := dec.Decode(desc); err != nil {
+		return nil, fmt.Errorf("error decoding description: %w", err)
 	}
 
-	if err := conf.validate(); err != nil {
-		return nil, fmt.Errorf("error validating configuration: %w", err)
+	if err := desc.validate(); err != nil {
+		return nil, fmt.Errorf("error validating description: %w", err)
 	}
 
-	return conf, nil
+	return desc, nil
 }
 
-// Configuration contains the description of the tests.
-type Configuration struct {
+// Description contains the description of the tests.
+type Description struct {
 	Tests []Test `yaml:"tests" validate:"min=1,unique=Name,dive"`
 }
 
-// Write writes the configuration to the provided writer.
-func (c *Configuration) Write(w io.Writer) error {
+// Write writes the description to the provided writer.
+func (c *Description) Write(w io.Writer) error {
 	enc := yaml.NewEncoder(w)
 	if err := enc.Encode(c); err != nil {
-		return fmt.Errorf("error encoding configuration: %w", err)
+		return fmt.Errorf("error encoding description: %w", err)
 	}
 
 	return nil
 }
 
-// validate validates the current configuration.
-func (c *Configuration) validate() error {
-	// Register custom validations and validate configuration
+// validate validates the current description.
+func (c *Description) validate() error {
+	// Register custom validations and validate description
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	if err := registerValidations(validate); err != nil {
 		return fmt.Errorf("error registering validations: %w", err)
@@ -124,7 +124,7 @@ func validateRuleName(fl validator.FieldLevel) bool {
 	return ruleNameRegex.MatchString(field.String())
 }
 
-// Test is a rule test configuration.
+// Test is a rule test description.
 type Test struct {
 	Rule           string             `yaml:"rule" validate:"rule_name"`
 	Name           string             `yaml:"name" validate:"required"`

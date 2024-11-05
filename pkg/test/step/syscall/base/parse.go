@@ -64,7 +64,7 @@ func parseOpenHow(value string) (*unix.OpenHow, error) {
 		Resolve string `yaml:"resolve"`
 	}
 	if err := dec.Decode(&openHowView); err != nil {
-		return nil, fmt.Errorf("error decoding configuration: %w", err)
+		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
 	openHow := &unix.OpenHow{}
