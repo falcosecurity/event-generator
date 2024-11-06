@@ -53,6 +53,7 @@ func (b *builder) Build(description *runner.Description) (runner.Runner, error) 
 			b.testBuilder,
 			description.Environ,
 			description.TestDescriptionEnvKey,
+			description.TestDescriptionFileEnvKey,
 			description.ProcIDEnvKey,
 			description.ProcID,
 		)

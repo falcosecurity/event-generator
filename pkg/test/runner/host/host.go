@@ -43,6 +43,9 @@ type hostRunner struct {
 	// testDescriptionEnvKey is the key identifying the environment variable used to store the serialized test
 	// description.
 	testDescriptionEnvKey string
+	// testDescriptionFileEnvKey is the key identifying the environment variable used to store path of the file
+	// containing the serialized test description.
+	testDescriptionFileEnvKey string
 	// procIDEnvKey is the key identifying the environment variable used to store the process identifier in the form
 	// "test<testIndex>,child<childIndex>".
 	procIDEnvKey string
@@ -54,8 +57,8 @@ type hostRunner struct {
 var _ runner.Runner = (*hostRunner)(nil)
 
 // New creates a new host runner.
-func New(logger logr.Logger, testBuilder test.Builder, environ []string, testDescriptionEnvKey, procIDEnvKey,
-	procID string) (runner.Runner, error) {
+func New(logger logr.Logger, testBuilder test.Builder, environ []string, testDescriptionEnvKey,
+	testDescriptionFileEnvKey, procIDEnvKey, procID string) (runner.Runner, error) {
 	if testBuilder == nil {
 		return nil, fmt.Errorf("test builder must not be nil")
 	}
@@ -69,12 +72,13 @@ func New(logger logr.Logger, testBuilder test.Builder, environ []string, testDes
 	}
 
 	r := &hostRunner{
-		logger:                logger,
-		testBuilder:           testBuilder,
-		environ:               environ,
-		testDescriptionEnvKey: testDescriptionEnvKey,
-		procIDEnvKey:          procIDEnvKey,
-		procID:                procID,
+		logger:                    logger,
+		testBuilder:               testBuilder,
+		environ:                   environ,
+		testDescriptionEnvKey:     testDescriptionEnvKey,
+		testDescriptionFileEnvKey: testDescriptionFileEnvKey,
+		procIDEnvKey:              procIDEnvKey,
+		procID:                    procID,
 	}
 	return r, nil
 }
@@ -171,11 +175,11 @@ func (r *hostRunner) delegateToChild(ctx context.Context, testIndex int, testDes
 
 	// Run the child process and wait for it.
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("error starting process: %w", err)
+		return fmt.Errorf("error starting child process: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("error waiting for process: %w", err)
+		return fmt.Errorf("error waiting for child process: %w", err)
 	}
 
 	return nil
@@ -229,15 +233,20 @@ func (r *hostRunner) buildEnv(testIndex int, testDesc *loader.Test, userEnv map[
 	if err != nil {
 		return nil, fmt.Errorf("error serializing new test description: %w", err)
 	}
-	env = append(env, buildEnvVar(r.testDescriptionEnvKey, description))
+	descriptionEnvVar := buildEnvVar(r.testDescriptionEnvKey, description)
 
 	// Set process ID environment variable.
 	procID, err := r.buildProcID(testIndex)
 	if err != nil {
 		return nil, fmt.Errorf("error building process ID: %w", err)
 	}
-	env = append(env, buildEnvVar(r.procIDEnvKey, procID))
+	procIDEnvVar := buildEnvVar(r.procIDEnvKey, procID)
 
+	// Override test description file environment variable to avoid conflicts with the test description environment
+	// variable
+	descriptionFileEnvVar := buildEnvVar(r.testDescriptionFileEnvKey, "")
+
+	env = append(env, descriptionEnvVar, procIDEnvVar, descriptionFileEnvVar)
 	return env, nil
 }
 
