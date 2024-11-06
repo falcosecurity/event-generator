@@ -134,7 +134,7 @@ type Test struct {
 	BeforeScript   *string            `yaml:"before,omitempty" validate:"omitempty,min=1"`
 	AfterScript    *string            `yaml:"after,omitempty" validate:"omitempty,min=1"`
 	Resources      []TestResource     `yaml:"resources,omitempty" validate:"omitempty,unique=Name,dive"`
-	Steps          []TestStep         `yaml:"steps" validate:"min=1,unique=Name,dive"`
+	Steps          []TestStep         `yaml:"steps,omitempty" validate:"omitempty,unique=Name,dive"`
 	ExpectedOutput TestExpectedOutput `yaml:"expectedOutput"`
 }
 
