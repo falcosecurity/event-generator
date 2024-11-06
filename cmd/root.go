@@ -16,12 +16,13 @@ package cmd
 
 import (
 	"context"
-	"github.com/go-logr/logr"
+	"errors"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 
+	"github.com/go-logr/logr"
 	homedir "github.com/mitchellh/go-homedir"
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -30,6 +31,7 @@ import (
 	// Initialize all k8s client auth plugins.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	"github.com/falcosecurity/event-generator/cmd/declarative"
 	// register event collections.
 	_ "github.com/falcosecurity/event-generator/events/k8saudit"
 	_ "github.com/falcosecurity/event-generator/events/syscall"
@@ -44,6 +46,14 @@ func init() {
 	})
 }
 
+const (
+	// envKeysPrefix is used as environment variable prefix configuration for viper.
+	envKeysPrefix = "falco_event_generator"
+	// declarativeEnvKey is used to distinguish between command-line invocation of the "declarative run" subcommand and
+	// the subcommand invoking itself during process chain creation.
+	declarativeEnvKey = "DECLARATIVE"
+)
+
 // New instantiates the root command.
 func New(configOptions *ConfigOptions) *cobra.Command {
 	if configOptions == nil {
@@ -57,23 +67,20 @@ func New(configOptions *ConfigOptions) *cobra.Command {
 			// PersistentPreRun runs before flags validation but after args validation.
 			// Do not assume initialization completed during args validation.
 
-			// at this stage configOptions is bound to command line flags only
+			// At this stage configOptions is bound to command line flags only. Use only config file flag to
+			// initialize the remaining configuration.
 			validateConfig(*configOptions)
-			initLoggers(configOptions.LogLevel, configOptions.LogFormat)
-			logger.Debug("running with args: ", strings.Join(os.Args, " "))
 			initConfig(configOptions.ConfigFile)
 
 			// then bind all flags to ENV and config file
 			flags := c.Flags()
 			initEnv()
-			initFlags(flags, map[string]bool{
-				// exclude flags to be not bound to ENV and config file
-				"config":    true,
-				"loglevel":  true,
-				"logformat": true,
-				"help":      true,
-			})
-			// validateConfig(*configOptions) // enable if other flags were bound to configOptions
+			excludedFlags := map[string]struct{}{"config": {}}
+			initFlags(flags, excludedFlags)
+
+			initLoggers(configOptions.LogLevel, configOptions.LogFormat)
+			logger.Debug("running with args: ", strings.Join(os.Args, " "))
+			validateConfig(*configOptions)
 			debugFlags(flags)
 
 			// Inject logr logger into context.
@@ -89,15 +96,18 @@ func New(configOptions *ConfigOptions) *cobra.Command {
 
 	// Global flags
 	flags := rootCmd.PersistentFlags()
-	flags.StringVarP(&configOptions.ConfigFile, "config", "c", configOptions.ConfigFile, "Config file path (default $HOME/.falco-event-generator.yaml if exists)")
+	flags.StringVarP(&configOptions.ConfigFile, "config", "c", configOptions.ConfigFile,
+		"Config file path (default $HOME/.falco-event-generator.yaml if exists)")
 	flags.StringVarP(&configOptions.LogLevel, "loglevel", "l", configOptions.LogLevel, "Log level")
-	flags.StringVar(&configOptions.LogFormat, "logformat", configOptions.LogFormat, `available formats: "text" or "json"`)
+	flags.StringVar(&configOptions.LogFormat, "logformat", configOptions.LogFormat,
+		`available formats: "text" or "json"`)
 
 	// Commands
 	rootCmd.AddCommand(NewRun())
 	rootCmd.AddCommand(NewBench())
 	rootCmd.AddCommand(NewTest())
 	rootCmd.AddCommand(NewList())
+	rootCmd.AddCommand(declarative.New(declarativeEnvKey, envKeysPrefix))
 
 	return rootCmd
 }
@@ -105,7 +115,13 @@ func New(configOptions *ConfigOptions) *cobra.Command {
 // Execute creates the root command and runs it.
 func Execute() {
 	ctx := WithSignals(context.Background())
-	if err := New(nil).ExecuteContext(ctx); err != nil {
+	rootCmd := New(nil)
+	// declarativeEnvKey is not mapped on viper and cobra on purpose.
+	if v := os.Getenv(declarativeEnvKey); v != "" {
+		rootCmd.SetArgs([]string{"declarative", "run"})
+	}
+
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		logger.WithError(err).Fatal("error executing event-generator")
 	}
 }
@@ -148,7 +164,7 @@ func validateConfig(configOptions ConfigOptions) {
 // initEnv enables automatic ENV variables lookup
 func initEnv() {
 	viper.AutomaticEnv()
-	viper.SetEnvPrefix("falco_event_generator")
+	viper.SetEnvPrefix(envKeysPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 }
 
@@ -187,7 +203,8 @@ func initConfig(configFile string) {
 		// Find home directory.
 		home, err := homedir.Dir()
 		if err != nil {
-			logger.WithError(err).Fatal("error getting the home directory")
+			log.DefaultLogger.Error(err, "Error getting the home directory")
+			os.Exit(1)
 		}
 
 		viper.AddConfigPath(home)
@@ -195,17 +212,19 @@ func initConfig(configFile string) {
 	}
 
 	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		logger.WithField("file", viper.ConfigFileUsed()).Info("using config file")
-	} else {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// Config file not found, ignore ...
-			logger.Debug("running without a configuration file")
-		} else {
-			// Config file was found but another error was produced
-			logger.WithField("file", viper.ConfigFileUsed()).WithError(err).Fatal("error running with config file")
+	if err := viper.ReadInConfig(); err != nil {
+		var configFileNotFoundError viper.ConfigFileNotFoundError
+		if errors.As(err, &configFileNotFoundError) {
+			// Config file not found, ignore it.
+			log.DefaultLogger.V(1).Info("Config file not found. Proceeding without it")
+			return
 		}
+
+		log.DefaultLogger.Error(err, "Error loading config file", "file", viper.ConfigFileUsed())
+		os.Exit(1)
 	}
+
+	log.DefaultLogger.Info("Configured config file", "file", viper.ConfigFileUsed())
 }
 
 // initFlags binds a full flag set to the configuration, using each flag's long name as the config key.
@@ -215,13 +234,13 @@ func initConfig(configFile string) {
 // - ENV (with FALCO_EVENT_GENERATOR prefix)
 // - config file (e.g. ~/.falco-event-generator.yaml)
 // - its default
-func initFlags(flags *pflag.FlagSet, exclude map[string]bool) {
+func initFlags(flags *pflag.FlagSet, excludeSet map[string]struct{}) {
 	if err := viper.BindPFlags(flags); err != nil {
 		logger.WithError(err).Fatal("error binding flags to configuration")
 	}
 
 	flags.VisitAll(func(f *pflag.Flag) {
-		if exclude[f.Name] {
+		if _, exclude := excludeSet[f.Name]; exclude {
 			return
 		}
 		viper.SetDefault(f.Name, f.DefValue)
