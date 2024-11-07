@@ -49,6 +49,17 @@ type CommandWrapper struct {
 	// procLabelEnvKey is the environment variable key corresponding to procLabelFlagName.
 	procLabelEnvKey string
 	Command         *cobra.Command
+
+	// Flags
+	//
+	// testsDescriptionFile is the path of the file containing the YAML tests description. If testsDescription is
+	// provided, this is empty.
+	testsDescriptionFile string
+	// testsDescription is the YAML tests description. If testsDescriptionFile is provided, this is empty.
+	testsDescription string
+	//  procLabel is the process label in the form test<testIndex>.child<childIndex>. It is used for logging purposes
+	// and to potentially generate the child process label.
+	procLabel string
 }
 
 const (
@@ -57,8 +68,7 @@ const (
 	descriptionFileFlagName = "description-file"
 	// descriptionFlagName is the name of the flag allowing to specify the YAML tests description.
 	descriptionFlagName = "description"
-	// procLabelFlagName is the name of the flag allowing to specify a process label in the form
-	// test<testIndex>,child<childIndex>.
+	// procLabelFlagName is the name of the flag allowing to specify a process label.
 	procLabelFlagName = "proc-label"
 )
 
@@ -95,7 +105,7 @@ func New(declarativeEnvKey, envKeysPrefix string) *CommandWrapper {
 		Run:               cw.run,
 	}
 
-	initFlags(c)
+	cw.initFlags(c)
 	cw.Command = c
 	return cw
 }
@@ -108,16 +118,16 @@ func envKeyFromFlagName(envKeysPrefix, flagName string) string {
 }
 
 // initFlags initializes the provided command's flags.
-func initFlags(c *cobra.Command) {
+func (cw *CommandWrapper) initFlags(c *cobra.Command) {
 	flags := c.Flags()
 
-	flags.StringP(descriptionFileFlagName, "f", "",
+	flags.StringVarP(&cw.testsDescriptionFile, descriptionFileFlagName, "f", "",
 		"The tests description YAML file specifying the tests to be run")
-	flags.StringP(descriptionFlagName, "d", "",
+	flags.StringVarP(&cw.testsDescription, descriptionFlagName, "d", "",
 		"The YAML-formatted tests description string specifying the tests to be run")
 	c.MarkFlagsMutuallyExclusive(descriptionFileFlagName, descriptionFlagName)
 
-	flags.StringP(procLabelFlagName, "p", "",
+	flags.StringVarP(&cw.procLabel, procLabelFlagName, "p", "",
 		"(used during process chain building) The process label in the form test<testIndex>.child<childIndex>. "+
 			"It is used for logging purposes and to potentially generate the child process label")
 	_ = flags.MarkHidden(procLabelFlagName)
@@ -139,9 +149,7 @@ func (cw *CommandWrapper) run(c *cobra.Command, _ []string) {
 		panic(fmt.Sprintf("logger unconfigured: %v", err))
 	}
 
-	flags := c.Flags()
-
-	procLabelInfo, err := parseProcLabel(flags)
+	procLabelInfo, err := cw.parseProcLabel()
 	if err != nil {
 		logger.Error(err, "Error parsing process label")
 		os.Exit(1)
@@ -153,7 +161,7 @@ func (cw *CommandWrapper) run(c *cobra.Command, _ []string) {
 		logger = logger.WithName(procLabelInfo.testName).WithName(procLabelInfo.childName)
 	}
 
-	description, err := loadTestsDescription(logger, flags)
+	description, err := cw.loadTestsDescription(logger)
 	if err != nil {
 		logger.Error(err, "Error loading tests description")
 		os.Exit(1)
@@ -280,15 +288,11 @@ var (
 	errProcLabelRegex = fmt.Errorf("process label must comply with %q regex", procLabelRegex.String())
 )
 
-// parseProcLabel extracts the process label information from the procLabelFlagName flag.
-func parseProcLabel(flags *pflag.FlagSet) (*processLabelInfo, error) {
-	if !flags.Changed(procLabelFlagName) {
+// parseProcLabel parses the process label and returns information on it.
+func (cw *CommandWrapper) parseProcLabel() (*processLabelInfo, error) {
+	procLabelValue := cw.procLabel
+	if procLabelValue == "" {
 		return nil, nil
-	}
-
-	procLabelValue, err := flags.GetString(procLabelFlagName)
-	if err != nil {
-		return nil, fmt.Errorf("error retrieving %q flag: %w", procLabelFlagName, err)
 	}
 
 	match := procLabelRegex.FindStringSubmatch(procLabelValue)
@@ -316,15 +320,10 @@ func parseProcLabel(flags *pflag.FlagSet) (*processLabelInfo, error) {
 // the descriptionFileFlagName flag is provided, the description is loaded from the specified file; if the
 // descriptionFlagName flag is provided, the description is loaded from the flag argument; otherwise, it is loaded from
 // standard input.
-func loadTestsDescription(logger logr.Logger, flags *pflag.FlagSet) (*loader.Description, error) {
+func (cw *CommandWrapper) loadTestsDescription(logger logr.Logger) (*loader.Description, error) {
 	ldr := loader.New()
 
-	if flags.Changed(descriptionFileFlagName) {
-		descriptionFilePath, err := flags.GetString(descriptionFileFlagName)
-		if err != nil {
-			return nil, fmt.Errorf("error retrieving %q flag: %w", descriptionFileFlagName, err)
-		}
-
+	if descriptionFilePath := cw.testsDescriptionFile; descriptionFilePath != "" {
 		descriptionFilePath = filepath.Clean(descriptionFilePath)
 		descriptionFile, err := os.Open(descriptionFilePath)
 		if err != nil {
@@ -339,12 +338,7 @@ func loadTestsDescription(logger logr.Logger, flags *pflag.FlagSet) (*loader.Des
 		return ldr.Load(descriptionFile)
 	}
 
-	if flags.Changed(descriptionFlagName) {
-		description, err := flags.GetString(descriptionFlagName)
-		if err != nil {
-			return nil, fmt.Errorf("error retrieving %q flag: %w", descriptionFlagName, err)
-		}
-
+	if description := cw.testsDescription; description != "" {
 		return ldr.Load(strings.NewReader(description))
 	}
 
