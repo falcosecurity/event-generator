@@ -46,11 +46,11 @@ type hostRunner struct {
 	// testDescriptionFileEnvKey is the key identifying the environment variable used to store path of the file
 	// containing the serialized test description.
 	testDescriptionFileEnvKey string
-	// procIDEnvKey is the key identifying the environment variable used to store the process identifier in the form
+	// procLabelEnvKey is the key identifying the environment variable used to store the process label in the form
 	// "test<testIndex>,child<childIndex>".
-	procIDEnvKey string
-	// procID is the current process ID.
-	procID string
+	procLabelEnvKey string
+	// procLabel is the current process label.
+	procLabel string
 }
 
 // Verify that hostRunner implements runner.Runner interface.
@@ -58,7 +58,7 @@ var _ runner.Runner = (*hostRunner)(nil)
 
 // New creates a new host runner.
 func New(logger logr.Logger, testBuilder test.Builder, environ []string, testDescriptionEnvKey,
-	testDescriptionFileEnvKey, procIDEnvKey, procID string) (runner.Runner, error) {
+	testDescriptionFileEnvKey, procLabelEnvKey, procLabel string) (runner.Runner, error) {
 	if testBuilder == nil {
 		return nil, fmt.Errorf("test builder must not be nil")
 	}
@@ -67,8 +67,8 @@ func New(logger logr.Logger, testBuilder test.Builder, environ []string, testDes
 		return nil, fmt.Errorf("testDescriptionEnvKey must not be empty")
 	}
 
-	if procIDEnvKey == "" {
-		return nil, fmt.Errorf("procIDEnvKey must not be empty")
+	if procLabelEnvKey == "" {
+		return nil, fmt.Errorf("procLabelEnvKey must not be empty")
 	}
 
 	r := &hostRunner{
@@ -77,8 +77,8 @@ func New(logger logr.Logger, testBuilder test.Builder, environ []string, testDes
 		environ:                   environ,
 		testDescriptionEnvKey:     testDescriptionEnvKey,
 		testDescriptionFileEnvKey: testDescriptionFileEnvKey,
-		procIDEnvKey:              procIDEnvKey,
-		procID:                    procID,
+		procLabelEnvKey:           procLabelEnvKey,
+		procLabel:                 procLabel,
 	}
 	return r, nil
 }
@@ -235,18 +235,18 @@ func (r *hostRunner) buildEnv(testIndex int, testDesc *loader.Test, userEnv map[
 	}
 	descriptionEnvVar := buildEnvVar(r.testDescriptionEnvKey, description)
 
-	// Set process ID environment variable.
-	procID, err := r.buildProcID(testIndex)
+	// Set process label environment variable.
+	procLabel, err := r.buildProcLabel(testIndex)
 	if err != nil {
-		return nil, fmt.Errorf("error building process ID: %w", err)
+		return nil, fmt.Errorf("error building process label: %w", err)
 	}
-	procIDEnvVar := buildEnvVar(r.procIDEnvKey, procID)
+	procLabelEnvVar := buildEnvVar(r.procLabelEnvKey, procLabel)
 
 	// Override test description file environment variable to avoid conflicts with the test description environment
 	// variable
 	descriptionFileEnvVar := buildEnvVar(r.testDescriptionFileEnvKey, "")
 
-	env = append(env, descriptionEnvVar, procIDEnvVar, descriptionFileEnvVar)
+	env = append(env, descriptionEnvVar, procLabelEnvVar, descriptionFileEnvVar)
 	return env, nil
 }
 
@@ -266,24 +266,24 @@ func marshalTestDescription(testDesc *loader.Test) (string, error) {
 	return sb.String(), nil
 }
 
-// buildProcID builds a process ID. If the current process ID is not defined, it uses the provided testIndex to create a
-// new one; otherwise, given the process ID in the form testName,child<childIndex>, it returns
+// buildProcLabel builds a process Label. If the current process Label is not defined, it uses the provided testIndex to
+// create a new one; otherwise, given the process label in the form testName,child<childIndex>, it returns
 // testName,child<childIndex+1>.
-func (r *hostRunner) buildProcID(testIndex int) (string, error) {
-	procID := r.procID
-	if procID == "" {
+func (r *hostRunner) buildProcLabel(testIndex int) (string, error) {
+	procLabel := r.procLabel
+	if procLabel == "" {
 		return fmt.Sprintf("test%d,child0", testIndex), nil
 	}
 
-	idParts := strings.Split(procID, ",")
-	if len(idParts) != 2 {
-		return "", fmt.Errorf("cannot parse process ID")
+	labelParts := strings.Split(procLabel, ",")
+	if len(labelParts) != 2 {
+		return "", fmt.Errorf("cannot parse process label")
 	}
 
-	testName, procName := idParts[0], idParts[1]
+	testName, procName := labelParts[0], labelParts[1]
 	childIndex, err := strconv.Atoi(strings.TrimPrefix(procName, "child"))
 	if err != nil {
-		return "", fmt.Errorf("error parsing process name in process ID %q: %w", procName, err)
+		return "", fmt.Errorf("error parsing process name in process label %q: %w", procName, err)
 	}
 
 	return fmt.Sprintf("%s,child%d", testName, childIndex+1), nil

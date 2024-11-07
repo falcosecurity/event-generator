@@ -42,13 +42,13 @@ import (
 type CommandWrapper struct {
 	envKeysPrefix     string
 	declarativeEnvKey string
-	// descriptionFileEnvKey is the environment variable key corresponding to testDescriptionFileFlagName.
+	// descriptionFileEnvKey is the environment variable key corresponding to descriptionFileFlagName.
 	descriptionFileEnvKey string
-	// descriptionEnvKey is the environment variable key corresponding to testDescriptionFlagName.
+	// descriptionEnvKey is the environment variable key corresponding to descriptionFlagName.
 	descriptionEnvKey string
-	// procIDEnvKey is the environment variable key corresponding to procIDFlagName.
-	procIDEnvKey string
-	Command      *cobra.Command
+	// procLabelEnvKey is the environment variable key corresponding to procLabelFlagName.
+	procLabelEnvKey string
+	Command         *cobra.Command
 }
 
 const (
@@ -57,9 +57,9 @@ const (
 	descriptionFileFlagName = "description-file"
 	// descriptionFlagName is the name of the flag allowing to specify the YAML tests description.
 	descriptionFlagName = "description"
-	// procIDFlagName is the name of the flag allowing to specify process identifier in the form
-	// test<testIndex>.child<childIndex>.
-	procIDFlagName = "proc-id"
+	// procLabelFlagName is the name of the flag allowing to specify a process label in the form
+	// test<testIndex>,child<childIndex>.
+	procLabelFlagName = "proc-label"
 )
 
 const longDescriptionPrefaceTemplate = `Run tests(s) specified via a YAML description.
@@ -84,7 +84,7 @@ func New(declarativeEnvKey, envKeysPrefix string) *CommandWrapper {
 		envKeysPrefix:         envKeysPrefix,
 		descriptionFileEnvKey: envKeyFromFlagName(envKeysPrefix, descriptionFileFlagName),
 		descriptionEnvKey:     envKeyFromFlagName(envKeysPrefix, descriptionFlagName),
-		procIDEnvKey:          envKeyFromFlagName(envKeysPrefix, procIDFlagName),
+		procLabelEnvKey:       envKeyFromFlagName(envKeysPrefix, procLabelFlagName),
 	}
 
 	c := &cobra.Command{
@@ -117,13 +117,14 @@ func initFlags(c *cobra.Command) {
 		"The YAML-formatted tests description string specifying the tests to be run")
 	c.MarkFlagsMutuallyExclusive(descriptionFileFlagName, descriptionFlagName)
 
-	flags.StringP(procIDFlagName, "p", "",
-		"The ID uniquely identifying the current process, in the form test<testIndex>.child<childIndex> (used "+
-			"during process chain building)")
+	flags.StringP(procLabelFlagName, "p", "",
+		"(used during process chain building) The process label in the form test<testIndex>.child<childIndex>. "+
+			"It is used for logging purposes and to potentially generate the child process label")
+	_ = flags.MarkHidden(procLabelFlagName)
 }
 
-// processIDInfo contains information regarding the process ID.
-type processIDInfo struct {
+// processLabelInfo contains information regarding the process label.
+type processLabelInfo struct {
 	testName   string
 	testIndex  int
 	childName  string
@@ -140,16 +141,16 @@ func (cw *CommandWrapper) run(c *cobra.Command, _ []string) {
 
 	flags := c.Flags()
 
-	procIDInfo, err := parseProcID(flags)
+	procLabelInfo, err := parseProcLabel(flags)
 	if err != nil {
-		logger.Error(err, "Error parsing process ID")
+		logger.Error(err, "Error parsing process label")
 		os.Exit(1)
 	}
 
-	if procIDInfo == nil {
+	if procLabelInfo == nil {
 		logger = logger.WithName("root")
 	} else {
-		logger = logger.WithName(procIDInfo.testName).WithName(procIDInfo.childName)
+		logger = logger.WithName(procLabelInfo.testName).WithName(procLabelInfo.childName)
 	}
 
 	description, err := loadTestsDescription(logger, flags)
@@ -186,9 +187,9 @@ func (cw *CommandWrapper) run(c *cobra.Command, _ []string) {
 	// Prepare parameters shared by runners.
 	runnerLogger := logger.WithName("runner")
 	runnerEnviron := cw.buildRunnerEnviron(c)
-	var runnerProcID string
-	if procIDInfo != nil {
-		runnerProcID = fmt.Sprintf("%s,%s", procIDInfo.testName, procIDInfo.childName)
+	var runnerProcLabel string
+	if procLabelInfo != nil {
+		runnerProcLabel = fmt.Sprintf("%s,%s", procLabelInfo.testName, procLabelInfo.childName)
 	}
 
 	// Build and run the tests.
@@ -201,8 +202,8 @@ func (cw *CommandWrapper) run(c *cobra.Command, _ []string) {
 			Environ:                   runnerEnviron,
 			TestDescriptionEnvKey:     cw.descriptionEnvKey,
 			TestDescriptionFileEnvKey: cw.descriptionFileEnvKey,
-			ProcIDEnvKey:              cw.procIDEnvKey,
-			ProcID:                    runnerProcID,
+			ProcLabelEnvKey:           cw.procLabelEnvKey,
+			ProcLabel:                 runnerProcLabel,
 		}
 		runnerInstance, err := runnerBuilder.Build(runnerDescription)
 		if err != nil {
@@ -212,8 +213,8 @@ func (cw *CommandWrapper) run(c *cobra.Command, _ []string) {
 
 		// If this process belongs to a test process chain, override the logged test index in order to match its
 		// absolute index among all the test descriptions.
-		if len(description.Tests) == 1 && procIDInfo != nil {
-			testIndex = procIDInfo.testIndex
+		if len(description.Tests) == 1 && procLabelInfo != nil {
+			testIndex = procLabelInfo.testIndex
 		}
 
 		logger := logger.WithValues("testName", testDesc.Name, "testIndex", testIndex)
@@ -274,45 +275,47 @@ func (cw *CommandWrapper) appendFlags(environ []string, flagSets ...*pflag.FlagS
 }
 
 var (
-	// procIDRegex defines the process ID format and allows to extract the embedded test and child indexes.
-	procIDRegex = regexp.MustCompile(`^test(\d+),child(\d+)$`)
+	// procLabelRegex defines the process label format and allows to extract the embedded test and child indexes.
+	procLabelRegex    = regexp.MustCompile(`^test(\d+),child(\d+)$`)
+	errProcLabelRegex = fmt.Errorf("process label must comply with %q regex", procLabelRegex.String())
 )
 
-// parseProcID process ID information from the --proc-id flag.
-func parseProcID(flags *pflag.FlagSet) (*processIDInfo, error) {
-	if !flags.Changed(procIDFlagName) {
+// parseProcLabel extracts the process label information from the procLabelFlagName flag.
+func parseProcLabel(flags *pflag.FlagSet) (*processLabelInfo, error) {
+	if !flags.Changed(procLabelFlagName) {
 		return nil, nil
 	}
 
-	procIDValue, err := flags.GetString(procIDFlagName)
+	procLabelValue, err := flags.GetString(procLabelFlagName)
 	if err != nil {
-		return nil, fmt.Errorf("error retrieving %q flag: %w", procIDFlagName, err)
+		return nil, fmt.Errorf("error retrieving %q flag: %w", procLabelFlagName, err)
 	}
 
-	match := procIDRegex.FindStringSubmatch(procIDValue)
+	match := procLabelRegex.FindStringSubmatch(procLabelValue)
 	if match == nil {
-		return nil, fmt.Errorf("process ID must comply with %q regex", procIDRegex.String())
+		return nil, errProcLabelRegex
 	}
 
 	// No errors can occur, since we have already verified through regex that they are numbers.
 	testIndex, _ := strconv.Atoi(match[1])
 	childIndex, _ := strconv.Atoi(match[2])
 
-	parts := strings.Split(procIDValue, ",")
+	parts := strings.Split(procLabelValue, ",")
 
-	procID := &processIDInfo{
+	procLabel := &processLabelInfo{
 		testName:   parts[0],
 		testIndex:  testIndex,
 		childName:  parts[1],
 		childIndex: childIndex,
 	}
 
-	return procID, nil
+	return procLabel, nil
 }
 
 // loadTestsDescription loads the YAML tests description from a different source, depending on the provided flags. If
-// the --description-file flag is provided, the description is loaded from the specified file; if the --description flag
-// is provided, the description is loaded from the flag argument; otherwise, it is loaded from standard input.
+// the descriptionFileFlagName flag is provided, the description is loaded from the specified file; if the
+// descriptionFlagName flag is provided, the description is loaded from the flag argument; otherwise, it is loaded from
+// standard input.
 func loadTestsDescription(logger logr.Logger, flags *pflag.FlagSet) (*loader.Description, error) {
 	ldr := loader.New()
 
