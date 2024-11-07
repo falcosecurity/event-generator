@@ -54,8 +54,8 @@ func (b *builder) Build(description *runner.Description) (runner.Runner, error) 
 			description.Environ,
 			description.TestDescriptionEnvKey,
 			description.TestDescriptionFileEnvKey,
-			description.ProcIDEnvKey,
-			description.ProcID,
+			description.ProcLabelEnvKey,
+			description.ProcLabel,
 		)
 	default:
 		return nil, fmt.Errorf("unknown test runner type %q", runnerType)
