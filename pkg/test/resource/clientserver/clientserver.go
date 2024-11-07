@@ -17,12 +17,11 @@ package clientserver
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/big"
 	"net"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -32,6 +31,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
+	"github.com/falcosecurity/event-generator/pkg/random"
 	"github.com/falcosecurity/event-generator/pkg/test/field"
 	"github.com/falcosecurity/event-generator/pkg/test/resource"
 )
@@ -243,19 +243,19 @@ func linkByAddress(ipAddr net.IP, family int) (netlink.Link, error) {
 const (
 	// linkNamePrefix is the prefix used for new links.
 	linkNamePrefix = "du"
-	// unixSocketNamePathPrefix is the path under which new unix socket files will be stored.
-	unixSocketNamePathPrefix = "/tmp/clientserver"
 )
 
 var (
-	ipv4Mask = net.CIDRMask(32, 32)
-	ipv6Mask = net.CIDRMask(128, 128)
+	// unixSocketPathPrefix is the prefix used to generate the path of a new unix socket file.
+	unixSocketPathPrefix = filepath.Join(os.TempDir(), "clientserver")
+	ipv4Mask             = net.CIDRMask(32, 32)
+	ipv6Mask             = net.CIDRMask(128, 128)
 )
 
 // createLinkWithAddress creates a link on the system and configures the provided address on it, with a prefix length
 // of 32 (for IPv4) or 128 (for IPv6). It returns the name of the created link.
 func createLinkWithAddress(ipAddr net.IP, isIPv4Address bool) (linkName string, err error) {
-	name := linkNamePrefix + randSeq(4)
+	name := linkNamePrefix + random.Seq(4)
 	link := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: name}}
 	if err := netlink.LinkAdd(link); err != nil {
 		return "", fmt.Errorf("error creating link %q: %w", name, err)
@@ -292,19 +292,6 @@ func createLinkWithAddress(ipAddr net.IP, isIPv4Address bool) (linkName string, 
 	return name, nil
 }
 
-var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-// randSeq generates a random sequence of length n.
-func randSeq(n int) string {
-	b := make([]rune, n)
-	lettersLen := len(letters)
-	for i := range b {
-		letterIndex, _ := rand.Int(rand.Reader, big.NewInt(int64(lettersLen)))
-		b[i] = letters[letterIndex.Int64()]
-	}
-	return string(b)
-}
-
 // netSockaddr returns the unix.Sockaddr associated to the provided IP address and port.
 func netSockaddr(ipAddr net.IP, port int, isIPv4Address bool) unix.Sockaddr {
 	if isIPv4Address {
@@ -316,7 +303,7 @@ func netSockaddr(ipAddr net.IP, port int, isIPv4Address bool) unix.Sockaddr {
 
 // newUnixSockFilePath creates a new random path to store a unix socket file.
 func newUnixSockFilePath() string {
-	return unixSocketNamePathPrefix + randSeq(4) + ".sock"
+	return unixSocketPathPrefix + random.Seq(4) + ".sock"
 }
 
 // unixSockaddr returns a unix.Sockaddr associated to the provided unix socket file path.
