@@ -27,6 +27,7 @@ import (
 
 	"github.com/go-logr/logr"
 
+	"github.com/falcosecurity/event-generator/pkg/random"
 	"github.com/falcosecurity/event-generator/pkg/test"
 	"github.com/falcosecurity/event-generator/pkg/test/loader"
 	"github.com/falcosecurity/event-generator/pkg/test/runner"
@@ -104,12 +105,23 @@ func (r *hostRunner) Run(ctx context.Context, testID string, testIndex int, test
 	return nil
 }
 
+var (
+	// defaultRealExePathPrefix defines the prefix used to generate a random real executable path.
+	defaultRealExePathPrefix = filepath.Join(os.TempDir(), "event-generator")
+)
+
 // delegateToChild delegates the execution of the test to a child process, created and tuned as per test specification.
 func (r *hostRunner) delegateToChild(ctx context.Context, testID string, testIndex int, testDesc *loader.Test) error {
 	firstProcess := popFirstProcessContext(testDesc.Context)
 	isLastProcess := len(testDesc.Context.Processes) == 0
 
-	realExePath := firstProcess.ExePath
+	// If the user doesn't provide an executable path, we must generate a random path.
+	var realExePath string
+	if exePath := firstProcess.ExePath; exePath != nil {
+		realExePath = *exePath
+	} else {
+		realExePath = defaultRealExePathPrefix + random.Seq(10)
+	}
 
 	// If the user provides a process name, we must run the executable through a symbolic link having the provided name
 	// and pointing to the real executable path.
