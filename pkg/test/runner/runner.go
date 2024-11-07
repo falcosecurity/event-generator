@@ -49,9 +49,9 @@ type Description struct {
 	// TestDescriptionFileEnvKey is the key identifying the environment variable used to store path of the file
 	// containing the serialized test description.
 	TestDescriptionFileEnvKey string
-	// ProcIDEnvKey is the key identifying the environment variable used to store the process identifier in the form
+	// ProcLabelEnvKey is the key identifying the environment variable used to store the process label in the form
 	// "test<testIndex>,child<childIndex>".
-	ProcIDEnvKey string
-	// ProcID is the current process ID.
-	ProcID string
+	ProcLabelEnvKey string
+	// ProcLabel is the current process label.
+	ProcLabel string
 }
