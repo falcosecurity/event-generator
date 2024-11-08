@@ -725,9 +725,7 @@ func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
 // TestExpectedOutcome is the expected outcome for a test.
 type TestExpectedOutcome struct {
 	Source       *string           `yaml:"source,omitempty" validate:"omitempty,min=1"`
-	Time         *string           `yaml:"time,omitempty" validate:"omitempty,min=1"`
 	Hostname     *string           `yaml:"hostname,omitempty" validate:"omitempty,min=1"`
 	Priority     *string           `yaml:"priority,omitempty" validate:"omitempty,min=1"`
-	Output       *string           `yaml:"output,omitempty" validate:"omitempty,min=1"`
 	OutputFields map[string]string `yaml:"outputFields,omitempty" validate:"omitempty,min=1"`
 }
