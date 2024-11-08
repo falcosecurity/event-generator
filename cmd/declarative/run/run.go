@@ -232,9 +232,20 @@ func (cw *CommandWrapper) run(c *cobra.Command, _ []string) {
 
 		var testUID string
 		if isRootProcess {
+			// Generate a new uid for the test.
 			testUID = uuid.New().String()
 			testID = fmt.Sprintf("%s%s", testIDIgnorePrefix, testUID)
+
+			// Ensure the process chain has at least one element. If the user didn't specify anything, add a default
+			// process to the chain.
+			if testDesc.Context == nil {
+				testDesc.Context = &loader.TestContext{}
+			}
+			if len(testDesc.Context.Processes) == 0 {
+				testDesc.Context.Processes = []loader.ProcessContext{{}}
+			}
 		} else {
+			// Extract uid from test id.
 			testUID = strings.TrimPrefix(testID, testIDIgnorePrefix)
 		}
 
