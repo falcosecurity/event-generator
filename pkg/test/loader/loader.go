@@ -126,16 +126,16 @@ func validateRuleName(fl validator.FieldLevel) bool {
 
 // Test is a rule test description.
 type Test struct {
-	Rule           string             `yaml:"rule" validate:"rule_name"`
-	Name           string             `yaml:"name" validate:"required"`
-	Description    *string            `yaml:"description,omitempty" validate:"omitempty,min=1"`
-	Runner         TestRunnerType     `yaml:"runner" validate:"-"`
-	Context        *TestContext       `yaml:"context,omitempty" validate:"omitempty"`
-	BeforeScript   *string            `yaml:"before,omitempty" validate:"omitempty,min=1"`
-	AfterScript    *string            `yaml:"after,omitempty" validate:"omitempty,min=1"`
-	Resources      []TestResource     `yaml:"resources,omitempty" validate:"omitempty,unique=Name,dive"`
-	Steps          []TestStep         `yaml:"steps,omitempty" validate:"omitempty,unique=Name,dive"`
-	ExpectedOutput TestExpectedOutput `yaml:"expectedOutput"`
+	Rule            string              `yaml:"rule" validate:"rule_name"`
+	Name            string              `yaml:"name" validate:"required"`
+	Description     *string             `yaml:"description,omitempty" validate:"omitempty,min=1"`
+	Runner          TestRunnerType      `yaml:"runner" validate:"-"`
+	Context         *TestContext        `yaml:"context,omitempty" validate:"omitempty"`
+	BeforeScript    *string             `yaml:"before,omitempty" validate:"omitempty,min=1"`
+	AfterScript     *string             `yaml:"after,omitempty" validate:"omitempty,min=1"`
+	Resources       []TestResource      `yaml:"resources,omitempty" validate:"omitempty,unique=Name,dive"`
+	Steps           []TestStep          `yaml:"steps,omitempty" validate:"omitempty,unique=Name,dive"`
+	ExpectedOutcome TestExpectedOutcome `yaml:"expectedOutcome"`
 }
 
 // TestRunnerType is the type of test runner.
@@ -722,8 +722,8 @@ func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-// TestExpectedOutput is the expected output for a test.
-type TestExpectedOutput struct {
+// TestExpectedOutcome is the expected outcome for a test.
+type TestExpectedOutcome struct {
 	Source       *string           `yaml:"source,omitempty" validate:"omitempty,min=1"`
 	Time         *string           `yaml:"time,omitempty" validate:"omitempty,min=1"`
 	Hostname     *string           `yaml:"hostname,omitempty" validate:"omitempty,min=1"`
