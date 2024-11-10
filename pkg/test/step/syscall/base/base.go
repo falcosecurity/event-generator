@@ -173,7 +173,7 @@ func setArgFieldValue(argField *field.Field, value string) error {
 		if err != nil {
 			return fmt.Errorf("cannot parse value as open mode: %w", err)
 		}
-		argFieldValue.SetInt(int64(openMode))
+		argFieldValue.SetUint(uint64(openMode))
 	case field.TypeOpenHow:
 		openHow, err := parseOpenHow(value)
 		if err != nil {
