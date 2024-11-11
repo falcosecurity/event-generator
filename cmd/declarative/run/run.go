@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -38,6 +39,21 @@ import (
 	sysbuilder "github.com/falcosecurity/event-generator/pkg/test/step/syscall/builder"
 )
 
+const (
+	// descriptionFileFlagName is the name of the flag allowing to specify the path of the file containing the YAML
+	// tests description.
+	descriptionFileFlagName = "description-file"
+	// descriptionFlagName is the name of the flag allowing to specify the YAML tests description.
+	descriptionFlagName = "description"
+	// testIDFlagName is the name of the flag allowing to specify the test identifier.
+	testIDFlagName = "test-id"
+	// procLabelFlagName is the name of the flag allowing to specify a process label.
+	procLabelFlagName = "proc-label"
+
+	// testIDIgnorePrefix is the prefix used to mark a process as not monitored.
+	testIDIgnorePrefix = "ignore:"
+)
+
 // CommandWrapper is a thin wrapper around the cobra command.
 type CommandWrapper struct {
 	envKeysPrefix     string
@@ -46,6 +62,8 @@ type CommandWrapper struct {
 	descriptionFileEnvKey string
 	// descriptionEnvKey is the environment variable key corresponding to descriptionFlagName.
 	descriptionEnvKey string
+	// testIDEnvKey is the environment variable key corresponding to testIDFlagName.
+	testIDEnvKey string
 	// procLabelEnvKey is the environment variable key corresponding to procLabelFlagName.
 	procLabelEnvKey string
 	Command         *cobra.Command
@@ -57,35 +75,33 @@ type CommandWrapper struct {
 	testsDescriptionFile string
 	// testsDescription is the YAML tests description. If testsDescriptionFile is provided, this is empty.
 	testsDescription string
+	// testID is the test identifier in the form [testIDIgnorePrefix]<testUID>. It is used to propagate the test UID to
+	// child processes in the process chain. The following invariants hold:
+	// - the root process has no test ID
+	// - the processes in the process chain but the last have the test ID in the form testIDIgnorePrefix<testUID>
+	// - the last process in the process chain has the test ID in the form <testUID>
+	// A process having a test ID in the form <testUID> (i.e.: the leaf process) is the only one that is monitored.
+	testID string
 	//  procLabel is the process label in the form test<testIndex>.child<childIndex>. It is used for logging purposes
 	// and to potentially generate the child process label.
 	procLabel string
 }
 
 const (
-	// descriptionFileFlagName is the name of the flag allowing to specify the path of the file containing the YAML
-	// tests description.
-	descriptionFileFlagName = "description-file"
-	// descriptionFlagName is the name of the flag allowing to specify the YAML tests description.
-	descriptionFlagName = "description"
-	// procLabelFlagName is the name of the flag allowing to specify a process label.
-	procLabelFlagName = "proc-label"
-)
-
-const longDescriptionPrefaceTemplate = `Run tests(s) specified via a YAML description.
-
+	longDescriptionPrefaceTemplate = `Run tests(s) specified via a YAML description.
 It is possible to provide the YAML description in multiple ways. The order of evaluation is the following:
 1) If the --%s=<file_path> flag is provided the description is read from the file at <file_path>
 2) If the --%s=<description> flag is provided, the description is read from the <description> string
 3) Otherwise, it is read from standard input`
-
-var longDescriptionPreface = fmt.Sprintf(longDescriptionPrefaceTemplate, descriptionFileFlagName, descriptionFlagName)
-
-const warningMessage = `Warning:
+	warningMessage = `Warning:
   This command might alter your system. For example, some actions modify files and directories below /bin, /etc, /dev,
   etc... Make sure you fully understand what is the purpose of this tool before running any action.`
+)
 
-var longDescription = fmt.Sprintf("%s\n\n%s", longDescriptionPreface, warningMessage)
+var (
+	longDescriptionPreface = fmt.Sprintf(longDescriptionPrefaceTemplate, descriptionFileFlagName, descriptionFlagName)
+	longDescription        = fmt.Sprintf("%s\n\n%s", longDescriptionPreface, warningMessage)
+)
 
 // New creates a new run command.
 func New(declarativeEnvKey, envKeysPrefix string) *CommandWrapper {
@@ -94,6 +110,7 @@ func New(declarativeEnvKey, envKeysPrefix string) *CommandWrapper {
 		envKeysPrefix:         envKeysPrefix,
 		descriptionFileEnvKey: envKeyFromFlagName(envKeysPrefix, descriptionFileFlagName),
 		descriptionEnvKey:     envKeyFromFlagName(envKeysPrefix, descriptionFlagName),
+		testIDEnvKey:          envKeyFromFlagName(envKeysPrefix, testIDFlagName),
 		procLabelEnvKey:       envKeyFromFlagName(envKeysPrefix, procLabelFlagName),
 	}
 
@@ -127,9 +144,13 @@ func (cw *CommandWrapper) initFlags(c *cobra.Command) {
 		"The YAML-formatted tests description string specifying the tests to be run")
 	c.MarkFlagsMutuallyExclusive(descriptionFileFlagName, descriptionFlagName)
 
+	flags.StringVarP(&cw.testID, testIDFlagName, "t", "",
+		"(used during process chain building) The test identifier in the form <ignorePrefix><testUID>. It is "+
+			"used to propagate the test UID to child processes in the process chain")
 	flags.StringVarP(&cw.procLabel, procLabelFlagName, "p", "",
-		"(used during process chain building) The process label in the form test<testIndex>.child<childIndex>. "+
+		"(used during process chain building) The process label in the form test<testIndex>,child<childIndex>. "+
 			"It is used for logging purposes and to potentially generate the child process label")
+	_ = flags.MarkHidden(testIDFlagName)
 	_ = flags.MarkHidden(procLabelFlagName)
 }
 
@@ -148,6 +169,11 @@ func (cw *CommandWrapper) run(c *cobra.Command, _ []string) {
 	if err != nil {
 		panic(fmt.Sprintf("logger unconfigured: %v", err))
 	}
+
+	// Retrieve the already populated test ID or create a new one. The test ID absence is used to uniquely identify the
+	// root process in the process chain.
+	testID := cw.testID
+	isRootProcess := testID == ""
 
 	procLabelInfo, err := cw.parseProcLabel()
 	if err != nil {
@@ -204,16 +230,24 @@ func (cw *CommandWrapper) run(c *cobra.Command, _ []string) {
 	for testIndex := range description.Tests {
 		testDesc := &description.Tests[testIndex]
 
+		var testUID string
+		if isRootProcess {
+			testUID = uuid.New().String()
+			testID = fmt.Sprintf("%s%s", testIDIgnorePrefix, testUID)
+		} else {
+			testUID = strings.TrimPrefix(testID, testIDIgnorePrefix)
+		}
+
 		runnerDescription := &runner.Description{
-			Logger:                    runnerLogger,
-			Type:                      testDesc.Runner,
 			Environ:                   runnerEnviron,
 			TestDescriptionEnvKey:     cw.descriptionEnvKey,
 			TestDescriptionFileEnvKey: cw.descriptionFileEnvKey,
+			TestIDEnvKey:              cw.testIDEnvKey,
+			TestIDIgnorePrefix:        testIDIgnorePrefix,
 			ProcLabelEnvKey:           cw.procLabelEnvKey,
 			ProcLabel:                 runnerProcLabel,
 		}
-		runnerInstance, err := runnerBuilder.Build(runnerDescription)
+		runnerInstance, err := runnerBuilder.Build(testDesc.Runner, runnerLogger, runnerDescription)
 		if err != nil {
 			logger.Error(err, "Error creating runner")
 			os.Exit(1)
@@ -221,15 +255,15 @@ func (cw *CommandWrapper) run(c *cobra.Command, _ []string) {
 
 		// If this process belongs to a test process chain, override the logged test index in order to match its
 		// absolute index among all the test descriptions.
-		if len(description.Tests) == 1 && procLabelInfo != nil {
+		if !isRootProcess {
 			testIndex = procLabelInfo.testIndex
 		}
 
-		logger := logger.WithValues("testName", testDesc.Name, "testIndex", testIndex)
+		logger := logger.WithValues("testUid", testUID, "testName", testDesc.Name, "testIndex", testIndex)
 
 		logger.Info("Starting test execution...")
 
-		if err := runnerInstance.Run(ctx, testIndex, testDesc); err != nil {
+		if err := runnerInstance.Run(ctx, testID, testIndex, testDesc); err != nil {
 			var resBuildErr *test.ResourceBuildError
 			var stepBuildErr *test.StepBuildError
 			var resCreationErr *test.ResourceCreationError

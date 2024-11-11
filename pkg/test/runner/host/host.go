@@ -36,57 +36,52 @@ import (
 type hostRunner struct {
 	// logger is the test runner logger.
 	logger logr.Logger
-	// environ is a list of strings representing the environment, in the form "key=value".
-	environ []string
 	// testBuilder is the builder used to build a test.
 	testBuilder test.Builder
-	// testDescriptionEnvKey is the key identifying the environment variable used to store the serialized test
-	// description.
-	testDescriptionEnvKey string
-	// testDescriptionFileEnvKey is the key identifying the environment variable used to store path of the file
-	// containing the serialized test description.
-	testDescriptionFileEnvKey string
-	// procLabelEnvKey is the key identifying the environment variable used to store the process label in the form
-	// "test<testIndex>,child<childIndex>".
-	procLabelEnvKey string
-	// procLabel is the current process label.
-	procLabel string
+	*runner.Description
 }
 
 // Verify that hostRunner implements runner.Runner interface.
 var _ runner.Runner = (*hostRunner)(nil)
 
 // New creates a new host runner.
-func New(logger logr.Logger, testBuilder test.Builder, environ []string, testDescriptionEnvKey,
-	testDescriptionFileEnvKey, procLabelEnvKey, procLabel string) (runner.Runner, error) {
+func New(logger logr.Logger, testBuilder test.Builder, description *runner.Description) (runner.Runner, error) {
 	if testBuilder == nil {
 		return nil, fmt.Errorf("test builder must not be nil")
 	}
 
-	if testDescriptionEnvKey == "" {
-		return nil, fmt.Errorf("testDescriptionEnvKey must not be empty")
+	if description.TestDescriptionEnvKey == "" {
+		return nil, fmt.Errorf("description.TestDescriptionEnvKey must not be empty")
 	}
 
-	if procLabelEnvKey == "" {
-		return nil, fmt.Errorf("procLabelEnvKey must not be empty")
+	if description.TestDescriptionFileEnvKey == "" {
+		return nil, fmt.Errorf("description.TestDescriptionFileEnvKey must not be empty")
+	}
+
+	if description.TestIDEnvKey == "" {
+		return nil, fmt.Errorf("description.TestIDEnvKey must not be empty")
+	}
+
+	if description.TestIDIgnorePrefix == "" {
+		return nil, fmt.Errorf("description.TestIDIgnorePrefix must not be empty")
+	}
+
+	if description.ProcLabelEnvKey == "" {
+		return nil, fmt.Errorf("description.ProcLabelEnvKey must not be empty")
 	}
 
 	r := &hostRunner{
-		logger:                    logger,
-		testBuilder:               testBuilder,
-		environ:                   environ,
-		testDescriptionEnvKey:     testDescriptionEnvKey,
-		testDescriptionFileEnvKey: testDescriptionFileEnvKey,
-		procLabelEnvKey:           procLabelEnvKey,
-		procLabel:                 procLabel,
+		logger:      logger,
+		testBuilder: testBuilder,
+		Description: description,
 	}
 	return r, nil
 }
 
-func (r *hostRunner) Run(ctx context.Context, testIndex int, testDesc *loader.Test) error {
+func (r *hostRunner) Run(ctx context.Context, testID string, testIndex int, testDesc *loader.Test) error {
 	// Delegate to child process if we are not at the end of the chain.
 	if testDesc.Context != nil && len(testDesc.Context.Processes) != 0 {
-		if err := r.delegateToChild(ctx, testIndex, testDesc); err != nil {
+		if err := r.delegateToChild(ctx, testID, testIndex, testDesc); err != nil {
 			return fmt.Errorf("error delegating to child process: %w", err)
 		}
 
@@ -94,8 +89,8 @@ func (r *hostRunner) Run(ctx context.Context, testIndex int, testDesc *loader.Te
 	}
 
 	// Build test.
-	testLogger := r.logger.WithName("test").WithValues("testName", testDesc.Name,
-		"testIndex", testIndex)
+	testLogger := r.logger.WithName("test").WithValues("testUid", r.getTestUID(testID), "testName",
+		testDesc.Name, "testIndex", testIndex)
 	testInstance, err := r.testBuilder.Build(testLogger, testDesc)
 	if err != nil {
 		return fmt.Errorf("error building test: %w", err)
@@ -110,8 +105,9 @@ func (r *hostRunner) Run(ctx context.Context, testIndex int, testDesc *loader.Te
 }
 
 // delegateToChild delegates the execution of the test to a child process, created and tuned as per test specification.
-func (r *hostRunner) delegateToChild(ctx context.Context, testIndex int, testDesc *loader.Test) error {
+func (r *hostRunner) delegateToChild(ctx context.Context, testID string, testIndex int, testDesc *loader.Test) error {
 	firstProcess := popFirstProcessContext(testDesc.Context)
+	isLastProcess := len(testDesc.Context.Processes) == 0
 
 	realExePath := firstProcess.ExePath
 
@@ -133,7 +129,7 @@ func (r *hostRunner) delegateToChild(ctx context.Context, testIndex int, testDes
 	procArgs := splitArgs(firstProcess.Args)
 
 	// Evaluate process environment variables.
-	procEnv, err := r.buildEnv(testIndex, testDesc, firstProcess.Env)
+	procEnv, err := r.buildEnv(testID, testIndex, testDesc, firstProcess.Env, isLastProcess)
 	if err != nil {
 		return fmt.Errorf("error building process environment variables set: %w", err)
 	}
@@ -219,9 +215,9 @@ func splitArgs(args *string) []string {
 	return splittedArgs
 }
 
-func (r *hostRunner) buildEnv(testIndex int, testDesc *loader.Test, userEnv map[string]string) ([]string, error) {
-	// Use the current process environment variable as base.
-	env := r.environ
+func (r *hostRunner) buildEnv(testID string, testIndex int, testDesc *loader.Test, userEnv map[string]string,
+	isLastProcess bool) ([]string, error) {
+	env := r.Environ
 
 	// Add the user-provided environment variable.
 	for key, value := range userEnv {
@@ -233,20 +229,26 @@ func (r *hostRunner) buildEnv(testIndex int, testDesc *loader.Test, userEnv map[
 	if err != nil {
 		return nil, fmt.Errorf("error serializing new test description: %w", err)
 	}
-	descriptionEnvVar := buildEnvVar(r.testDescriptionEnvKey, description)
+	descriptionEnvVar := buildEnvVar(r.TestDescriptionEnvKey, description)
+
+	// Set test ID environment variable.
+	if isLastProcess {
+		testID = r.getTestUID(testID)
+	}
+	testIDEnvVar := buildEnvVar(r.TestIDEnvKey, testID)
 
 	// Set process label environment variable.
 	procLabel, err := r.buildProcLabel(testIndex)
 	if err != nil {
 		return nil, fmt.Errorf("error building process label: %w", err)
 	}
-	procLabelEnvVar := buildEnvVar(r.procLabelEnvKey, procLabel)
+	procLabelEnvVar := buildEnvVar(r.ProcLabelEnvKey, procLabel)
 
 	// Override test description file environment variable to avoid conflicts with the test description environment
-	// variable
-	descriptionFileEnvVar := buildEnvVar(r.testDescriptionFileEnvKey, "")
+	// variable.
+	descriptionFileEnvVar := buildEnvVar(r.TestDescriptionFileEnvKey, "")
 
-	env = append(env, descriptionEnvVar, procLabelEnvVar, descriptionFileEnvVar)
+	env = append(env, descriptionEnvVar, testIDEnvVar, procLabelEnvVar, descriptionFileEnvVar)
 	return env, nil
 }
 
@@ -266,11 +268,16 @@ func marshalTestDescription(testDesc *loader.Test) (string, error) {
 	return sb.String(), nil
 }
 
-// buildProcLabel builds a process Label. If the current process Label is not defined, it uses the provided testIndex to
+// getTestUID extracts the test UID from the test ID by removing the ignore prefix.
+func (r *hostRunner) getTestUID(testID string) string {
+	return strings.TrimPrefix(testID, r.TestIDIgnorePrefix)
+}
+
+// buildProcLabel builds a process label. If the current process Label is not defined, it uses the provided testIndex to
 // create a new one; otherwise, given the process label in the form testName,child<childIndex>, it returns
 // testName,child<childIndex+1>.
 func (r *hostRunner) buildProcLabel(testIndex int) (string, error) {
-	procLabel := r.procLabel
+	procLabel := r.ProcLabel
 	if procLabel == "" {
 		return fmt.Sprintf("test%d,child0", testIndex), nil
 	}
