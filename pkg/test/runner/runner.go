@@ -26,21 +26,17 @@ import (
 // Runner allows to run a test.
 type Runner interface {
 	// Run runs the provided test.
-	Run(ctx context.Context, testIndex int, test *loader.Test) error
+	Run(ctx context.Context, testID string, testIndex int, test *loader.Test) error
 }
 
 // Builder allows to build a new test runner.
 type Builder interface {
 	// Build builds a new test runner using the provided description.
-	Build(description *Description) (Runner, error)
+	Build(runnerType loader.TestRunnerType, logger logr.Logger, description *Description) (Runner, error)
 }
 
 // Description contains information to build a new test runner.
 type Description struct {
-	// Logger is the test runner logger.
-	Logger logr.Logger
-	// Type is the test runner type.
-	Type loader.TestRunnerType
 	// Environ is a list of strings representing the environment, in the form "key=value".
 	Environ []string
 	// TestDescriptionEnvKey is the key identifying the environment variable used to store the serialized test
@@ -49,6 +45,11 @@ type Description struct {
 	// TestDescriptionFileEnvKey is the key identifying the environment variable used to store path of the file
 	// containing the serialized test description.
 	TestDescriptionFileEnvKey string
+	// TestIDEnvKey is the key identifying the environment variable used to store the test identifier in the form
+	// [<ignorePrefix>]<testUID>.
+	TestIDEnvKey string
+	// TestIDIgnorePrefix is the optional testID prefix value.
+	TestIDIgnorePrefix string
 	// ProcLabelEnvKey is the key identifying the environment variable used to store the process label in the form
 	// "test<testIndex>,child<childIndex>".
 	ProcLabelEnvKey string
