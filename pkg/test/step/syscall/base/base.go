@@ -58,6 +58,8 @@ type baseSyscall struct {
 // Verify that baseSyscall implements syscall.Syscall interface.
 var _ syscall.Syscall = (*baseSyscall)(nil)
 
+var errOpenModeMustBePositive = fmt.Errorf("open mode must be a positive integer")
+
 // New creates a new generic system call test step.
 func New(stepName string, rawArgs map[string]string, fieldBindings []*step.FieldBinding, argsContainer,
 	bindOnlyArgsContainer, retValueContainer reflect.Value, defaultedArgs []string,
@@ -172,6 +174,9 @@ func setArgFieldValue(argField *field.Field, value string) error {
 		openMode, err := parseFlags(value, openModes)
 		if err != nil {
 			return fmt.Errorf("cannot parse value as open mode: %w", err)
+		}
+		if openMode < 0 {
+			return errOpenModeMustBePositive
 		}
 		argFieldValue.SetUint(uint64(openMode))
 	case field.TypeOpenHow:
