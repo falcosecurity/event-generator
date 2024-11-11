@@ -18,6 +18,8 @@ package builder
 import (
 	"fmt"
 
+	"github.com/go-logr/logr"
+
 	"github.com/falcosecurity/event-generator/pkg/test"
 	"github.com/falcosecurity/event-generator/pkg/test/loader"
 	"github.com/falcosecurity/event-generator/pkg/test/runner"
@@ -43,20 +45,12 @@ func New(testBuilder test.Builder) (runner.Builder, error) {
 	return b, nil
 }
 
-func (b *builder) Build(description *runner.Description) (runner.Runner, error) {
-	runnerType := description.Type
-	logger := description.Logger.WithValues("runnerType", runnerType)
+func (b *builder) Build(runnerType loader.TestRunnerType, logger logr.Logger,
+	description *runner.Description) (runner.Runner, error) {
+	logger = logger.WithValues("runnerType", runnerType)
 	switch runnerType {
 	case loader.TestRunnerTypeHost:
-		return host.New(
-			logger,
-			b.testBuilder,
-			description.Environ,
-			description.TestDescriptionEnvKey,
-			description.TestDescriptionFileEnvKey,
-			description.ProcLabelEnvKey,
-			description.ProcLabel,
-		)
+		return host.New(logger, b.testBuilder, description)
 	default:
 		return nil, fmt.Errorf("unknown test runner type %q", runnerType)
 	}
