@@ -18,7 +18,9 @@ package declarative
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/falcosecurity/event-generator/cmd/declarative/config"
 	"github.com/falcosecurity/event-generator/cmd/declarative/run"
+	"github.com/falcosecurity/event-generator/cmd/declarative/test"
 )
 
 // New creates a new declarative command.
@@ -30,7 +32,11 @@ func New(declarativeEnvKey, envKeysPrefix string) *cobra.Command {
 		DisableAutoGenTag: true,
 	}
 
-	c.AddCommand(run.New(declarativeEnvKey, envKeysPrefix).Command)
+	commonConf := config.New(c, declarativeEnvKey, envKeysPrefix)
 
+	runCmd := run.New(declarativeEnvKey, envKeysPrefix).Command
+	testCmd := test.New(commonConf, false).Command
+	c.AddCommand(runCmd)
+	c.AddCommand(testCmd)
 	return c
 }
