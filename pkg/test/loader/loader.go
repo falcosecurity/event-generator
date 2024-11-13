@@ -18,7 +18,6 @@ package loader
 import (
 	"fmt"
 	"io"
-	"reflect"
 	"regexp"
 
 	"github.com/go-playground/validator/v10"
@@ -67,12 +66,8 @@ func (c *Description) Write(w io.Writer) error {
 
 // validate validates the current description.
 func (c *Description) validate() error {
-	// Register custom validations and validate description
+	// Validate declaratively the description.
 	validate := validator.New(validator.WithRequiredStructEnabled())
-	if err := registerValidations(validate); err != nil {
-		return fmt.Errorf("error registering validations: %w", err)
-	}
-
 	if err := validate.Struct(c); err != nil {
 		return err
 	}
@@ -101,32 +96,9 @@ func validateNameUniqueness(test *Test) error {
 	return nil
 }
 
-const validationTagRuleName = "rule_name"
-
-var ruleNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]{8,64}$`)
-
-// registerValidations registers custom validations.
-func registerValidations(validate *validator.Validate) error {
-	if err := validate.RegisterValidation(validationTagRuleName, validateRuleName); err != nil {
-		return fmt.Errorf("cannot register validation for tag %q: %w", validationTagRuleName, err)
-	}
-
-	return nil
-}
-
-// validateRuleName flags a field as valid if it matches ruleNameRegexString.
-func validateRuleName(fl validator.FieldLevel) bool {
-	field := fl.Field()
-	if field.Kind() != reflect.String {
-		return false
-	}
-
-	return ruleNameRegex.MatchString(field.String())
-}
-
 // Test is a rule test description.
 type Test struct {
-	Rule            string              `yaml:"rule" validate:"rule_name"`
+	Rule            string              `yaml:"rule" validate:"required"`
 	Name            string              `yaml:"name" validate:"required"`
 	Description     *string             `yaml:"description,omitempty" validate:"omitempty,min=1"`
 	Runner          TestRunnerType      `yaml:"runner" validate:"-"`
