@@ -16,376 +16,40 @@
 package run
 
 import (
-	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strconv"
-	"strings"
 
-	"github.com/go-logr/logr"
-	"github.com/google/uuid"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
-	"github.com/falcosecurity/event-generator/pkg/test"
-	testbuilder "github.com/falcosecurity/event-generator/pkg/test/builder"
-	"github.com/falcosecurity/event-generator/pkg/test/loader"
-	resbuilder "github.com/falcosecurity/event-generator/pkg/test/resource/builder"
-	"github.com/falcosecurity/event-generator/pkg/test/runner"
-	runnerbuilder "github.com/falcosecurity/event-generator/pkg/test/runner/builder"
-	stepbuilder "github.com/falcosecurity/event-generator/pkg/test/step/builder"
-	sysbuilder "github.com/falcosecurity/event-generator/pkg/test/step/syscall/builder"
+	"github.com/falcosecurity/event-generator/cmd/declarative/config"
+	"github.com/falcosecurity/event-generator/cmd/declarative/test"
 )
 
 const (
-	// descriptionFileFlagName is the name of the flag allowing to specify the path of the file containing the YAML
-	// tests description.
-	descriptionFileFlagName = "description-file"
-	// descriptionFlagName is the name of the flag allowing to specify the YAML tests description.
-	descriptionFlagName = "description"
-	// testIDFlagName is the name of the flag allowing to specify the test identifier.
-	testIDFlagName = "test-id"
-	// procLabelFlagName is the name of the flag allowing to specify a process label.
-	procLabelFlagName = "proc-label"
-
-	// testIDIgnorePrefix is the prefix used to mark a process as not monitored.
-	testIDIgnorePrefix = "ignore:"
-)
-
-// CommandWrapper is a thin wrapper around the cobra command.
-type CommandWrapper struct {
-	envKeysPrefix     string
-	declarativeEnvKey string
-	// descriptionFileEnvKey is the environment variable key corresponding to descriptionFileFlagName.
-	descriptionFileEnvKey string
-	// descriptionEnvKey is the environment variable key corresponding to descriptionFlagName.
-	descriptionEnvKey string
-	// testIDEnvKey is the environment variable key corresponding to testIDFlagName.
-	testIDEnvKey string
-	// procLabelEnvKey is the environment variable key corresponding to procLabelFlagName.
-	procLabelEnvKey string
-	Command         *cobra.Command
-
-	// Flags
-	//
-	// testsDescriptionFile is the path of the file containing the YAML tests description. If testsDescription is
-	// provided, this is empty.
-	testsDescriptionFile string
-	// testsDescription is the YAML tests description. If testsDescriptionFile is provided, this is empty.
-	testsDescription string
-	// testID is the test identifier in the form [testIDIgnorePrefix]<testUID>. It is used to propagate the test UID to
-	// child processes in the process chain. The following invariants hold:
-	// - the root process has no test ID
-	// - the processes in the process chain but the last have the test ID in the form testIDIgnorePrefix<testUID>
-	// - the last process in the process chain has the test ID in the form <testUID>
-	// A process having a test ID in the form <testUID> (i.e.: the leaf process) is the only one that is monitored.
-	testID string
-	//  procLabel is the process label in the form test<testIndex>.child<childIndex>. It is used for logging purposes
-	// and to potentially generate the child process label.
-	procLabel string
-}
-
-const (
-	longDescriptionPrefaceTemplate = `Run tests(s) specified via a YAML description.
+	longDescriptionPrefaceTemplate = `%s.
 It is possible to provide the YAML description in multiple ways. The order of evaluation is the following:
 1) If the --%s=<file_path> flag is provided the description is read from the file at <file_path>
 2) If the --%s=<description> flag is provided, the description is read from the <description> string
 3) Otherwise, it is read from standard input`
-	warningMessage = `Warning:
+	longDescriptionHeading = "Run test(s) specified via a YAML description"
+	warningMessage         = `Warning:
   This command might alter your system. For example, some actions modify files and directories below /bin, /etc, /dev,
   etc... Make sure you fully understand what is the purpose of this tool before running any action.`
 )
 
 var (
-	longDescriptionPreface = fmt.Sprintf(longDescriptionPrefaceTemplate, descriptionFileFlagName, descriptionFlagName)
-	longDescription        = fmt.Sprintf("%s\n\n%s", longDescriptionPreface, warningMessage)
+	longDescriptionPreface = fmt.Sprintf(longDescriptionPrefaceTemplate, longDescriptionHeading,
+		config.DescriptionFileFlagName, config.DescriptionFlagName)
+	longDescription = fmt.Sprintf("%s\n\n%s", longDescriptionPreface, warningMessage)
 )
 
 // New creates a new run command.
-func New(declarativeEnvKey, envKeysPrefix string) *CommandWrapper {
-	cw := &CommandWrapper{
-		declarativeEnvKey:     declarativeEnvKey,
-		envKeysPrefix:         envKeysPrefix,
-		descriptionFileEnvKey: envKeyFromFlagName(envKeysPrefix, descriptionFileFlagName),
-		descriptionEnvKey:     envKeyFromFlagName(envKeysPrefix, descriptionFlagName),
-		testIDEnvKey:          envKeyFromFlagName(envKeysPrefix, testIDFlagName),
-		procLabelEnvKey:       envKeyFromFlagName(envKeysPrefix, procLabelFlagName),
-	}
-
+func New(commonConf *config.Config) *cobra.Command {
 	c := &cobra.Command{
 		Use:               "run",
-		Short:             "Run test(s) specified via a YAML description",
+		Short:             longDescriptionHeading,
 		Long:              longDescription,
 		DisableAutoGenTag: true,
-		Run:               cw.run,
+		Run:               test.New(commonConf, true).Command.Run,
 	}
-
-	cw.initFlags(c)
-	cw.Command = c
-	return cw
-}
-
-// envKeyFromFlagName converts the provided flag name into the corresponding environment variable key.
-func envKeyFromFlagName(envKeysPrefix, flagName string) string {
-	s := fmt.Sprintf("%s_%s", envKeysPrefix, strings.ToUpper(flagName))
-	s = strings.ToUpper(s)
-	return strings.ReplaceAll(s, "-", "_")
-}
-
-// initFlags initializes the provided command's flags.
-func (cw *CommandWrapper) initFlags(c *cobra.Command) {
-	flags := c.Flags()
-
-	flags.StringVarP(&cw.testsDescriptionFile, descriptionFileFlagName, "f", "",
-		"The tests description YAML file specifying the tests to be run")
-	flags.StringVarP(&cw.testsDescription, descriptionFlagName, "d", "",
-		"The YAML-formatted tests description string specifying the tests to be run")
-	c.MarkFlagsMutuallyExclusive(descriptionFileFlagName, descriptionFlagName)
-
-	flags.StringVarP(&cw.testID, testIDFlagName, "t", "",
-		"(used during process chain building) The test identifier in the form <ignorePrefix><testUID>. It is "+
-			"used to propagate the test UID to child processes in the process chain")
-	flags.StringVarP(&cw.procLabel, procLabelFlagName, "p", "",
-		"(used during process chain building) The process label in the form test<testIndex>,child<childIndex>. "+
-			"It is used for logging purposes and to potentially generate the child process label")
-	_ = flags.MarkHidden(testIDFlagName)
-	_ = flags.MarkHidden(procLabelFlagName)
-}
-
-// processLabelInfo contains information regarding the process label.
-type processLabelInfo struct {
-	testName   string
-	testIndex  int
-	childName  string
-	childIndex int
-}
-
-// run runs the tests from the provided YAML description.
-func (cw *CommandWrapper) run(c *cobra.Command, _ []string) {
-	ctx := c.Context()
-	logger, err := logr.FromContext(ctx)
-	if err != nil {
-		panic(fmt.Sprintf("logger unconfigured: %v", err))
-	}
-
-	// Retrieve the already populated test ID or create a new one. The test ID absence is used to uniquely identify the
-	// root process in the process chain.
-	testID := cw.testID
-	isRootProcess := testID == ""
-
-	procLabelInfo, err := cw.parseProcLabel()
-	if err != nil {
-		logger.Error(err, "Error parsing process label")
-		os.Exit(1)
-	}
-
-	if procLabelInfo == nil {
-		logger = logger.WithName("root")
-	} else {
-		logger = logger.WithName(procLabelInfo.testName).WithName(procLabelInfo.childName)
-	}
-
-	description, err := cw.loadTestsDescription(logger)
-	if err != nil {
-		logger.Error(err, "Error loading tests description")
-		os.Exit(1)
-	}
-
-	resourceBuilder, err := resbuilder.New()
-	if err != nil {
-		logger.Error(err, "Error creating resource builder")
-		os.Exit(1)
-	}
-
-	syscallBuilder := sysbuilder.New()
-	stepBuilder, err := stepbuilder.New(syscallBuilder)
-	if err != nil {
-		logger.Error(err, "Error creating step builder")
-		os.Exit(1)
-	}
-
-	testBuilder, err := testbuilder.New(resourceBuilder, stepBuilder)
-	if err != nil {
-		logger.Error(err, "Error creating test builder")
-		os.Exit(1)
-	}
-
-	runnerBuilder, err := runnerbuilder.New(testBuilder)
-	if err != nil {
-		logger.Error(err, "Error creating runner builder")
-		os.Exit(1)
-	}
-
-	// Prepare parameters shared by runners.
-	runnerLogger := logger.WithName("runner")
-	runnerEnviron := cw.buildRunnerEnviron(c)
-	var runnerProcLabel string
-	if procLabelInfo != nil {
-		runnerProcLabel = fmt.Sprintf("%s,%s", procLabelInfo.testName, procLabelInfo.childName)
-	}
-
-	// Build and run the tests.
-	for testIndex := range description.Tests {
-		testDesc := &description.Tests[testIndex]
-
-		var testUID string
-		if isRootProcess {
-			// Generate a new uid for the test.
-			testUID = uuid.New().String()
-			testID = fmt.Sprintf("%s%s", testIDIgnorePrefix, testUID)
-
-			// Ensure the process chain has at least one element. If the user didn't specify anything, add a default
-			// process to the chain.
-			if testDesc.Context == nil {
-				testDesc.Context = &loader.TestContext{}
-			}
-			if len(testDesc.Context.Processes) == 0 {
-				testDesc.Context.Processes = []loader.ProcessContext{{}}
-			}
-		} else {
-			// Extract uid from test id.
-			testUID = strings.TrimPrefix(testID, testIDIgnorePrefix)
-		}
-
-		runnerDescription := &runner.Description{
-			Environ:                   runnerEnviron,
-			TestDescriptionEnvKey:     cw.descriptionEnvKey,
-			TestDescriptionFileEnvKey: cw.descriptionFileEnvKey,
-			TestIDEnvKey:              cw.testIDEnvKey,
-			TestIDIgnorePrefix:        testIDIgnorePrefix,
-			ProcLabelEnvKey:           cw.procLabelEnvKey,
-			ProcLabel:                 runnerProcLabel,
-		}
-		runnerInstance, err := runnerBuilder.Build(testDesc.Runner, runnerLogger, runnerDescription)
-		if err != nil {
-			logger.Error(err, "Error creating runner")
-			os.Exit(1)
-		}
-
-		// If this process belongs to a test process chain, override the logged test index in order to match its
-		// absolute index among all the test descriptions.
-		if !isRootProcess {
-			testIndex = procLabelInfo.testIndex
-		}
-
-		logger := logger.WithValues("testUid", testUID, "testName", testDesc.Name, "testIndex", testIndex)
-
-		logger.Info("Starting test execution...")
-
-		if err := runnerInstance.Run(ctx, testID, testIndex, testDesc); err != nil {
-			var resBuildErr *test.ResourceBuildError
-			var stepBuildErr *test.StepBuildError
-			var resCreationErr *test.ResourceCreationError
-			var stepRunErr *test.StepBuildError
-
-			switch {
-			case errors.As(err, &resBuildErr):
-				logger.Error(resBuildErr.Err, "Error building test resource", "resourceName", resBuildErr.ResourceName,
-					"resourceIndex", resBuildErr.ResourceIndex)
-			case errors.As(err, &stepBuildErr):
-				logger.Error(stepBuildErr.Err, "Error building test step", "stepName", stepBuildErr.StepName,
-					"stepIndex", stepBuildErr.StepIndex)
-			case errors.As(err, &resCreationErr):
-				logger.Error(resCreationErr.Err, "Error creating test resource", "resourceName",
-					resCreationErr.ResourceName, "resourceIndex", resCreationErr.ResourceIndex)
-			case errors.As(err, &stepRunErr):
-				logger.Error(stepRunErr.Err, "Error running test step", "stepName", stepRunErr.StepName, "stepIndex",
-					stepRunErr.StepIndex)
-			default:
-				logger.Error(err, "Error running test")
-			}
-
-			os.Exit(1)
-		}
-
-		logger.Info("Test execution completed")
-	}
-}
-
-// buildRunnerEnviron creates a list of string representing the environment, by adding to the current process
-// environment all the provided command flags and all the required environment variable needed to enable the runner to
-// rerun the current executable with the proper environment configuration.
-func (cw *CommandWrapper) buildRunnerEnviron(c *cobra.Command) []string {
-	environ := os.Environ()
-	environ = cw.appendFlags(environ, c.PersistentFlags(), c.Flags())
-	environ = append(environ, fmt.Sprintf("%s=1", cw.declarativeEnvKey))
-	return environ
-}
-
-// appendFlags appends the provided flag sets' flags to environ and returns the updated environ. Works like the builtin
-// append function.
-func (cw *CommandWrapper) appendFlags(environ []string, flagSets ...*pflag.FlagSet) []string {
-	appendFlag := func(flag *pflag.Flag) {
-		keyName := envKeyFromFlagName(cw.envKeysPrefix, flag.Name)
-		environ = append(environ, fmt.Sprintf("%s=%s", keyName, flag.Value.String()))
-	}
-	for _, flagSet := range flagSets {
-		flagSet.VisitAll(appendFlag)
-	}
-	return environ
-}
-
-var (
-	// procLabelRegex defines the process label format and allows to extract the embedded test and child indexes.
-	procLabelRegex    = regexp.MustCompile(`^test(\d+),child(\d+)$`)
-	errProcLabelRegex = fmt.Errorf("process label must comply with %q regex", procLabelRegex.String())
-)
-
-// parseProcLabel parses the process label and returns information on it.
-func (cw *CommandWrapper) parseProcLabel() (*processLabelInfo, error) {
-	procLabelValue := cw.procLabel
-	if procLabelValue == "" {
-		return nil, nil
-	}
-
-	match := procLabelRegex.FindStringSubmatch(procLabelValue)
-	if match == nil {
-		return nil, errProcLabelRegex
-	}
-
-	// No errors can occur, since we have already verified through regex that they are numbers.
-	testIndex, _ := strconv.Atoi(match[1])
-	childIndex, _ := strconv.Atoi(match[2])
-
-	parts := strings.Split(procLabelValue, ",")
-
-	procLabel := &processLabelInfo{
-		testName:   parts[0],
-		testIndex:  testIndex,
-		childName:  parts[1],
-		childIndex: childIndex,
-	}
-
-	return procLabel, nil
-}
-
-// loadTestsDescription loads the YAML tests description from a different source, depending on the provided flags. If
-// the descriptionFileFlagName flag is provided, the description is loaded from the specified file; if the
-// descriptionFlagName flag is provided, the description is loaded from the flag argument; otherwise, it is loaded from
-// standard input.
-func (cw *CommandWrapper) loadTestsDescription(logger logr.Logger) (*loader.Description, error) {
-	ldr := loader.New()
-
-	if descriptionFilePath := cw.testsDescriptionFile; descriptionFilePath != "" {
-		descriptionFilePath = filepath.Clean(descriptionFilePath)
-		descriptionFile, err := os.Open(descriptionFilePath)
-		if err != nil {
-			return nil, fmt.Errorf("error opening description file %q: %w", descriptionFilePath, err)
-		}
-		defer func() {
-			if err := descriptionFile.Close(); err != nil {
-				logger.Error(err, "Error closing description file", "path", descriptionFilePath)
-			}
-		}()
-
-		return ldr.Load(descriptionFile)
-	}
-
-	if description := cw.testsDescription; description != "" {
-		return ldr.Load(strings.NewReader(description))
-	}
-
-	return ldr.Load(os.Stdin)
+	return c
 }

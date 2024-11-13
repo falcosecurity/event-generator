@@ -34,7 +34,7 @@ func New(declarativeEnvKey, envKeysPrefix string) *cobra.Command {
 
 	commonConf := config.New(c, declarativeEnvKey, envKeysPrefix)
 
-	runCmd := run.New(declarativeEnvKey, envKeysPrefix).Command
+	runCmd := run.New(commonConf)
 	testCmd := test.New(commonConf, false).Command
 	c.AddCommand(runCmd)
 	c.AddCommand(testCmd)
