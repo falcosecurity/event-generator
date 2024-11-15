@@ -31,6 +31,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"github.com/thediveo/enumflag"
 
 	"github.com/falcosecurity/event-generator/cmd/declarative/config"
 	"github.com/falcosecurity/event-generator/pkg/alert/retriever/grpcretriever"
@@ -43,7 +44,9 @@ import (
 	stepbuilder "github.com/falcosecurity/event-generator/pkg/test/step/builder"
 	sysbuilder "github.com/falcosecurity/event-generator/pkg/test/step/syscall/builder"
 	"github.com/falcosecurity/event-generator/pkg/test/tester"
+	"github.com/falcosecurity/event-generator/pkg/test/tester/reportencoder/jsonencoder"
 	"github.com/falcosecurity/event-generator/pkg/test/tester/reportencoder/textencoder"
+	"github.com/falcosecurity/event-generator/pkg/test/tester/reportencoder/yamlencoder"
 	testerimpl "github.com/falcosecurity/event-generator/pkg/test/tester/tester"
 )
 
@@ -64,6 +67,30 @@ It is possible to provide the YAML description in multiple ways. The order of ev
   etc... Make sure you fully understand what is the purpose of this tool before running any action.`
 )
 
+var (
+	longDescriptionPreface = fmt.Sprintf(longDescriptionPrefaceTemplate, longDescriptionHeading,
+		config.DescriptionFileFlagName, config.DescriptionFlagName)
+	longDescription = fmt.Sprintf("%s\n\n%s", longDescriptionPreface, warningMessage)
+)
+
+// reportFormat defines the types of format used for outputting a tester report.
+type reportFormat int
+
+const (
+	// reportFormatText specifies to format a tester report using a formatted text encoding.
+	reportFormatText reportFormat = iota
+	// reportFormatJSON specifies to format a tester report using a JSON encoding.
+	reportFormatJSON
+	// reportFormatYAML specifies to format a tester report using a YAML text encoding.
+	reportFormatYAML
+)
+
+var reportFormats = map[reportFormat][]string{
+	reportFormatText: {"text"},
+	reportFormatJSON: {"json"},
+	reportFormatYAML: {"yaml"},
+}
+
 // CommandWrapper is a wrapper around the test command storing the flag values bound to the command at runtime.
 type CommandWrapper struct {
 	*config.Config
@@ -76,13 +103,8 @@ type CommandWrapper struct {
 	keyFile                 string
 	caRootFile              string
 	pollingTimeout          time.Duration
+	reportFormat            reportFormat
 }
-
-var (
-	longDescriptionPreface = fmt.Sprintf(longDescriptionPrefaceTemplate, longDescriptionHeading,
-		config.DescriptionFileFlagName, config.DescriptionFlagName)
-	longDescription = fmt.Sprintf("%s\n\n%s", longDescriptionPreface, warningMessage)
-)
 
 // New creates a new test command.
 func New(commonConf *config.Config, skipOutcomesVerification bool) *CommandWrapper {
@@ -126,6 +148,9 @@ func (cw *CommandWrapper) initFlags(c *cobra.Command) {
 		"The path of the CA root certificate used for Falco gRPC server's certificate validation")
 	flags.DurationVar(&cw.pollingTimeout, "grpc-poll-timeout", 100*time.Millisecond,
 		"The frequency of the watch operation on the gRPC Falco Outputs API stream")
+	flags.Var(
+		enumflag.New(&cw.reportFormat, "report-format", reportFormats, enumflag.EnumCaseInsensitive),
+		"report-format", "The format of the test report; can be 'text', 'json' or 'yaml'")
 }
 
 // envKeyFromFlagName converts the provided flag name into the corresponding environment variable key.
@@ -308,7 +333,7 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		logger.Info("Test execution completed")
 
 		if testr != nil {
-			produceReport(&testerWaitGroup, testr, &testUID, testDesc)
+			produceReport(&testerWaitGroup, testr, &testUID, testDesc, cw.reportFormat)
 		}
 	}
 
@@ -429,15 +454,15 @@ func (cw *CommandWrapper) appendFlags(environ []string, flagSets ...*pflag.FlagS
 }
 
 // produceReport produces a report for the given test by using the provided tester.
-func produceReport(wg *sync.WaitGroup, testr tester.Tester, testUID *uuid.UUID, testDesc *loader.Test) {
+func produceReport(wg *sync.WaitGroup, testr tester.Tester, testUID *uuid.UUID, testDesc *loader.Test,
+	reportFmt reportFormat) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		testName, ruleName := testDesc.Name, testDesc.Rule
 		report := getReport(testr, testUID, ruleName, &testDesc.ExpectedOutcome)
 		report.TestName, report.RuleName = testName, ruleName
-		// TODO: perform error checking
-		_ = textencoder.New(os.Stdout).Encode(report)
+		printReport(report, reportFmt)
 	}()
 }
 
@@ -455,4 +480,22 @@ func getReport(testr tester.Tester, uid *uuid.UUID, rule string,
 	}
 
 	return testr.Report(uid, rule, expectedOutcome)
+}
+
+// printReport prints the provided report using the provided format.
+func printReport(report *tester.Report, reportFmt reportFormat) {
+	var encoder tester.ReportEncoder
+	switch reportFmt {
+	case reportFormatText:
+		encoder = textencoder.New(os.Stdout)
+	case reportFormatJSON:
+		encoder = jsonencoder.New(os.Stdout)
+	case reportFormatYAML:
+		encoder = yamlencoder.New(os.Stdout)
+	default:
+		panic(fmt.Sprintf("unsupported report format %v", report))
+	}
+
+	// TODO: perform error checking
+	_ = encoder.Encode(report)
 }
