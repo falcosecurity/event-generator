@@ -35,10 +35,10 @@ type Tester interface {
 // A Report contains information regarding the successful matches and generated warning for given test testing a given
 // rule.
 type Report struct {
-	TestName          string          `json:"test"`
-	RuleName          string          `json:"rule"`
-	SuccessfulMatches int             `json:"successfulMatches"`
-	GeneratedWarnings []ReportWarning `json:"generatedWarnings,omitempty"`
+	TestName          string          `json:"test" yaml:"test"`
+	RuleName          string          `json:"rule" yaml:"rule"`
+	SuccessfulMatches int             `json:"successfulMatches" yaml:"successfulMatches"`
+	GeneratedWarnings []ReportWarning `json:"generatedWarnings,omitempty" yaml:"generatedWarnings,omitempty"`
 }
 
 // Empty reports if the report specifies no successful matches and no generated warning.
@@ -49,15 +49,15 @@ func (r *Report) Empty() bool {
 // A ReportWarning is associated to a received alert matching a rule, but having some fields not matching the expected
 // outcome definition.
 type ReportWarning struct {
-	FieldWarnings []ReportFieldWarning `json:"fieldWarnings,omitempty"`
+	FieldWarnings []ReportFieldWarning `json:"fieldWarnings,omitempty" yaml:"fieldWarnings,omitempty"`
 }
 
 // ReportFieldWarning contains information regarding an expected outcome field, its expected value and the value
 // contained in the alert.
 type ReportFieldWarning struct {
-	Field    string `json:"field"`
-	Expected any    `json:"expected"`
-	Got      any    `json:"got"`
+	Field    string `json:"field" yaml:"field"`
+	Expected any    `json:"expected" yaml:"expected"`
+	Got      any    `json:"got" yaml:"got"`
 }
 
 // ReportEncoder allows to encode a report.
