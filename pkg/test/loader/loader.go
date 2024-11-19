@@ -676,6 +676,8 @@ const (
 	SyscallNameSocket SyscallName = "socket"
 	// SyscallNameSendTo specifies the name of the sendto system call.
 	SyscallNameSendTo SyscallName = "sendto"
+	// SyscallNameKill specifies the name of the kill system call.
+	SyscallNameKill SyscallName = "kill"
 )
 
 // UnmarshalYAML populates the SyscallName instance by unmarshalling the content of the provided YAML node.
@@ -687,7 +689,8 @@ func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
 	switch SyscallName(value) {
 	case SyscallNameWrite, SyscallNameRead, SyscallNameOpen, SyscallNameOpenAt, SyscallNameOpenAt2, SyscallNameSymLink,
 		SyscallNameSymLinkAt, SyscallNameLink, SyscallNameLinkAt, SyscallNameInitModule, SyscallNameFinitModule,
-		SyscallNameDup, SyscallNameDup2, SyscallNameDup3, SyscallNameConnect, SyscallNameSocket, SyscallNameSendTo:
+		SyscallNameDup, SyscallNameDup2, SyscallNameDup3, SyscallNameConnect, SyscallNameSocket, SyscallNameSendTo,
+		SyscallNameKill:
 	default:
 		return fmt.Errorf("unknown syscall %q", value)
 	}
