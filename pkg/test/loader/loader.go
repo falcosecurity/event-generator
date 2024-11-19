@@ -189,6 +189,8 @@ func (r *TestResource) UnmarshalYAML(node *yaml.Node) error {
 		spec = &TestResourceClientServerSpec{}
 	case TestResourceTypeFD:
 		spec = &TestResourceFDSpec{}
+	case TestResourceTypeProcess:
+		spec = &TestResourceProcessSpec{}
 	default:
 		panic(fmt.Sprintf("unknown test resource type %q", decodedType))
 	}
@@ -217,6 +219,12 @@ func (r TestResource) MarshalYAML() (interface{}, error) {
 		}{Type: resourceType, Name: r.Name, Spec: r.Spec.(*TestResourceClientServerSpec)}, nil
 	case TestResourceTypeFD:
 		return r.marshalFD()
+	case TestResourceTypeProcess:
+		return struct {
+			Type TestResourceType         `yaml:"type"`
+			Name string                   `yaml:"name"`
+			Spec *TestResourceProcessSpec `yaml:"spec,inline"`
+		}{Type: resourceType, Name: r.Name, Spec: r.Spec.(*TestResourceProcessSpec)}, nil
 	default:
 		return nil, fmt.Errorf("unknown test resource type %q", resourceType)
 	}
@@ -301,6 +309,8 @@ const (
 	TestResourceTypeClientServer TestResourceType = "clientServer"
 	// TestResourceTypeFD specifies that the resource creates a file descriptor.
 	TestResourceTypeFD TestResourceType = "fd"
+	// TestResourceTypeProcess specifies that the resource creates a process.
+	TestResourceTypeProcess TestResourceType = "process"
 )
 
 // UnmarshalYAML populates the TestResourceType instance by unmarshalling the content of the provided YAML node.
@@ -313,6 +323,7 @@ func (t *TestResourceType) UnmarshalYAML(node *yaml.Node) error {
 	switch TestResourceType(value) {
 	case TestResourceTypeClientServer:
 	case TestResourceTypeFD:
+	case TestResourceTypeProcess:
 	default:
 		return fmt.Errorf("unknown test step type %q", value)
 	}
@@ -493,6 +504,23 @@ type TestResourceFDInotifySpec struct{}
 // TestResourceFDMemSpec describes a mem fd test resource.
 type TestResourceFDMemSpec struct {
 	FileName string `yaml:"fileName" validate:"required"`
+}
+
+// TestResourceProcessSpec describes a process test resource.
+type TestResourceProcessSpec struct {
+	// ExePath is the executable path. If omitted, it is randomly generated.
+	ExePath *string `yaml:"exePath" validate:"omitempty,min=1"`
+	// Args is a string containing the space-separated list of command line arguments. If a single argument contains
+	// spaces, the entire argument must be quoted in order to not be considered as multiple arguments. If omitted, it
+	// defaults to "".
+	Args *string `yaml:"args,omitempty" validate:"omitempty,min=1"`
+	// Exe is the argument in position 0 (a.k.a. argv[0]) of the process. If omitted, it defaults to Name if this is
+	// specified; otherwise, it defaults to filepath.Base(ExePath).
+	Exe *string `yaml:"exe,omitempty" validate:"omitempty,min=1"`
+	// Name is the process name. If omitted, it defaults to filepath.Base(ExePath).
+	Name *string `yaml:"procName,omitempty" validate:"omitempty,min=1"`
+	// Env is the set of environment variables that must be provided to the process (in addition to the default ones).
+	Env map[string]string `yaml:"env,omitempty" validate:"omitempty,min=1"`
 }
 
 // TestStep describes a test step.
