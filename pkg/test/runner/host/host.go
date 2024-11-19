@@ -19,15 +19,12 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
 
-	"github.com/falcosecurity/event-generator/pkg/random"
+	"github.com/falcosecurity/event-generator/pkg/process"
 	"github.com/falcosecurity/event-generator/pkg/test"
 	"github.com/falcosecurity/event-generator/pkg/test/loader"
 	"github.com/falcosecurity/event-generator/pkg/test/runner"
@@ -105,40 +102,10 @@ func (r *hostRunner) Run(ctx context.Context, testID string, testIndex int, test
 	return nil
 }
 
-var (
-	// defaultRealExePathPrefix defines the prefix used to generate a random real executable path.
-	defaultRealExePathPrefix = filepath.Join(os.TempDir(), "event-generator")
-)
-
 // delegateToChild delegates the execution of the test to a child process, created and tuned as per test specification.
 func (r *hostRunner) delegateToChild(ctx context.Context, testID string, testIndex int, testDesc *loader.Test) error {
 	firstProcess := popFirstProcessContext(testDesc.Context)
 	isLastProcess := len(testDesc.Context.Processes) == 0
-
-	// If the user doesn't provide an executable path, we must generate a random path.
-	var realExePath string
-	if exePath := firstProcess.ExePath; exePath != nil {
-		realExePath = *exePath
-	} else {
-		realExePath = defaultRealExePathPrefix + random.Seq(10)
-	}
-
-	// If the user provides a process name, we must run the executable through a symbolic link having the provided name
-	// and pointing to the real executable path.
-	exePath := realExePath
-	if name := firstProcess.Name; name != nil {
-		exePath = filepath.Join(filepath.Dir(realExePath), *name)
-	}
-
-	// If the user provides the "exe" field, set the argument 0 of the new process to its value; otherwise defaults it
-	// to the last segment of the executable path.
-	arg0 := filepath.Base(exePath)
-	if exe := firstProcess.Exe; exe != nil {
-		arg0 = *exe
-	}
-
-	// Evaluate process arguments.
-	procArgs := splitArgs(firstProcess.Args)
 
 	// Evaluate process environment variables.
 	procEnv, err := r.buildEnv(testID, testIndex, testDesc, firstProcess.Env, isLastProcess)
@@ -146,47 +113,40 @@ func (r *hostRunner) delegateToChild(ctx context.Context, testID string, testInd
 		return fmt.Errorf("error building process environment variables set: %w", err)
 	}
 
-	// Setup process command.
-	cmd := exec.CommandContext(ctx, exePath, procArgs...) //nolint:gosec // Disable G204
-	cmd.Args[0] = arg0
-	cmd.Env = procEnv
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	// Create a hard link to the current process executable as specified by the user in the "ExePath" field.
+	// Get current process executable path.
 	currentExePath, err := getCurrentExePath()
 	if err != nil {
 		return fmt.Errorf("error retrieving the current process executable path: %w", err)
 	}
 
-	if err := os.Link(currentExePath, realExePath); err != nil {
-		return fmt.Errorf("error creating process executable: %w", err)
+	var simExePath, name, arg0, args string
+	if firstProcess.ExePath != nil {
+		simExePath = *firstProcess.ExePath
 	}
-	defer func() {
-		if err := os.Remove(realExePath); err != nil {
-			r.logger.Error(err, "Error deleting process executable", "path", realExePath)
-		}
-	}()
-
-	// If the user specified a custom process name, we will run the executable through a symbolic link, so create it.
-	if realExePath != exePath {
-		if err := os.Symlink(realExePath, exePath); err != nil {
-			return fmt.Errorf("error creating symlink %q to process executable %q: %w", exePath, realExePath,
-				err)
-		}
-		defer func() {
-			if err := os.Remove(exePath); err != nil {
-				r.logger.Error(err, "Error deleting symlink to process executable", "symlink", exePath)
-			}
-		}()
+	if firstProcess.Name != nil {
+		name = *firstProcess.Name
 	}
-
-	// Run the child process and wait for it.
-	if err := cmd.Start(); err != nil {
+	if firstProcess.Exe != nil {
+		arg0 = *firstProcess.Exe
+	}
+	if firstProcess.Args != nil {
+		args = *firstProcess.Args
+	}
+	procDesc := &process.Description{
+		Logger:     r.logger,
+		Command:    currentExePath,
+		SimExePath: simExePath,
+		Name:       name,
+		Arg0:       arg0,
+		Args:       args,
+		Env:        procEnv,
+	}
+	proc := process.New(ctx, procDesc)
+	if err := proc.Start(); err != nil {
 		return fmt.Errorf("error starting child process: %w", err)
 	}
 
-	if err := cmd.Wait(); err != nil {
+	if err := proc.Wait(); err != nil {
 		return fmt.Errorf("error waiting for child process: %w", err)
 	}
 
@@ -199,32 +159,6 @@ func popFirstProcessContext(testContext *loader.TestContext) *loader.ProcessCont
 	firstProcess := processes[0]
 	testContext.Processes = processes[1:]
 	return &firstProcess
-}
-
-// splittingArgsRegex allows to split space-separated arguments, keeping together space-separated words under the same
-// single- or double-quoted group.
-var splittingArgsRegex = regexp.MustCompile(`"([^"]+)"|'([^']+)'|(\S+)`)
-
-// splitArgs splits the provided space-separated arguments. If a group composed of space-separated words must be
-// considered as a single argument, it must be single- or double-quoted.
-func splitArgs(args *string) []string {
-	if args == nil {
-		return nil
-	}
-
-	matches := splittingArgsRegex.FindAllStringSubmatch(*args, -1)
-	splittedArgs := make([]string, len(matches))
-	for matchIndex, match := range matches {
-		// match[1] is for double quotes, match[2] for single quotes, match[3] for unquoted.
-		if match[1] != "" { //nolint:gocritic // Rewrite this as switch statement worsens readability.
-			splittedArgs[matchIndex] = match[1]
-		} else if match[2] != "" {
-			splittedArgs[matchIndex] = match[2]
-		} else if match[3] != "" {
-			splittedArgs[matchIndex] = match[3]
-		}
-	}
-	return splittedArgs
 }
 
 func (r *hostRunner) buildEnv(testID string, testIndex int, testDesc *loader.Test, userEnv map[string]string,
