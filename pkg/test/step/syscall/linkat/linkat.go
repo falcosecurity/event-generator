@@ -41,7 +41,7 @@ type linkAtSyscall struct {
 		NewDirFD int `field_type:"fd"`
 	}
 	savedNewPath []byte
-	Ret          int
+	// Return value is neither set nor bindable.
 }
 
 // New creates a new linkat system call test step.
