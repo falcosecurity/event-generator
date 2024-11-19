@@ -39,7 +39,7 @@ type linkSyscall struct {
 	// bindOnlyArgs represents arguments that can only be provided by binding.
 	bindOnlyArgs struct{}
 	savedNewPath []byte
-	Ret          int
+	// Return value is neither set nor bindable.
 }
 
 // New creates a new link system call test step.

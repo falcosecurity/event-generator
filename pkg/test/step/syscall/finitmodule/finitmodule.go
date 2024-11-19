@@ -36,7 +36,7 @@ type finitModuleSyscall struct {
 	bindOnlyArgs struct {
 		FD int `field_type:"fd"`
 	}
-	Ret int
+	// Return value is neither set nor bindable.
 }
 
 // New creates a new finit_module system call test step.
@@ -54,9 +54,5 @@ func New(name string, rawArgs map[string]string,
 }
 
 func (f *finitModuleSyscall) run(_ context.Context) error {
-	if err := unix.FinitModule(f.bindOnlyArgs.FD, f.args.ParamValues, f.args.Flags); err != nil {
-		return err
-	}
-
-	return nil
+	return unix.FinitModule(f.bindOnlyArgs.FD, f.args.ParamValues, f.args.Flags)
 }

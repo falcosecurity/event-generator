@@ -39,7 +39,7 @@ type symlinkSyscall struct {
 	// bindOnlyArgs represents arguments that can only be provided by binding.
 	bindOnlyArgs  struct{}
 	savedLinkPath []byte
-	Ret           int
+	// Return value is neither set nor bindable.
 }
 
 // New creates a new symlink system call test step.
