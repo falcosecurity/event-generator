@@ -34,7 +34,7 @@ type initModuleSyscall struct {
 	}
 	// bindOnlyArgs represents arguments that can only be provided by binding.
 	bindOnlyArgs struct{}
-	Ret          int
+	// Return value is neither set nor bindable.
 }
 
 // New creates a new init_module system call test step.
@@ -51,9 +51,5 @@ func New(name string, rawArgs map[string]string,
 }
 
 func (i *initModuleSyscall) run(_ context.Context) error {
-	if err := unix.InitModule(i.args.ModuleImage, i.args.ParamValues); err != nil {
-		return err
-	}
-
-	return nil
+	return unix.InitModule(i.args.ModuleImage, i.args.ParamValues)
 }

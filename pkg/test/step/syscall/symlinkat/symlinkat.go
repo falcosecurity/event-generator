@@ -39,7 +39,7 @@ type symlinkAtSyscall struct {
 		NewDirFD int `field_type:"fd"`
 	}
 	savedLinkPath []byte
-	Ret           int
+	// Return value is neither set nor bindable.
 }
 
 // New creates a new symlinkat system call test step.

@@ -42,7 +42,6 @@ type sendToSyscall struct {
 	//  sendto system call returns the number of characters sent but both unix.Sendto and syscall.Sendto do not return
 	//  it and do not allow to rewrite it by using direct calls to unix.Syscall or syscall.Syscall. For this reason, the
 	//  returned value is currently neither set nor bindable.
-	Ret int
 }
 
 // New creates a new sendto system call test step.
@@ -63,9 +62,5 @@ func (s *sendToSyscall) run(_ context.Context) error {
 	if length == 0 {
 		length = len(s.args.Buf)
 	}
-	if err := unix.Sendto(s.bindOnlyArgs.FD, s.args.Buf[:length], s.args.Flags, s.args.DestAddr); err != nil {
-		return err
-	}
-
-	return nil
+	return unix.Sendto(s.bindOnlyArgs.FD, s.args.Buf[:length], s.args.Flags, s.args.DestAddr)
 }
