@@ -68,6 +68,8 @@ const (
 	NameSocket = "socket"
 	// NameSendTo specifies the name of the sendto system call test step.
 	NameSendTo = "sendto"
+	// NameKill specifies the name of the kill system call test step.
+	NameKill = "kill"
 )
 
 // Description contains information to build a new Syscall test step.

@@ -25,6 +25,7 @@ import (
 	"github.com/falcosecurity/event-generator/pkg/test/step/syscall/dup3"
 	"github.com/falcosecurity/event-generator/pkg/test/step/syscall/finitmodule"
 	"github.com/falcosecurity/event-generator/pkg/test/step/syscall/initmodule"
+	"github.com/falcosecurity/event-generator/pkg/test/step/syscall/kill"
 	"github.com/falcosecurity/event-generator/pkg/test/step/syscall/link"
 	"github.com/falcosecurity/event-generator/pkg/test/step/syscall/linkat"
 	"github.com/falcosecurity/event-generator/pkg/test/step/syscall/open"
@@ -88,6 +89,8 @@ func (b *builder) Build(name syscall.Name, stepName string, description *syscall
 		return errDecorator(finitmodule.New(stepName, rawArgs, fieldBindings))
 	case syscall.NameSendTo:
 		return errDecorator(sendto.New(stepName, rawArgs, fieldBindings))
+	case syscall.NameKill:
+		return errDecorator(kill.New(stepName, rawArgs, fieldBindings))
 	default:
 		return nil, fmt.Errorf("unknown syscall %q", name)
 	}

@@ -79,6 +79,10 @@ const (
 	TypeSocketProtocol Type = "socket_protocol"
 	// TypeSendFlags specifies that the field contains the sendto system call flags.
 	TypeSendFlags Type = "send_flags"
+	// TypePID specifies that the field contains a process identifier.
+	TypePID Type = "pid"
+	// TypeSignal specifies that the field contains a signal.
+	TypeSignal Type = "signal"
 )
 
 const (

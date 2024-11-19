@@ -235,6 +235,18 @@ func setArgFieldValue(argField *field.Field, value string) error {
 			return fmt.Errorf("cannot parse value as send flags: %w", err)
 		}
 		argFieldValue.SetInt(int64(sendFlags))
+	case field.TypePID:
+		pid, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("cannot parse value as PID: %w", err)
+		}
+		argFieldValue.SetInt(int64(pid))
+	case field.TypeSignal:
+		signal, err := parseSingleValue(value, signals)
+		if err != nil {
+			return fmt.Errorf("cannot parse value as signal: %w", err)
+		}
+		argFieldValue.SetInt(int64(signal))
 	case field.TypeUndefined:
 		return fmt.Errorf("argument field type is undefined")
 	default:
