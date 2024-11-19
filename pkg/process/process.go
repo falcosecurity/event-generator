@@ -17,6 +17,7 @@ package process
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -144,12 +145,15 @@ func splitArgs(args string) []string {
 
 // Start the process.
 func (p *Process) Start() (err error) {
-	command := p.command
-	simExePath := p.simExePath
-	exePath := p.cmd.Path
+	// Retrieve the specified command path.
+	commandPath, err := exec.LookPath(p.command)
+	if err != nil && !errors.Is(err, exec.ErrDot) {
+		return fmt.Errorf("error retrieving command path: %w", err)
+	}
 
-	// Create a hard link to the provided command, named as specified by the user.
-	if err := os.Link(command, simExePath); err != nil {
+	// Create a hard link to the provided command path, named as specified by the user.
+	simExePath := p.simExePath
+	if err := os.Link(commandPath, simExePath); err != nil {
 		return fmt.Errorf("error creating process executable: %w", err)
 	}
 	defer func() {
@@ -162,6 +166,7 @@ func (p *Process) Start() (err error) {
 	p.logger.V(1).Info("Created process executable", "path", simExePath)
 
 	// If the user specified a custom process name, we will run the executable through a symbolic link, so create it.
+	exePath := p.cmd.Path
 	if simExePath != exePath {
 		if err := os.Symlink(simExePath, exePath); err != nil {
 			return fmt.Errorf("error creating symlink %q to process executable %q: %w", exePath, simExePath,
@@ -213,6 +218,16 @@ func (p *Process) Kill() error {
 
 	if err := p.cmd.Process.Signal(unix.SIGKILL); err != nil {
 		return fmt.Errorf("error sending sigkill to process: %w", err)
+	}
+
+	if err := p.cmd.Wait(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			if terminatedBySignal := !exitErr.ProcessState.Exited(); terminatedBySignal {
+				return nil
+			}
+		}
+		return fmt.Errorf("error waiting for process: %w", err)
 	}
 
 	return nil

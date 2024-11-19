@@ -17,6 +17,7 @@ package builder
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/go-logr/logr"
 
@@ -31,6 +32,7 @@ import (
 	"github.com/falcosecurity/event-generator/pkg/test/resource/fd/mem"
 	"github.com/falcosecurity/event-generator/pkg/test/resource/fd/pipe"
 	"github.com/falcosecurity/event-generator/pkg/test/resource/fd/signal"
+	"github.com/falcosecurity/event-generator/pkg/test/resource/process"
 )
 
 // builder is an implementation of resource.Builder.
@@ -64,11 +66,19 @@ func (b *builder) Build(logger logr.Logger, testResource *loader.TestResource) (
 			return nil, fmt.Errorf("cannot parse fd spec")
 		}
 
-		res, err := b.buildFD(logger, resourceName, fdSpec)
+		res, err := buildFD(logger, resourceName, fdSpec)
 		if err != nil {
 			return nil, fmt.Errorf("cannot build fd resource: %w", err)
 		}
 
+		return res, nil
+	case loader.TestResourceTypeProcess:
+		procSpec, ok := testResource.Spec.(*loader.TestResourceProcessSpec)
+		if !ok {
+			return nil, fmt.Errorf("cannot parse process spec")
+		}
+
+		res := buildProcess(logger, resourceName, procSpec)
 		return res, nil
 	default:
 		return nil, fmt.Errorf("unknown test resource type %q", resourceType)
@@ -76,7 +86,7 @@ func (b *builder) Build(logger logr.Logger, testResource *loader.TestResource) (
 }
 
 // buildFD builds a fd test resource.
-func (b *builder) buildFD(logger logr.Logger, resourceName string,
+func buildFD(logger logr.Logger, resourceName string,
 	fdSpec *loader.TestResourceFDSpec) (resource.Resource, error) {
 	subtype := fdSpec.Subtype
 	logger = logger.WithValues("fdSubtype", subtype)
@@ -135,4 +145,32 @@ func (b *builder) buildFD(logger logr.Logger, resourceName string,
 	default:
 		return nil, fmt.Errorf("unknown fd test resource subtype %q", subtype)
 	}
+}
+
+func buildProcess(logger logr.Logger, resourceName string, procSpec *loader.TestResourceProcessSpec) resource.Resource {
+	var simExePath, name, arg0, args string
+	if procSpec.ExePath != nil {
+		simExePath = *procSpec.ExePath
+	}
+	if procSpec.Name != nil {
+		name = *procSpec.Name
+	}
+	if procSpec.Exe != nil {
+		arg0 = *procSpec.Exe
+	}
+	if procSpec.Args != nil {
+		args = *procSpec.Args
+	}
+	procEnv := buildProcEnv(procSpec.Env)
+	return process.New(logger, resourceName, simExePath, name, arg0, args, procEnv)
+}
+
+func buildProcEnv(userEnv map[string]string) []string {
+	env := os.Environ()
+
+	// Add the user-provided environment variable.
+	for key, value := range userEnv {
+		env = append(env, fmt.Sprintf("%s=%s", key, value))
+	}
+	return env
 }
