@@ -42,7 +42,7 @@ type writeSyscall struct {
 func New(name string, rawArgs map[string]string,
 	fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	w := &writeSyscall{}
-	// s.args.Len defaults to the buffer length at run time, if unbound.
+	// w.args.Len defaults to the buffer length at run time, if unbound.
 	argsContainer := reflect.ValueOf(&w.args).Elem()
 	bindOnlyArgsContainer := reflect.ValueOf(&w.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(w).Elem()
