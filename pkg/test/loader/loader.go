@@ -321,9 +321,7 @@ func (t *TestResourceType) UnmarshalYAML(node *yaml.Node) error {
 	}
 
 	switch TestResourceType(value) {
-	case TestResourceTypeClientServer:
-	case TestResourceTypeFD:
-	case TestResourceTypeProcess:
+	case TestResourceTypeClientServer, TestResourceTypeFD, TestResourceTypeProcess:
 	default:
 		return fmt.Errorf("unknown test step type %q", value)
 	}
@@ -369,11 +367,8 @@ func (t *TestResourceClientServerL4Proto) UnmarshalYAML(node *yaml.Node) error {
 	}
 
 	switch TestResourceClientServerL4Proto(value) {
-	case TestResourceClientServerL4ProtoUDP4:
-	case TestResourceClientServerL4ProtoUDP6:
-	case TestResourceClientServerL4ProtoTCP4:
-	case TestResourceClientServerL4ProtoTCP6:
-	case TestResourceClientServerL4ProtoUnix:
+	case TestResourceClientServerL4ProtoUDP4, TestResourceClientServerL4ProtoUDP6, TestResourceClientServerL4ProtoTCP4,
+		TestResourceClientServerL4ProtoTCP6, TestResourceClientServerL4ProtoUnix:
 	default:
 		return fmt.Errorf("unknown clientServer test resource l4 proto %q", value)
 	}
@@ -460,14 +455,9 @@ func (t *TestResourceFDSubtype) UnmarshalYAML(node *yaml.Node) error {
 	}
 
 	switch TestResourceFDSubtype(value) {
-	case TestResourceFDSubtypeFile:
-	case TestResourceFDSubtypeDirectory:
-	case TestResourceFDSubtypePipe:
-	case TestResourceFDSubtypeEvent:
-	case TestResourceFDSubtypeSignal:
-	case TestResourceFDSubtypeEpoll:
-	case TestResourceFDSubtypeInotify:
-	case TestResourceFDSubtypeMem:
+	case TestResourceFDSubtypeFile, TestResourceFDSubtypeDirectory, TestResourceFDSubtypePipe,
+		TestResourceFDSubtypeEvent, TestResourceFDSubtypeSignal, TestResourceFDSubtypeEpoll,
+		TestResourceFDSubtypeInotify, TestResourceFDSubtypeMem:
 	default:
 		return fmt.Errorf("unknown fd test resource subtype %q", value)
 	}
@@ -652,8 +642,6 @@ func (s *TestStepSyscallSpec) fieldBindings() []*TestStepFieldBinding {
 type SyscallName string
 
 const (
-	// SyscallNameUndefined specifies that the system call name is not defined.
-	SyscallNameUndefined SyscallName = "undefined"
 	// SyscallNameWrite specifies the name of the write system call.
 	SyscallNameWrite SyscallName = "write"
 	// SyscallNameRead specifies the name of the read system call.
@@ -697,23 +685,9 @@ func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
 		return err
 	}
 	switch SyscallName(value) {
-	case SyscallNameWrite:
-	case SyscallNameRead:
-	case SyscallNameOpen:
-	case SyscallNameOpenAt:
-	case SyscallNameOpenAt2:
-	case SyscallNameSymLink:
-	case SyscallNameSymLinkAt:
-	case SyscallNameLink:
-	case SyscallNameLinkAt:
-	case SyscallNameInitModule:
-	case SyscallNameFinitModule:
-	case SyscallNameDup:
-	case SyscallNameDup2:
-	case SyscallNameDup3:
-	case SyscallNameConnect:
-	case SyscallNameSocket:
-	case SyscallNameSendTo:
+	case SyscallNameWrite, SyscallNameRead, SyscallNameOpen, SyscallNameOpenAt, SyscallNameOpenAt2, SyscallNameSymLink,
+		SyscallNameSymLinkAt, SyscallNameLink, SyscallNameLinkAt, SyscallNameInitModule, SyscallNameFinitModule,
+		SyscallNameDup, SyscallNameDup2, SyscallNameDup3, SyscallNameConnect, SyscallNameSocket, SyscallNameSendTo:
 	default:
 		return fmt.Errorf("unknown syscall %q", value)
 	}
