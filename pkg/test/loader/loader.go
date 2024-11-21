@@ -74,25 +74,16 @@ func (c *Description) validate() error {
 
 	for testIndex := range c.Tests {
 		test := &c.Tests[testIndex]
-		if err := validateNameUniqueness(test); err != nil {
+		if err := test.validateNameUniqueness(); err != nil {
 			return fmt.Errorf("error validating name uniqueness in test %q (index: %d): %w", test.Name,
 				testIndex, err)
 		}
-	}
 
-	return nil
-}
-
-// validateNameUniqueness validates that names used for test resources and steps are unique.
-func validateNameUniqueness(test *Test) error {
-	for resourceIndex, testResource := range test.Resources {
-		for stepIndex, testStep := range test.Steps {
-			if testStep.Name == testResource.Name {
-				return fmt.Errorf("test resource %d and test step %d have the same name %q", resourceIndex,
-					stepIndex, testResource.Name)
-			}
+		if err := test.validateContext(); err != nil {
+			return fmt.Errorf("error validating test context: %w", err)
 		}
 	}
+
 	return nil
 }
 
@@ -108,6 +99,35 @@ type Test struct {
 	Resources       []TestResource      `yaml:"resources,omitempty" validate:"omitempty,unique=Name,dive"`
 	Steps           []TestStep          `yaml:"steps,omitempty" validate:"omitempty,unique=Name,dive"`
 	ExpectedOutcome TestExpectedOutcome `yaml:"expectedOutcome"`
+}
+
+// validateNameUniqueness validates that names used for test resources and steps are unique.
+func (t *Test) validateNameUniqueness() error {
+	for resourceIndex, testResource := range t.Resources {
+		for stepIndex, testStep := range t.Steps {
+			if testStep.Name == testResource.Name {
+				return fmt.Errorf("test resource at index %d and test step at index %d have the same name %q",
+					resourceIndex, stepIndex, testResource.Name)
+			}
+		}
+	}
+	return nil
+}
+
+// validateContext validates that names used for test resources and steps are unique.
+func (t *Test) validateContext() error {
+	processes := t.Context.Processes
+	processesLen := len(processes)
+	if processesLen <= 1 {
+		return nil
+	}
+
+	for processIndex, process := range processes[:processesLen-1] {
+		if process.Capabilities != nil && *process.Capabilities != "" {
+			return fmt.Errorf("process at index %d specifies capabilities but is not the leaf process", processIndex)
+		}
+	}
+	return nil
 }
 
 // TestRunnerType is the type of test runner.
@@ -163,6 +183,12 @@ type ProcessContext struct {
 	Name *string `yaml:"name,omitempty" validate:"omitempty,min=1"`
 	// Env is the set of environment variables that must be provided to the process (in addition to the default ones).
 	Env map[string]string `yaml:"env,omitempty" validate:"omitempty,min=1"`
+	// User is the name of the user that must run the process. If omitted, the current process user is used. If the user
+	// does not exist, it is created before running the test and deleted after test execution.
+	User *string `yaml:"user,omitempty" validate:"omitempty,min=1"`
+	// Capabilities are the capabilities of the process. The syntax follows the conventions specified by
+	// cap_from_text(3). If omitted or empty, it defaults to "all=iep".
+	Capabilities *string `yaml:"capabilities,omitempty" validate:"omitempty,min=1"`
 }
 
 // TestResource describes a test resource.
