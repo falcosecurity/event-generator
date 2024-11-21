@@ -18,6 +18,7 @@ package shell
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -27,6 +28,7 @@ import (
 	"github.com/go-logr/logr"
 	"golang.org/x/sys/unix"
 
+	"github.com/falcosecurity/event-generator/pkg/capability"
 	"github.com/falcosecurity/event-generator/pkg/test"
 )
 
@@ -109,7 +111,12 @@ func (s *shellScript) RunBefore(ctx context.Context) (func(context.Context) erro
 	waitSignalCh = takeFirstWaitSignal(waitSignalCh)
 	consumeScriptStderrLog(s.logger, stderrLogLinesCh)
 
-	if err := cmd.Start(); err != nil {
+	if err := capability.RunWithSecBitNoRootDisabled(cmd.Start); err != nil {
+		var funcErr *capability.FuncError
+		if !errors.As(err, &funcErr) {
+			_ = stdoutPipe.Close()
+			_ = stderrPipe.Close()
+		}
 		cancel()
 		wg.Wait()
 		return nil, fmt.Errorf("error starting before script: %w", err)
