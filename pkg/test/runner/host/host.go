@@ -119,7 +119,7 @@ func (r *hostRunner) delegateToChild(ctx context.Context, testID string, testInd
 		return fmt.Errorf("error retrieving the current process executable path: %w", err)
 	}
 
-	var simExePath, name, arg0, args string
+	var simExePath, name, arg0, args, username, capabilities string
 	if firstProcess.ExePath != nil {
 		simExePath = *firstProcess.ExePath
 	}
@@ -132,16 +132,25 @@ func (r *hostRunner) delegateToChild(ctx context.Context, testID string, testInd
 	if firstProcess.Args != nil {
 		args = *firstProcess.Args
 	}
+	if firstProcess.User != nil {
+		username = *firstProcess.User
+	}
+	if firstProcess.Capabilities != nil {
+		capabilities = *firstProcess.Capabilities
+	}
 	procDesc := &process.Description{
-		Logger:     r.logger,
-		Command:    currentExePath,
-		SimExePath: simExePath,
-		Name:       name,
-		Arg0:       arg0,
-		Args:       args,
-		Env:        procEnv,
+		Logger:       r.logger.WithName("process"),
+		Command:      currentExePath,
+		SimExePath:   simExePath,
+		Name:         name,
+		Arg0:         arg0,
+		Args:         args,
+		Env:          procEnv,
+		Username:     username,
+		Capabilities: capabilities,
 	}
 	proc := process.New(ctx, procDesc)
+	// Run the child process and wait for it.
 	if err := proc.Start(); err != nil {
 		return fmt.Errorf("error starting child process: %w", err)
 	}

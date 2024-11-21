@@ -16,6 +16,7 @@
 package capability
 
 import (
+	"errors"
 	"fmt"
 	"runtime"
 
@@ -30,7 +31,7 @@ func Parse(capabilities string) (*cap.Set, error) {
 }
 
 // RunWithSecBitNoRootEnabled runs the provided function with the thread secure bit SECBIT_NOROOT enabled.
-func RunWithSecBitNoRootEnabled(f func() error) (err error) {
+func RunWithSecBitNoRootEnabled(f func() error) error {
 	runtime.LockOSThread()
 	secureBits, err := unix.PrctlRetInt(unix.PR_GET_SECUREBITS, 0, 0, 0, 0)
 	if err != nil {
@@ -38,29 +39,11 @@ func RunWithSecBitNoRootEnabled(f func() error) (err error) {
 	}
 
 	secureBitsPlusSecBitNoRoot := secureBits | int(cap.SecbitNoRoot)
-	if secureBits == secureBitsPlusSecBitNoRoot {
-		return runFuncAndWrapErr(f)
-	}
-
-	if err := unix.Prctl(unix.PR_SET_SECUREBITS, uintptr(secureBitsPlusSecBitNoRoot), 0, 0, 0); err != nil {
-		return fmt.Errorf("error setting thread secure bits: %w", err)
-	}
-	defer func() {
-		if e := unix.Prctl(unix.PR_SET_SECUREBITS, uintptr(secureBits), 0, 0, 0); e != nil {
-			e = fmt.Errorf("error restoring secure bits: %w", err)
-			if err != nil {
-				err = fmt.Errorf("%w; %w", err, e)
-			} else {
-				err = e
-			}
-		}
-	}()
-
-	return runFuncAndWrapErr(f)
+	return runWithSecBits(f, secureBits, secureBitsPlusSecBitNoRoot)
 }
 
-// RunWithSecBitNoRootDisabled runs the provided function with the thread secure bit SECBIT_NOROOT disable.
-func RunWithSecBitNoRootDisabled(f func() error) (err error) {
+// RunWithSecBitNoRootDisabled runs the provided function with the thread secure bit SECBIT_NOROOT disabled.
+func RunWithSecBitNoRootDisabled(f func() error) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	secureBits, err := unix.PrctlRetInt(unix.PR_GET_SECUREBITS, 0, 0, 0, 0)
@@ -69,16 +52,28 @@ func RunWithSecBitNoRootDisabled(f func() error) (err error) {
 	}
 
 	secureBitsMinusSecBitNoRoot := secureBits & ^int(cap.SecbitNoRoot)
-	if secureBits == secureBitsMinusSecBitNoRoot {
+	return runWithSecBits(f, secureBits, secureBitsMinusSecBitNoRoot)
+}
+
+// runWithSecBits runs the provided function with the new secure bits set, and restores the old secure bits set at the
+// end of its execution.
+func runWithSecBits(f func() error, oldSecBits, newSecBits int) (err error) {
+	if oldSecBits == newSecBits {
 		return runFuncAndWrapErr(f)
 	}
 
-	if err := unix.Prctl(unix.PR_SET_SECUREBITS, uintptr(secureBitsMinusSecBitNoRoot), 0, 0, 0); err != nil {
+	if err := unix.Prctl(unix.PR_SET_SECUREBITS, uintptr(newSecBits), 0, 0, 0); err != nil {
+		if errors.Is(err, unix.EPERM) {
+			err = fmt.Errorf("%w (consider adding the CAP_SETPCAP capability)", err)
+		}
 		return fmt.Errorf("error setting thread secure bits: %w", err)
 	}
 	defer func() {
-		if e := unix.Prctl(unix.PR_SET_SECUREBITS, uintptr(secureBits), 0, 0, 0); e != nil {
-			e = fmt.Errorf("error restoring secure bits: %w", err)
+		if e := unix.Prctl(unix.PR_SET_SECUREBITS, uintptr(oldSecBits), 0, 0, 0); e != nil {
+			if errors.Is(e, unix.EPERM) {
+				e = fmt.Errorf("%w (consider adding the CAP_SETPCAP capability)", e)
+			}
+			e = fmt.Errorf("error restoring thread secure bits: %w", e)
 			if err != nil {
 				err = fmt.Errorf("%w; %w", err, e)
 			} else {
