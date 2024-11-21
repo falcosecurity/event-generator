@@ -19,14 +19,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"regexp"
+	"strconv"
 
 	"github.com/go-logr/logr"
 	"golang.org/x/sys/unix"
 
+	"github.com/falcosecurity/event-generator/pkg/capability"
 	"github.com/falcosecurity/event-generator/pkg/random"
 )
 
@@ -38,10 +42,18 @@ type Process struct {
 	// simExePath is the "simulated" executable path. This sets the executable path accessible through
 	// `readlink -f /proc/<pid/exepath` for the started process. If empty, it is randomly generated.
 	simExePath string
+	// username is the name of the user that must run the process. If empty, the current process user is used. If the
+	// specified user does not exist, it is created before running the test and deleted after test execution.
+	username string
+	// capabilities are the capabilities that must be set on the process executable file. The syntax follows the
+	// conventions specified by cap_from_text(3). Notice: an empty string defaults to 'all=iep'.
+	capabilities string
 	// cmd is the underlying command object.
 	cmd *exec.Cmd
 	// started is true if the process has been started; false otherwise.
 	started bool
+	// userCreated is true if the user has been created; false otherwise.
+	userCreated bool
 }
 
 // Description describes a process.
@@ -62,12 +74,20 @@ type Description struct {
 	Args string
 	// Env is the list of environment variables that must be provided to the process.
 	Env []string
+	// Username is the name of the user that must run the process. If empty, the current process user is used. If the
+	// specified user does not exist, it is created before running the test and deleted after test execution.
+	Username string
+	// Capabilities are the capabilities that must be set on the process executable file. The syntax follows the
+	// conventions specified by cap_from_text(3). Notice: an empty string defaults to 'all=iep'.
+	Capabilities string
 }
 
 var (
 	// defaultSimExePathPrefix defines the prefix used to generate a random simulated executable path.
 	defaultSimExePathPrefix = filepath.Join(os.TempDir(), "event-generator")
 )
+
+var allCaps = "all=iep"
 
 // New creates a new process.
 func New(ctx context.Context, procDesc *Description) *Process {
@@ -98,6 +118,14 @@ func New(ctx context.Context, procDesc *Description) *Process {
 		procArg0 = filepath.Base(exePath)
 	}
 
+	// If the user doesn't provide capabilities, we default them.
+	var capabilities string
+	if procDesc.Capabilities != "" {
+		capabilities = procDesc.Capabilities
+	} else {
+		capabilities = allCaps
+	}
+
 	// Evaluate process arguments.
 	procArgs := splitArgs(procDesc.Args)
 
@@ -108,11 +136,13 @@ func New(ctx context.Context, procDesc *Description) *Process {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	proc := &Process{
-		logger:     procDesc.Logger,
-		command:    procDesc.Command,
-		simExePath: simExePath,
-		cmd:        cmd,
-		started:    false,
+		logger:       procDesc.Logger,
+		command:      procDesc.Command,
+		simExePath:   simExePath,
+		username:     procDesc.Username,
+		capabilities: capabilities,
+		cmd:          cmd,
+		started:      false,
 	}
 	return proc
 }
@@ -151,19 +181,72 @@ func (p *Process) Start() (err error) {
 		return fmt.Errorf("error retrieving command path: %w", err)
 	}
 
-	// Create a hard link to the provided command path, named as specified by the user.
-	simExePath := p.simExePath
-	if err := os.Link(commandPath, simExePath); err != nil {
-		return fmt.Errorf("error creating process executable: %w", err)
-	}
-	defer func() {
+	// Determine if the process must be run by the current user/group or not. If a user different from the current one
+	// is requested to run it, the user is created at this stage, and deleted after the new process resources are
+	// released.
+	changeOwnership := false
+	userCreated := false
+	var procUID, procGID int
+	if username := p.username; username != "" {
+		userCreated, procUID, procGID, err = p.findOrCreateUser(username)
 		if err != nil {
-			if err := os.Remove(simExePath); err != nil {
-				p.logger.Error(err, "Error deleting process executable", "path", simExePath)
+			return fmt.Errorf("error finding or creating user %q: %w", username, err)
+		}
+
+		logger := p.logger.WithValues("user", username, "uid", procUID, "gid", procGID)
+		if userCreated {
+			defer p.deleteUserIfErr(username, &err)
+			logger.V(1).Info("Created user")
+		} else {
+			logger.V(1).Info("Found user")
+		}
+
+		// The current executable must be run with real IDs set to 0, so compare the obtained IDs with the effective
+		// ones instead of the real ones.
+		changeOwnership = procUID != os.Geteuid() || procGID != os.Getegid()
+	}
+
+	capabilities := p.capabilities
+	changeCapabilities := capabilities != allCaps
+
+	// Create the simulated executable file. It is either a hard link or a copy of the original command path, depending
+	// on the fact that it is required to change the file ownership/capabilities or not.
+	simExePath := p.simExePath
+	if changeOwnership || changeCapabilities {
+		// We are going to manipulate the file ownership and capabilities, so create a copy of the original instead of
+		// modifying the original one.
+		if err := copyFile(commandPath, simExePath); err != nil {
+			return fmt.Errorf("error copying process executable: %w", err)
+		}
+		defer p.removeFileIfErr(simExePath, &err)
+		p.logger.V(1).Info("Created process executable", "path", simExePath)
+
+		if changeOwnership {
+			if err := os.Chown(simExePath, procUID, procGID); err != nil {
+				return fmt.Errorf("error changing process executable ownership to %d:%d: %w", procUID, procGID, err)
 			}
 		}
-	}()
-	p.logger.V(1).Info("Created process executable", "path", simExePath)
+
+		if err := p.setFileCapabilities(simExePath, capabilities); err != nil {
+			return fmt.Errorf("error setting process executable file capabilities to %q: %w", capabilities, err)
+		}
+
+		if changeOwnership {
+			if err := os.Chmod(simExePath, 0o555|os.ModeSetuid|os.ModeSetgid); err != nil {
+				return fmt.Errorf("error changing process executable file mode: %w", err)
+			}
+		}
+	} else {
+		if err := os.Link(commandPath, simExePath); err != nil {
+			return fmt.Errorf("error creating process executable: %w", err)
+		}
+		defer p.removeFileIfErr(simExePath, &err)
+		p.logger.V(1).Info("Created process executable", "path", simExePath)
+
+		if err := p.setFileCapabilities(simExePath, capabilities); err != nil {
+			return fmt.Errorf("error setting process executable file capabilities to %q: %w", capabilities, err)
+		}
+	}
 
 	// If the user specified a custom process name, we will run the executable through a symbolic link, so create it.
 	exePath := p.cmd.Path
@@ -172,23 +255,158 @@ func (p *Process) Start() (err error) {
 			return fmt.Errorf("error creating symlink %q to process executable %q: %w", exePath, simExePath,
 				err)
 		}
-		defer func() {
-			if err != nil {
-				if err := os.Remove(exePath); err != nil {
-					p.logger.Error(err, "Error deleting symlink to process executable", "symlink", exePath)
-				}
-			}
-		}()
+		defer p.removeFileIfErr(exePath, &err)
+		p.logger.V(1).Info("Created symlink to process executable", "path", simExePath, "symlink", exePath)
 	}
-	p.logger.V(1).Info("Created symlink to process executable", "path", simExePath, "symlink", exePath)
 
-	// Run the process.
-	if err := p.cmd.Start(); err != nil {
+	// Run the executable but prevent the kernel from ignoring file capabilities when real/effective user ID is 0 (see
+	// 'Capabilities and execution of programs by root' in capabilities(7)).
+	// Notice: secure bits are inherited by child process, so whatever process is going to be spawned by our child will
+	// not inherit root privileges if our child doesn't clear the SECBIT_NOROOT first.
+	if err := capability.RunWithSecBitNoRootEnabled(p.cmd.Start); err != nil {
 		return err
 	}
 
 	p.started = true
+	p.userCreated = userCreated
 	return nil
+}
+
+// findOrCreateUser finds or creates the user with the provided username. It returns information about the user.
+func (p *Process) findOrCreateUser(username string) (created bool, uid, gid int, err error) {
+	if uid, gid, err = getUserIDs(username); err == nil {
+		return false, uid, gid, nil
+	}
+
+	var unknownUserErr user.UnknownUserError
+	if !errors.As(err, &unknownUserErr) {
+		return false, 0, 0, fmt.Errorf("error retrieving user id: %w", err)
+	}
+
+	// User does not exist, create it.
+	if err := addUser(username); err != nil {
+		_ = delUser(username) // addUser can leave an inconsistent state.
+		return false, 0, 0, fmt.Errorf("error creating user: %w", err)
+	}
+	defer p.deleteUserIfErr(username, &err)
+
+	// Retrieve the user ID of the created user.
+	if uid, gid, err = getUserIDs(username); err != nil {
+		return false, 0, 0, fmt.Errorf("error looking up for user after creation: %w", err)
+	}
+
+	return true, uid, gid, nil
+}
+
+// getUserIDs returns the user and group IDs of the user associated to the provided username.
+func getUserIDs(username string) (uid, gid int, err error) {
+	usr, err := user.Lookup(username)
+	if err != nil {
+		return 0, 0, fmt.Errorf("error looking up user %q: %w", username, err)
+	}
+
+	if uid, err = strconv.Atoi(usr.Uid); err != nil {
+		return 0, 0, fmt.Errorf("error parsing user uid %q: %w", usr.Uid, err)
+	}
+
+	if gid, err = strconv.Atoi(usr.Gid); err != nil {
+		return 0, 0, fmt.Errorf("error parsing user gid %q: %w", usr.Gid, err)
+	}
+
+	return uid, gid, nil
+}
+
+// addUser creates a user with the given username.
+func addUser(username string) error {
+	return capability.RunWithSecBitNoRootDisabled(func() error {
+		return exec.Command("sh", "-c", fmt.Sprintf("useradd %q", username)).Run() //nolint:gosec // Disable G204
+	})
+}
+
+// delUser deletes the user with the given username.
+func delUser(username string) error {
+	return capability.RunWithSecBitNoRootDisabled(func() error {
+		return exec.Command("sh", "-c", fmt.Sprintf("userdel %q", username)).Run() //nolint:gosec // Disable G204
+	})
+}
+
+// deleteUserIfErr deletes the user associated to the provided username if the provided error pointer points to an
+// error.
+func (p *Process) deleteUserIfErr(username string, err *error) { //nolint:gocritic // Disable ptrToRefParam
+	if *err != nil {
+		if err := delUser(username); err != nil {
+			p.logger.Error(err, "Error deleting user", "user", username)
+		}
+	}
+}
+
+// copyFile copies the file at src to dst.
+func copyFile(src, dst string) (err error) {
+	srcFile, err := os.Open(src) //nolint:gosec // Disable G304
+	if err != nil {
+		return fmt.Errorf("error opening source file: %w", err)
+	}
+	defer func() {
+		if e := srcFile.Close(); e != nil {
+			e := fmt.Errorf("error closing source file: %w", e)
+			if err != nil {
+				err = fmt.Errorf("%w; %w", err, e)
+			} else {
+				err = e
+			}
+		}
+	}()
+
+	dstFile, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE, 0o755) //nolint:gosec // Disable G304
+	if err != nil {
+		return fmt.Errorf("error creating destination file: %w", err)
+	}
+	defer func() {
+		if e := dstFile.Close(); e != nil {
+			e := fmt.Errorf("error closing destination file: %w", e)
+			if err != nil {
+				err = fmt.Errorf("%w; %w", err, e)
+			} else {
+				err = e
+			}
+		}
+	}()
+
+	if _, err := io.Copy(dstFile, srcFile); err != nil {
+		return fmt.Errorf("error copying data: %w", err)
+	}
+
+	return nil
+}
+
+// removeFileIfErr removes the file at the provided file path if the provided error pointer points to an error.
+func (p *Process) removeFileIfErr(filePath string, err *error) { //nolint:gocritic // Disable ptrToRefParam
+	if *err != nil {
+		if err := os.Remove(filePath); err != nil {
+			p.logger.Error(err, "Error deleting file", "path", filePath)
+		}
+	}
+}
+
+// setFileCapabilities sets the capability state of the file at the provided file path to the value obtained parsing
+// the provided capability string.
+func (p *Process) setFileCapabilities(filePath, capabilities string) error {
+	caps, err := capability.Parse(capabilities)
+	if err != nil {
+		return fmt.Errorf("error parsing capabilities: %w", err)
+	}
+
+	file, err := os.Open(filePath) //nolint:gosec // Disable G304
+	if err != nil {
+		return fmt.Errorf("error opening file: %w", err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			p.logger.Error(err, "Error closing executable after setting capabilities")
+		}
+	}()
+
+	return caps.SetFd(file)
 }
 
 var errProcessNotStarted = fmt.Errorf("process not started")
@@ -235,12 +453,22 @@ func (p *Process) Kill() error {
 
 // releaseResources releases the resources associated to the process, such as created executables.
 func (p *Process) releaseResources() {
-	simExePath := p.simExePath
-	exePath := p.cmd.Path
 	defer func() {
 		p.started = false
+		p.userCreated = false
 	}()
 
+	username := p.username
+	if p.userCreated {
+		if err := delUser(username); err != nil {
+			p.logger.Error(err, "Error deleting user", "user", username)
+		} else {
+			p.logger.V(1).Info("Deleted user", "user", username)
+		}
+	}
+
+	simExePath := p.simExePath
+	exePath := p.cmd.Path
 	if simExePath != exePath {
 		if err := os.Remove(exePath); err != nil {
 			p.logger.Error(err, "Error deleting symlink to process executable", "symlink", exePath)
