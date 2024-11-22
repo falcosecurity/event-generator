@@ -47,35 +47,59 @@ const (
 	// defines three placeholders: a placeholder for the "before" script, one for the signalingToken, and one for the
 	// "after" script.
 	scriptTemplate = `
+# __SLEEP_PID is the PID of the sleep process used to block the current script execution.
 __SLEEP_PID=
+
+# __cleanup is used as handler for SIGTERM and SIGINT signals, as well as handler for script EXIT pseudo-signal.
 __cleanup() {
 	[ -n "$__SLEEP_PID" ] && kill -9 $__SLEEP_PID
 	exit
 }
 
+# __usr1 is used as handler for SIGUSR1.
 __usr1() {
 	kill -9 $__SLEEP_PID && __SLEEP_PID=
 }
 
+# Register signal handler to delete resources and exit upon SIGTERM and SIGINT or upon script EXIT.
 trap __cleanup TERM INT EXIT;
-%s;
+
+# Launch "before" script.
+%s
+
+# Launch sleep process and register SIGUSR1 signal handler. The signal handler is responsible to kill the sleep process
+# to unblock the current process waiting for it to exit (see "wait $__SLEEP_PID"" below).
 sleep infinity & __SLEEP_PID=$!
 trap __usr1 USR1
+
+# Send token to parent process to signal "before" script execution completion.
 echo %s
-wait $PID;
-%s;
-`
+
+# Wait for sleep process to exit.
+wait $__SLEEP_PID
+
+# The SIGUSR1 signal triggers __usr1 handler invocation and sets the exit code to 138. Existing from wait, we check if
+# the exit code value is as expected and reset it to 0; otherwise, we return the obtained exit code.
+if [ $? != 138 ]; then
+	echo "Wait on sleep unblocked due to a reason different from USR1 signal" >&2
+	exit $?
+else
+	true # Reset exit code
+fi
+
+# Launch "after" script.
+%s`
 )
 
 // New creates a new shell script by merging beforeScript and afterScript. Since the "before" and "after" are part of
 // the same shell script, it is possible to reuse the declarations/definitions of the "before" part in the "after" part.
 func New(logger logr.Logger, beforeScript, afterScript *string) test.Script {
 	var before, after string
-	if beforeScript != nil {
-		before = strings.TrimSpace(*beforeScript)
+	if beforeScript != nil && *beforeScript != "" {
+		before = strings.TrimSpace(*beforeScript) + ";"
 	}
-	if afterScript != nil {
-		after = strings.TrimSpace(*afterScript)
+	if afterScript != nil && *afterScript != "" {
+		after = strings.TrimSpace(*afterScript) + ";"
 	}
 	script := fmt.Sprintf(scriptTemplate, before, signalingToken, after)
 	s := &shellScript{
