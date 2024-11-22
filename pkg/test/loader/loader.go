@@ -116,6 +116,10 @@ func (t *Test) validateNameUniqueness() error {
 
 // validateContext validates that names used for test resources and steps are unique.
 func (t *Test) validateContext() error {
+	if t.Context == nil {
+		return nil
+	}
+
 	processes := t.Context.Processes
 	processesLen := len(processes)
 	if processesLen <= 1 {
