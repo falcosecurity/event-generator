@@ -101,7 +101,10 @@ func New(logger logr.Logger, beforeScript, afterScript *string) test.Script {
 	if afterScript != nil && *afterScript != "" {
 		after = strings.TrimSpace(*afterScript) + ";"
 	}
-	script := fmt.Sprintf(scriptTemplate, before, signalingToken, after)
+	var script string
+	if before != "" || after != "" {
+		script = fmt.Sprintf(scriptTemplate, before, signalingToken, after)
+	}
 	s := &shellScript{
 		logger: logger,
 		script: script,
@@ -109,9 +112,16 @@ func New(logger logr.Logger, beforeScript, afterScript *string) test.Script {
 	return s
 }
 
+var noopAfterFunc = func(context.Context) error { return nil }
+
 func (s *shellScript) RunBefore(ctx context.Context) (func(context.Context) error, error) {
+	script := s.script
+	if s.script == "" {
+		return noopAfterFunc, nil
+	}
+
 	processCtx, cancel := context.WithCancel(context.Background())
-	cmd := exec.CommandContext(processCtx, "sh", "-c", s.script) //nolint:gosec // Disable G204
+	cmd := exec.CommandContext(processCtx, "sh", "-c", script) //nolint:gosec // Disable G204
 	cmd.Cancel = func() error {
 		return cmd.Process.Signal(unix.SIGTERM)
 	}
