@@ -279,7 +279,7 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 			if testDesc.Context == nil {
 				testDesc.Context = &loader.TestContext{}
 			}
-			if len(testDesc.Context.Processes) == 0 {
+			if len(testDesc.Context.Processes) == 0 && testDesc.Context.Container == nil {
 				testDesc.Context.Processes = []loader.ProcessContext{{}}
 			}
 		} else {
