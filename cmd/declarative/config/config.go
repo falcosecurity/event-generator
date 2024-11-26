@@ -21,6 +21,9 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/thediveo/enumflag"
+
+	"github.com/falcosecurity/event-generator/pkg/container/builder"
 )
 
 const (
@@ -67,12 +70,24 @@ type Config struct {
 	// - the last process in the process chain has the test ID in the form <testUID>
 	// A process having a test ID in the form <testUID> (i.e.: the leaf process) is the only one that is monitored.
 	TestID string
-	//  ProcLabel is the process label in the form test<testIndex>.child<childIndex>. It is used for logging purposes
+	// ProcLabel is the process label in the form test<testIndex>,child<childIndex>. It is used for logging purposes
 	// and to potentially generate the child process label.
 	ProcLabel string
 	// TestsTimeout is the maximal duration of the tests. If running tests lasts more than TestsTimeout, the execution
 	// of all pending tasks is canceled.
 	TestsTimeout time.Duration
+	// ContainerRuntimeUnixSocketPath is the unix socket path of the local container runtime.
+	ContainerRuntimeUnixSocketPath string
+	// ContainerBaseImageName is the event-generator base image to generate new containers.
+	ContainerBaseImageName string
+	// ContainerImagePullPolicy is container image pull policy.
+	ContainerImagePullPolicy builder.ImagePullPolicy
+}
+
+var containerImagePullPolicies = map[builder.ImagePullPolicy][]string{
+	builder.ImagePullPolicyAlways:       {"always"},
+	builder.ImagePullPolicyNever:        {"never"},
+	builder.ImagePullPolicyIfNotPresent: {"ifnotpresent"},
 }
 
 // New creates a new config linked to the provided command.
@@ -112,6 +127,15 @@ func (c *Config) initFlags(cmd *cobra.Command) {
 	flags.DurationVarP(&c.TestsTimeout, TimeoutFlagName, "t", time.Minute,
 		"The maximal duration of the tests. If running tests lasts more than testsTimeout, the execution of "+
 			"all pending tasks is canceled")
+
+	// Container runtime flags.
+	flags.StringVar(&c.ContainerRuntimeUnixSocketPath, "container-runtime-unix-socket",
+		"/run/containerd/containerd.sock", "The unix socket path of the local container runtime")
+	flags.StringVar(&c.ContainerBaseImageName, "container-base-image",
+		"docker.io/falcosecurity/event-generator:latest", "The event-generator base image to generate new containers")
+	flags.Var(enumflag.New(&c.ContainerImagePullPolicy, "container-image-pull-policy", containerImagePullPolicies,
+		enumflag.EnumCaseInsensitive), "container-image-pull-policy",
+		"The container image pull policy; can be 'always', 'never' or 'ifnotpresent'")
 }
 
 // envKeyFromFlagName converts the provided flag name into the corresponding environment variable key.

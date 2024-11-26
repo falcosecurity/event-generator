@@ -24,6 +24,7 @@ import (
 
 	"github.com/go-logr/logr"
 
+	"github.com/falcosecurity/event-generator/pkg/container"
 	"github.com/falcosecurity/event-generator/pkg/process"
 	"github.com/falcosecurity/event-generator/pkg/test"
 	"github.com/falcosecurity/event-generator/pkg/test/loader"
@@ -36,6 +37,8 @@ type hostRunner struct {
 	logger logr.Logger
 	// testBuilder is the builder used to build a test.
 	testBuilder test.Builder
+	// containerBuilder is the builder used to build a container.
+	containerBuilder container.Builder
 	*runner.Description
 }
 
@@ -43,9 +46,14 @@ type hostRunner struct {
 var _ runner.Runner = (*hostRunner)(nil)
 
 // New creates a new host runner.
-func New(logger logr.Logger, testBuilder test.Builder, description *runner.Description) (runner.Runner, error) {
+func New(logger logr.Logger, testBuilder test.Builder, containerBuilder container.Builder,
+	description *runner.Description) (runner.Runner, error) {
 	if testBuilder == nil {
 		return nil, fmt.Errorf("test builder must not be nil")
+	}
+
+	if containerBuilder == nil {
+		return nil, fmt.Errorf("container builder must not be nil")
 	}
 
 	if description.TestDescriptionEnvKey == "" {
@@ -69,21 +77,33 @@ func New(logger logr.Logger, testBuilder test.Builder, description *runner.Descr
 	}
 
 	r := &hostRunner{
-		logger:      logger,
-		testBuilder: testBuilder,
-		Description: description,
+		logger:           logger,
+		testBuilder:      testBuilder,
+		containerBuilder: containerBuilder,
+		Description:      description,
 	}
 	return r, nil
 }
 
 func (r *hostRunner) Run(ctx context.Context, testID string, testIndex int, testDesc *loader.Test) error {
-	// Delegate to child process if we are not at the end of the chain.
-	if testDesc.Context != nil && len(testDesc.Context.Processes) != 0 {
-		if err := r.delegateToChild(ctx, testID, testIndex, testDesc); err != nil {
-			return fmt.Errorf("error delegating to child process: %w", err)
+	if testContext := testDesc.Context; testContext != nil {
+		// Delegate to container if the user specified a container context.
+		if testContext.Container != nil {
+			if err := r.delegateToContainer(ctx, testID, testIndex, testDesc); err != nil {
+				return fmt.Errorf("error delegating to container: %w", err)
+			}
+
+			return nil
 		}
 
-		return nil
+		// Delegate to child process if we are not at the end of the process chain.
+		if len(testDesc.Context.Processes) != 0 {
+			if err := r.delegateToProcess(ctx, testID, testIndex, testDesc); err != nil {
+				return fmt.Errorf("error delegating to child process: %w", err)
+			}
+
+			return nil
+		}
 	}
 
 	// Build test.
@@ -102,8 +122,136 @@ func (r *hostRunner) Run(ctx context.Context, testID string, testIndex int, test
 	return nil
 }
 
-// delegateToChild delegates the execution of the test to a child process, created and tuned as per test specification.
-func (r *hostRunner) delegateToChild(ctx context.Context, testID string, testIndex int, testDesc *loader.Test) error {
+// delegateToContainer delegates the execution of the test to a container, created and tuned as per test specification.
+func (r *hostRunner) delegateToContainer(ctx context.Context, testID string, testIndex int,
+	testDesc *loader.Test) error {
+	containerContext := popContainer(testDesc.Context)
+
+	// Configure the container.
+	containerBuilder := r.containerBuilder
+
+	containerBuilder.SetLogger(r.logger.WithName("container"))
+
+	if imageName := containerContext.Image; imageName != nil {
+		containerBuilder.SetImageName(*imageName)
+	}
+
+	if containerName := containerContext.Name; containerName != nil {
+		containerBuilder.SetContainerName(*containerName)
+	}
+
+	containerEnv, err := r.buildEnv(testID, testIndex, testDesc, containerContext.Env, false)
+	if err != nil {
+		return fmt.Errorf("error building container environment variables set: %w", err)
+	}
+	containerBuilder.SetEnv(containerEnv)
+
+	cont := containerBuilder.Build()
+
+	// Run the container and wait for it.
+	if err := cont.Start(ctx); err != nil {
+		return fmt.Errorf("error starting container: %w", err)
+	}
+
+	if err := cont.Wait(ctx); err != nil {
+		return fmt.Errorf("error waiting for container: %w", err)
+	}
+
+	return nil
+}
+
+// popContainer removes and returns the container context from the provided testContext.
+func popContainer(testContext *loader.TestContext) *loader.ContainerContext {
+	containerContext := testContext.Container
+	testContext.Container = nil
+	return containerContext
+}
+
+// buildEnv builds the environment variable set for a given process, leveraging the provided test data and the
+// additional user-provide environment variables.
+func (r *hostRunner) buildEnv(testID string, testIndex int, testDesc *loader.Test, userEnv map[string]string,
+	isLastProcess bool) ([]string, error) {
+	env := r.Environ
+
+	// Add the user-provided environment variable.
+	for key, value := range userEnv {
+		env = append(env, fmt.Sprintf("%s=%s", key, value))
+	}
+
+	// Set test description environment variable to the serialized test description.
+	description, err := marshalTestDescription(testDesc)
+	if err != nil {
+		return nil, fmt.Errorf("error serializing new test description: %w", err)
+	}
+	descriptionEnvVar := buildEnvVar(r.TestDescriptionEnvKey, description)
+
+	// Set test ID environment variable.
+	if isLastProcess {
+		testID = r.getTestUID(testID)
+	}
+	testIDEnvVar := buildEnvVar(r.TestIDEnvKey, testID)
+
+	// Set process label environment variable.
+	procLabel, err := r.buildProcLabel(testIndex)
+	if err != nil {
+		return nil, fmt.Errorf("error building process label: %w", err)
+	}
+	procLabelEnvVar := buildEnvVar(r.ProcLabelEnvKey, procLabel)
+
+	// Override test description file environment variable to avoid conflicts with the test description environment
+	// variable.
+	descriptionFileEnvVar := buildEnvVar(r.TestDescriptionFileEnvKey, "")
+
+	env = append(env, descriptionEnvVar, testIDEnvVar, procLabelEnvVar, descriptionFileEnvVar)
+	return env, nil
+}
+
+// marshalTestDescription returns the serialized content of a test description object containing only the provided test.
+func marshalTestDescription(testDesc *loader.Test) (string, error) {
+	desc := &loader.Description{Tests: []loader.Test{*testDesc}}
+	sb := &strings.Builder{}
+	if err := desc.Write(sb); err != nil {
+		return "", err
+	}
+
+	return sb.String(), nil
+}
+
+// buildEnvVar creates an environment variable string in the form "<envKey>=<envValue>".
+func buildEnvVar(envKey, envValue string) string {
+	return fmt.Sprintf("%s=%s", envKey, envValue)
+}
+
+// getTestUID extracts the test UID from the test ID by removing the ignore prefix.
+func (r *hostRunner) getTestUID(testID string) string {
+	return strings.TrimPrefix(testID, r.TestIDIgnorePrefix)
+}
+
+// buildProcLabel builds a process label. If the current process Label is not defined, it uses the provided testIndex to
+// create a new one; otherwise, given the process label in the form testName,child<childIndex>, it returns
+// testName,child<childIndex+1>.
+func (r *hostRunner) buildProcLabel(testIndex int) (string, error) {
+	procLabel := r.ProcLabel
+	if procLabel == "" {
+		return fmt.Sprintf("test%d,child0", testIndex), nil
+	}
+
+	labelParts := strings.Split(procLabel, ",")
+	if len(labelParts) != 2 {
+		return "", fmt.Errorf("cannot parse process label")
+	}
+
+	testName, procName := labelParts[0], labelParts[1]
+	childIndex, err := strconv.Atoi(strings.TrimPrefix(procName, "child"))
+	if err != nil {
+		return "", fmt.Errorf("error parsing process name in process label %q: %w", procName, err)
+	}
+
+	return fmt.Sprintf("%s,child%d", testName, childIndex+1), nil
+}
+
+// delegateToProcess delegates the execution of the test to a process, created and tuned as per test specification.
+func (r *hostRunner) delegateToProcess(ctx context.Context, testID string, testIndex int, testDesc *loader.Test) error {
 	firstProcess := popFirstProcessContext(testDesc.Context)
 	isLastProcess := len(testDesc.Context.Processes) == 0
 
@@ -168,87 +316,6 @@ func popFirstProcessContext(testContext *loader.TestContext) *loader.ProcessCont
 	firstProcess := processes[0]
 	testContext.Processes = processes[1:]
 	return &firstProcess
-}
-
-func (r *hostRunner) buildEnv(testID string, testIndex int, testDesc *loader.Test, userEnv map[string]string,
-	isLastProcess bool) ([]string, error) {
-	env := r.Environ
-
-	// Add the user-provided environment variable.
-	for key, value := range userEnv {
-		env = append(env, fmt.Sprintf("%s=%s", key, value))
-	}
-
-	// Set test description environment variable to the serialized test description.
-	description, err := marshalTestDescription(testDesc)
-	if err != nil {
-		return nil, fmt.Errorf("error serializing new test description: %w", err)
-	}
-	descriptionEnvVar := buildEnvVar(r.TestDescriptionEnvKey, description)
-
-	// Set test ID environment variable.
-	if isLastProcess {
-		testID = r.getTestUID(testID)
-	}
-	testIDEnvVar := buildEnvVar(r.TestIDEnvKey, testID)
-
-	// Set process label environment variable.
-	procLabel, err := r.buildProcLabel(testIndex)
-	if err != nil {
-		return nil, fmt.Errorf("error building process label: %w", err)
-	}
-	procLabelEnvVar := buildEnvVar(r.ProcLabelEnvKey, procLabel)
-
-	// Override test description file environment variable to avoid conflicts with the test description environment
-	// variable.
-	descriptionFileEnvVar := buildEnvVar(r.TestDescriptionFileEnvKey, "")
-
-	env = append(env, descriptionEnvVar, testIDEnvVar, procLabelEnvVar, descriptionFileEnvVar)
-	return env, nil
-}
-
-// buildEnvVar creates an environment variable string in the form "<envKey>=<envValue>".
-func buildEnvVar(envKey, envValue string) string {
-	return fmt.Sprintf("%s=%s", envKey, envValue)
-}
-
-// marshalTestDescription returns the serialized content of a test description object containing only the provided test.
-func marshalTestDescription(testDesc *loader.Test) (string, error) {
-	desc := &loader.Description{Tests: []loader.Test{*testDesc}}
-	sb := &strings.Builder{}
-	if err := desc.Write(sb); err != nil {
-		return "", err
-	}
-
-	return sb.String(), nil
-}
-
-// getTestUID extracts the test UID from the test ID by removing the ignore prefix.
-func (r *hostRunner) getTestUID(testID string) string {
-	return strings.TrimPrefix(testID, r.TestIDIgnorePrefix)
-}
-
-// buildProcLabel builds a process label. If the current process Label is not defined, it uses the provided testIndex to
-// create a new one; otherwise, given the process label in the form testName,child<childIndex>, it returns
-// testName,child<childIndex+1>.
-func (r *hostRunner) buildProcLabel(testIndex int) (string, error) {
-	procLabel := r.ProcLabel
-	if procLabel == "" {
-		return fmt.Sprintf("test%d,child0", testIndex), nil
-	}
-
-	labelParts := strings.Split(procLabel, ",")
-	if len(labelParts) != 2 {
-		return "", fmt.Errorf("cannot parse process label")
-	}
-
-	testName, procName := labelParts[0], labelParts[1]
-	childIndex, err := strconv.Atoi(strings.TrimPrefix(procName, "child"))
-	if err != nil {
-		return "", fmt.Errorf("error parsing process name in process label %q: %w", procName, err)
-	}
-
-	return fmt.Sprintf("%s,child%d", testName, childIndex+1), nil
 }
 
 // getCurrentExePath retrieves the current process executable path.
