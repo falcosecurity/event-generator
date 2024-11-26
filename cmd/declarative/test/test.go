@@ -35,6 +35,7 @@ import (
 
 	"github.com/falcosecurity/event-generator/cmd/declarative/config"
 	"github.com/falcosecurity/event-generator/pkg/alert/retriever/grpcretriever"
+	containerbuilder "github.com/falcosecurity/event-generator/pkg/container/builder"
 	"github.com/falcosecurity/event-generator/pkg/test"
 	testbuilder "github.com/falcosecurity/event-generator/pkg/test/builder"
 	"github.com/falcosecurity/event-generator/pkg/test/loader"
@@ -217,7 +218,18 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		exitAndCancel()
 	}
 
-	runnerBuilder, err := runnerbuilder.New(testBuilder)
+	containerBuilderOptions := []containerbuilder.Option{
+		containerbuilder.WithUnixSocketPath(cw.ContainerRuntimeUnixSocketPath),
+		containerbuilder.WithBaseImageName(cw.ContainerBaseImageName),
+		containerbuilder.WithBaseImagePullPolicy(cw.ContainerImagePullPolicy),
+	}
+	containerBuilder, err := containerbuilder.New(containerBuilderOptions...)
+	if err != nil {
+		logger.Error(err, "Error creating container builder")
+		exitAndCancel()
+	}
+
+	runnerBuilder, err := runnerbuilder.New(testBuilder, containerBuilder)
 	if err != nil {
 		logger.Error(err, "Error creating runner builder")
 		exitAndCancel()
