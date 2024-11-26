@@ -34,8 +34,8 @@ const (
 	DescriptionFlagName = "description"
 	// TestIDFlagName is the name of the flag allowing to specify the test identifier.
 	TestIDFlagName = "test-id"
-	// ProcLabelFlagName is the name of the flag allowing to specify a process label.
-	ProcLabelFlagName = "proc-label"
+	// LabelsFlagName is the name of the flag allowing to specify labels.
+	LabelsFlagName = "labels"
 	// TimeoutFlagName is the name of the flag allowing to specify the test timeout.
 	TimeoutFlagName = "timeout"
 )
@@ -51,8 +51,8 @@ type Config struct {
 	DescriptionEnvKey string
 	// TestIDEnvKey is the environment variable key corresponding to TestIDFlagName.
 	TestIDEnvKey string
-	// ProcLabelEnvKey is the environment variable key corresponding to ProcLabelFlagName.
-	ProcLabelEnvKey string
+	// LabelsEnvKey is the environment variable key corresponding to LabelsFlagName.
+	LabelsEnvKey string
 	// TimeoutEnvKey is the environment variable key corresponding to TimeoutFlagName.
 	TimeoutEnvKey string
 
@@ -68,11 +68,6 @@ type Config struct {
 	// - the root process has no test ID
 	// - the processes in the process chain but the last have the test ID in the form testIDIgnorePrefix<testUID>
 	// - the last process in the process chain has the test ID in the form <testUID>
-	// A process having a test ID in the form <testUID> (i.e.: the leaf process) is the only one that is monitored.
-	TestID string
-	// ProcLabel is the process label in the form test<testIndex>,child<childIndex>. It is used for logging purposes
-	// and to potentially generate the child process label.
-	ProcLabel string
 	// TestsTimeout is the maximal duration of the tests. If running tests lasts more than TestsTimeout, the execution
 	// of all pending tasks is canceled.
 	TestsTimeout time.Duration
@@ -82,6 +77,14 @@ type Config struct {
 	ContainerBaseImageName string
 	// ContainerImagePullPolicy is container image pull policy.
 	ContainerImagePullPolicy builder.ImagePullPolicy
+	//
+	// Hidden flags
+	//
+	// A process having a test ID in the form <testUID> (i.e.: the leaf process) is the only one that is monitored.
+	TestID string
+	// Labels is the string containing the comma-separated list of labels in the form <labelX>=<labelXValue>. It is used
+	// for logging purposes and to potentially generate the child process/container labels.
+	Labels string
 }
 
 var containerImagePullPolicies = map[builder.ImagePullPolicy][]string{
@@ -98,7 +101,7 @@ func New(cmd *cobra.Command, declarativeEnvKey, envKeysPrefix string) *Config {
 		DescriptionFileEnvKey: envKeyFromFlagName(envKeysPrefix, DescriptionFileFlagName),
 		DescriptionEnvKey:     envKeyFromFlagName(envKeysPrefix, DescriptionFlagName),
 		TestIDEnvKey:          envKeyFromFlagName(envKeysPrefix, TestIDFlagName),
-		ProcLabelEnvKey:       envKeyFromFlagName(envKeysPrefix, ProcLabelFlagName),
+		LabelsEnvKey:          envKeyFromFlagName(envKeysPrefix, LabelsFlagName),
 		TimeoutEnvKey:         envKeyFromFlagName(envKeysPrefix, TimeoutFlagName),
 	}
 	commonConf.initFlags(cmd)
@@ -114,16 +117,6 @@ func (c *Config) initFlags(cmd *cobra.Command) {
 	flags.StringVarP(&c.TestsDescription, DescriptionFlagName, "d", "",
 		"The YAML-formatted tests description string specifying the tests to be run")
 	cmd.MarkFlagsMutuallyExclusive(DescriptionFileFlagName, DescriptionFlagName)
-
-	flags.StringVar(&c.TestID, TestIDFlagName, "",
-		"(used during process chain building) The test identifier in the form <ignorePrefix><testUID>. It is "+
-			"used to propagate the test UID to child processes in the process chain")
-	flags.StringVar(&c.ProcLabel, ProcLabelFlagName, "",
-		"(used during process chain building) The process label in the form test<testIndex>,child<childIndex>. "+
-			"It is used for logging purposes and to potentially generate the child process label")
-	_ = flags.MarkHidden(TestIDFlagName)
-	_ = flags.MarkHidden(ProcLabelFlagName)
-
 	flags.DurationVarP(&c.TestsTimeout, TimeoutFlagName, "t", time.Minute,
 		"The maximal duration of the tests. If running tests lasts more than testsTimeout, the execution of "+
 			"all pending tasks is canceled")
@@ -136,6 +129,16 @@ func (c *Config) initFlags(cmd *cobra.Command) {
 	flags.Var(enumflag.New(&c.ContainerImagePullPolicy, "container-image-pull-policy", containerImagePullPolicies,
 		enumflag.EnumCaseInsensitive), "container-image-pull-policy",
 		"The container image pull policy; can be 'always', 'never' or 'ifnotpresent'")
+
+	// Hidden flags.
+	flags.StringVar(&c.TestID, TestIDFlagName, "",
+		"(used during process chain building) The test identifier in the form <ignorePrefix><testUID>. It is "+
+			"used to propagate the test UID to child processes/container in the process chain")
+	flags.StringVar(&c.Labels, LabelsFlagName, "",
+		"(used during process chain building) The list of comma-separated labels in the form <labelX>=<labelXValue>. "+
+			"It is used for logging purposes and to potentially generate the child process/container labels")
+	_ = flags.MarkHidden(TestIDFlagName)
+	_ = flags.MarkHidden(LabelsFlagName)
 }
 
 // envKeyFromFlagName converts the provided flag name into the corresponding environment variable key.

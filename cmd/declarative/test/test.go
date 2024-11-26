@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +34,7 @@ import (
 	"github.com/falcosecurity/event-generator/cmd/declarative/config"
 	"github.com/falcosecurity/event-generator/pkg/alert/retriever/grpcretriever"
 	containerbuilder "github.com/falcosecurity/event-generator/pkg/container/builder"
+	"github.com/falcosecurity/event-generator/pkg/label"
 	"github.com/falcosecurity/event-generator/pkg/test"
 	testbuilder "github.com/falcosecurity/event-generator/pkg/test/builder"
 	"github.com/falcosecurity/event-generator/pkg/test/loader"
@@ -181,17 +180,13 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	testID := cw.TestID
 	isRootProcess := testID == ""
 
-	procLabelInfo, err := parseProcLabel(cw.ProcLabel)
+	labels, err := label.ParseSet(cw.Labels)
 	if err != nil {
-		logger.Error(err, "Error parsing process label")
+		logger.Error(err, "Error parsing labels")
 		exitAndCancel()
 	}
 
-	if procLabelInfo == nil {
-		logger = logger.WithName("root")
-	} else {
-		logger = logger.WithName(procLabelInfo.testName).WithName(procLabelInfo.childName)
-	}
+	logger = enrichLogger(logger, labels)
 
 	description, err := loadTestsDescription(logger, cw.TestsDescriptionFile, cw.TestsDescription)
 	if err != nil {
@@ -256,14 +251,20 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	// Prepare parameters shared by runners.
 	runnerLogger := logger.WithName("runner")
 	runnerEnviron := cw.buildRunnerEnviron(cmd)
-	var runnerProcLabel string
-	if procLabelInfo != nil {
-		runnerProcLabel = fmt.Sprintf("%s,%s", procLabelInfo.testName, procLabelInfo.childName)
+	var runnerLabels *label.Set
+	if labels != nil {
+		runnerLabels = labels.Clone()
 	}
 
 	// Build and run the tests.
 	for testIndex := range description.Tests {
 		testDesc := &description.Tests[testIndex]
+
+		// If this process belongs to a test process chain, override the logged test index in order to match its
+		// absolute index among all the test descriptions.
+		if labels != nil {
+			testIndex = labels.TestIndex
+		}
 
 		logger := logger.WithValues("testName", testDesc.Name, "testIndex", testIndex)
 
@@ -292,6 +293,7 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		}
 
 		logger = logger.WithValues("testUid", testUID)
+		runnerLogger := runnerLogger.WithValues("testName", testDesc.Name, "testIndex", testIndex, "testUid", testUID)
 
 		runnerDescription := &runner.Description{
 			Environ:                   runnerEnviron,
@@ -299,19 +301,13 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 			TestDescriptionFileEnvKey: cw.DescriptionFileEnvKey,
 			TestIDEnvKey:              cw.TestIDEnvKey,
 			TestIDIgnorePrefix:        testIDIgnorePrefix,
-			ProcLabelEnvKey:           cw.ProcLabelEnvKey,
-			ProcLabel:                 runnerProcLabel,
+			LabelsEnvKey:              cw.LabelsEnvKey,
+			Labels:                    runnerLabels,
 		}
 		runnerInstance, err := runnerBuilder.Build(testDesc.Runner, runnerLogger, runnerDescription)
 		if err != nil {
 			logger.Error(err, "Error creating runner")
 			exitAndCancel()
-		}
-
-		// If this process belongs to a test process chain, override the logged test index in order to match its
-		// absolute index among all the test descriptions.
-		if !isRootProcess {
-			testIndex = procLabelInfo.testIndex
 		}
 
 		logger.Info("Starting test execution...")
@@ -352,45 +348,26 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	testerWaitGroup.Wait()
 }
 
-var (
-	// procLabelRegex defines the process label format and allows to extract the embedded test and child indexes.
-	procLabelRegex    = regexp.MustCompile(`^test(\d+),child(\d+)$`)
-	errProcLabelRegex = fmt.Errorf("process label must comply with %q regex", procLabelRegex.String())
-)
-
-// processLabelInfo contains information regarding the process label.
-type processLabelInfo struct {
-	testName   string
-	testIndex  int
-	childName  string
-	childIndex int
-}
-
-// parseProcLabel parses the process label and returns information on it.
-func parseProcLabel(procLabel string) (*processLabelInfo, error) {
-	if procLabel == "" {
-		return nil, nil
+// enrichLogger creates a new logger, starting from the provided one, with the information extracted from the provided
+// labels.
+func enrichLogger(logger logr.Logger, labels *label.Set) logr.Logger {
+	if labels == nil {
+		return logger.WithName("root")
 	}
 
-	match := procLabelRegex.FindStringSubmatch(procLabel)
-	if match == nil {
-		return nil, errProcLabelRegex
+	testName := fmt.Sprintf("test%d", labels.TestIndex)
+	logger = logger.WithName(testName)
+	if labels.IsContainer {
+		logger = logger.WithName("cont")
+		if imageName := labels.ImageName; imageName != "" {
+			logger = logger.WithValues("imageName", imageName)
+		}
+		if containerName := labels.ContainerName; containerName != "" {
+			logger = logger.WithValues("containerName", containerName)
+		}
 	}
-
-	// No errors can occur, since we have already verified through regex that they are numbers.
-	testIndex, _ := strconv.Atoi(match[1])
-	childIndex, _ := strconv.Atoi(match[2])
-
-	parts := strings.Split(procLabel, ",")
-
-	procLabelInfo := &processLabelInfo{
-		testName:   parts[0],
-		testIndex:  testIndex,
-		childName:  parts[1],
-		childIndex: childIndex,
-	}
-
-	return procLabelInfo, nil
+	procName := fmt.Sprintf("proc%d", labels.ProcIndex)
+	return logger.WithName(procName)
 }
 
 // loadTestsDescription loads the YAML tests description from a different source, depending on the content of the
