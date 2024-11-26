@@ -20,6 +20,7 @@ import (
 
 	"github.com/go-logr/logr"
 
+	"github.com/falcosecurity/event-generator/pkg/label"
 	"github.com/falcosecurity/event-generator/pkg/test/loader"
 )
 
@@ -50,9 +51,8 @@ type Description struct {
 	TestIDEnvKey string
 	// TestIDIgnorePrefix is the optional testID prefix value.
 	TestIDIgnorePrefix string
-	// ProcLabelEnvKey is the key identifying the environment variable used to store the process label in the form
-	// "test<testIndex>,child<childIndex>".
-	ProcLabelEnvKey string
-	// ProcLabel is the current process label.
-	ProcLabel string
+	// LabelsEnvKey is the key identifying the environment variable used to store the labels.
+	LabelsEnvKey string
+	// Labels is the set of process labels.
+	Labels *label.Set
 }
