@@ -161,14 +161,19 @@ func (r *TestRunnerType) UnmarshalYAML(node *yaml.Node) error {
 
 // TestContext contains information regarding the running context of a test.
 type TestContext struct {
-	Container *ContainerContext `yaml:"container,omitempty"`
+	Container *ContainerContext `yaml:"container,omitempty" validate:"omitempty"`
 	Processes []ProcessContext  `yaml:"processes,omitempty" validate:"omitempty,dive"`
 }
 
 // ContainerContext contains information regarding the container instance that will run a test.
 type ContainerContext struct {
-	Image string  `yaml:"image" validate:"required"`
-	Name  *string `yaml:"name,omitempty" validate:"omitempty,min=1"`
+	// Image is the name the base event-generator image must be tagged with before being used to spawn the container. If
+	// omitted, it defaults to the name of the base event-generator image.
+	Image *string `yaml:"image" validate:"omitempty,min=1"`
+	// Name is the name that must be used to identify the container. If omitted, it defaults to "event-generator".
+	Name *string `yaml:"name,omitempty" validate:"omitempty,min=1"`
+	// Env is the set of environment variables that must be provided to the container (in addition to the default ones).
+	Env map[string]string `yaml:"env,omitempty" validate:"omitempty,min=1"`
 }
 
 // ProcessContext contains information regarding the process that will run a test, or information about one of its
