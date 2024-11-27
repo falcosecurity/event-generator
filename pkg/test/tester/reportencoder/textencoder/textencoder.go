@@ -43,7 +43,7 @@ func (te *textEncoder) Encode(report *tester.Report) error {
 	sb.WriteString(fmt.Sprintf("Test %s, Rule %s\n", report.TestName, report.RuleName))
 
 	if report.Empty() {
-		sb.WriteString("\tFailed")
+		sb.WriteString("\tFailed\n")
 		_, err := io.WriteString(te.writer, sb.String())
 		return err
 	}
