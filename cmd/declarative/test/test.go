@@ -246,7 +246,7 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		}()
 	}
 
-	// Prepare parameters shared by runners.
+	// Prepare parameters shared by all runners.
 	runnerLogger := logger.WithName("runner")
 	runnerEnviron := cw.buildRunnerEnviron(cmd)
 	var runnerLabels *label.Set
@@ -309,30 +309,8 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		}
 
 		logger.Info("Starting test execution...")
-
 		if err := runnerInstance.Run(ctx, testID, testIndex, testDesc); err != nil {
-			var resBuildErr *test.ResourceBuildError
-			var stepBuildErr *test.StepBuildError
-			var resCreationErr *test.ResourceCreationError
-			var stepRunErr *test.StepBuildError
-
-			switch {
-			case errors.As(err, &resBuildErr):
-				logger.Error(resBuildErr.Err, "Error building test resource", "resourceName", resBuildErr.ResourceName,
-					"resourceIndex", resBuildErr.ResourceIndex)
-			case errors.As(err, &stepBuildErr):
-				logger.Error(stepBuildErr.Err, "Error building test step", "stepName", stepBuildErr.StepName,
-					"stepIndex", stepBuildErr.StepIndex)
-			case errors.As(err, &resCreationErr):
-				logger.Error(resCreationErr.Err, "Error creating test resource", "resourceName",
-					resCreationErr.ResourceName, "resourceIndex", resCreationErr.ResourceIndex)
-			case errors.As(err, &stepRunErr):
-				logger.Error(stepRunErr.Err, "Error running test step", "stepName", stepRunErr.StepName, "stepIndex",
-					stepRunErr.StepIndex)
-			default:
-				logger.Error(err, "Error running test")
-			}
-
+			logRunnerError(logger, err)
 			exitAndCancel()
 		}
 
@@ -438,6 +416,31 @@ func (cw *CommandWrapper) appendFlags(environ []string, flagSets ...*pflag.FlagS
 		flagSet.VisitAll(appendFlag)
 	}
 	return environ
+}
+
+// logRunnerError logs the provided runner error using the provided logger.
+func logRunnerError(logger logr.Logger, err error) {
+	var resBuildErr *test.ResourceBuildError
+	var stepBuildErr *test.StepBuildError
+	var resCreationErr *test.ResourceCreationError
+	var stepRunErr *test.StepBuildError
+
+	switch {
+	case errors.As(err, &resBuildErr):
+		logger.Error(resBuildErr.Err, "Error building test resource", "resourceName", resBuildErr.ResourceName,
+			"resourceIndex", resBuildErr.ResourceIndex)
+	case errors.As(err, &stepBuildErr):
+		logger.Error(stepBuildErr.Err, "Error building test step", "stepName", stepBuildErr.StepName,
+			"stepIndex", stepBuildErr.StepIndex)
+	case errors.As(err, &resCreationErr):
+		logger.Error(resCreationErr.Err, "Error creating test resource", "resourceName",
+			resCreationErr.ResourceName, "resourceIndex", resCreationErr.ResourceIndex)
+	case errors.As(err, &stepRunErr):
+		logger.Error(stepRunErr.Err, "Error running test step", "stepName", stepRunErr.StepName, "stepIndex",
+			stepRunErr.StepIndex)
+	default:
+		logger.Error(err, "Error running test")
+	}
 }
 
 // produceReport produces a report for the given test by using the provided tester.
