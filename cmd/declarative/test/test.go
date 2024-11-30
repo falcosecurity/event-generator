@@ -230,16 +230,14 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		exitAndCancel()
 	}
 
+	// Initialize tester and Falco alerts collection.
 	var testr tester.Tester
+	testerWaitGroup := sync.WaitGroup{}
 	if isRootProcess && !cw.skipOutcomeVerification {
 		if testr, err = cw.initTester(logger); err != nil {
 			logger.Error(err, "Error initializing tester")
 			exitAndCancel()
 		}
-	}
-
-	testerWaitGroup := sync.WaitGroup{}
-	if testr != nil {
 		go func() {
 			if err := testr.StartAlertsCollection(ctx); err != nil {
 				logger.Error(err, "Error starting tester execution")
