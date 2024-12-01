@@ -21,6 +21,7 @@ import (
 	"github.com/go-logr/logr"
 
 	"github.com/falcosecurity/event-generator/pkg/container"
+	"github.com/falcosecurity/event-generator/pkg/process"
 	"github.com/falcosecurity/event-generator/pkg/test"
 	"github.com/falcosecurity/event-generator/pkg/test/loader"
 	"github.com/falcosecurity/event-generator/pkg/test/runner"
@@ -31,6 +32,8 @@ import (
 type builder struct {
 	// testBuilder is the builder used to build a test.
 	testBuilder test.Builder
+	// processBuilder is the builder used to build a process.
+	processBuilder process.Builder
 	// containerBuilder is the builder used to build a container.
 	containerBuilder container.Builder
 }
@@ -39,9 +42,14 @@ type builder struct {
 var _ runner.Builder = (*builder)(nil)
 
 // New creates a new builder.
-func New(testBuilder test.Builder, containerBuilder container.Builder) (runner.Builder, error) {
+func New(testBuilder test.Builder, processBuilder process.Builder,
+	containerBuilder container.Builder) (runner.Builder, error) {
 	if testBuilder == nil {
 		return nil, fmt.Errorf("test builder must not be nil")
+	}
+
+	if processBuilder == nil {
+		return nil, fmt.Errorf("process builder must not be nil")
 	}
 
 	if containerBuilder == nil {
@@ -50,6 +58,7 @@ func New(testBuilder test.Builder, containerBuilder container.Builder) (runner.B
 
 	b := &builder{
 		testBuilder:      testBuilder,
+		processBuilder:   processBuilder,
 		containerBuilder: containerBuilder,
 	}
 	return b, nil
@@ -60,7 +69,7 @@ func (b *builder) Build(runnerType loader.TestRunnerType, logger logr.Logger,
 	logger = logger.WithValues("runnerType", runnerType)
 	switch runnerType {
 	case loader.TestRunnerTypeHost:
-		return host.New(logger, b.testBuilder, b.containerBuilder, description)
+		return host.New(logger, b.testBuilder, b.processBuilder, b.containerBuilder, description)
 	default:
 		return nil, fmt.Errorf("unknown test runner type %q", runnerType)
 	}
