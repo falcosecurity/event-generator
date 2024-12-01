@@ -33,7 +33,7 @@ type procRes struct {
 	// resourceName is the process resource name.
 	resourceName string
 
-	proc *process.Process
+	proc process.Process
 	// fields defines the information exposed by process for binding.
 	fields struct {
 		// PID is process identifier. If the resource has not been Create'd yet, or it has been Destroy'ed, PID is set
@@ -42,18 +42,18 @@ type procRes struct {
 	}
 }
 
+// TODO: replace "cat" with "sleep infinity" when the process package will provide support for multiple arguments.
+var processCommand = "cat"
+
 // New creates a new process resource.
-func New(logger logr.Logger, resourceName, simExePath, name, arg0, args string, env []string) resource.Resource {
-	procDesc := &process.Description{
-		Logger:     logger,
-		Command:    processCommand,
-		SimExePath: simExePath,
-		Name:       name,
-		Arg0:       arg0,
-		Args:       args,
-		Env:        env,
-	}
-	proc := process.New(context.Background(), procDesc)
+func New(logger logr.Logger, resourceName string, processBuilder process.Builder, simExePath, name, arg0, args string,
+	env []string) resource.Resource {
+	processBuilder.SetSimExePath(simExePath)
+	processBuilder.SetName(name)
+	processBuilder.SetArg0(arg0)
+	processBuilder.SetArgs(args)
+	processBuilder.SetEnv(env)
+	proc := processBuilder.Build(context.Background(), logger, processCommand)
 
 	p := &procRes{
 		logger:       logger,
@@ -75,9 +75,6 @@ var (
 	errProcessAlreadyStarted = fmt.Errorf("process already started")
 	errProcessAlreadyExited  = fmt.Errorf("process already exited")
 )
-
-// TODO: replace "cat" with "sleep infinity" when the process package will provide support for multiple arguments.
-var processCommand = "cat"
 
 // Create creates a process and exposes its bindable fields.
 func (p *procRes) Create(_ context.Context) error {

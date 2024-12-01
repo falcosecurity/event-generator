@@ -13,5 +13,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package process provides the definition of a Process and a process Builder.
-package process
+// Package builder provides an implementation of process.Builder and process.Process.
+package builder

@@ -35,6 +35,7 @@ import (
 	"github.com/falcosecurity/event-generator/pkg/alert/retriever/grpcretriever"
 	containerbuilder "github.com/falcosecurity/event-generator/pkg/container/builder"
 	"github.com/falcosecurity/event-generator/pkg/label"
+	processbuilder "github.com/falcosecurity/event-generator/pkg/process/builder"
 	"github.com/falcosecurity/event-generator/pkg/test"
 	testbuilder "github.com/falcosecurity/event-generator/pkg/test/builder"
 	"github.com/falcosecurity/event-generator/pkg/test/loader"
@@ -194,7 +195,8 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		exitAndCancel()
 	}
 
-	resourceBuilder, err := resbuilder.New()
+	resourceProcessBuilder := processbuilder.New()
+	resourceBuilder, err := resbuilder.New(resourceProcessBuilder)
 	if err != nil {
 		logger.Error(err, "Error creating resource builder")
 		exitAndCancel()
@@ -213,18 +215,20 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		exitAndCancel()
 	}
 
-	containerBuilderOptions := []containerbuilder.Option{
+	runnerProcessBuilder := processbuilder.New()
+
+	runnerContainerBuilderOptions := []containerbuilder.Option{
 		containerbuilder.WithUnixSocketPath(cw.ContainerRuntimeUnixSocketPath),
 		containerbuilder.WithBaseImageName(cw.ContainerBaseImageName),
 		containerbuilder.WithBaseImagePullPolicy(cw.ContainerImagePullPolicy),
 	}
-	containerBuilder, err := containerbuilder.New(containerBuilderOptions...)
+	runnerContainerBuilder, err := containerbuilder.New(runnerContainerBuilderOptions...)
 	if err != nil {
 		logger.Error(err, "Error creating container builder")
 		exitAndCancel()
 	}
 
-	runnerBuilder, err := runnerbuilder.New(testBuilder, containerBuilder)
+	runnerBuilder, err := runnerbuilder.New(testBuilder, runnerProcessBuilder, runnerContainerBuilder)
 	if err != nil {
 		logger.Error(err, "Error creating runner builder")
 		exitAndCancel()
