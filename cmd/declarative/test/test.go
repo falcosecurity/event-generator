@@ -176,18 +176,13 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		os.Exit(1)
 	}
 
-	// Retrieve the already populated test ID. The test ID absence is used to uniquely identify the root process in the
-	// process chain.
-	testID := cw.TestID
-	isRootProcess := testID == ""
-
 	labels, err := label.ParseSet(cw.Labels)
 	if err != nil {
 		logger.Error(err, "Error parsing labels")
 		exitAndCancel()
 	}
 
-	logger = enrichLogger(logger, labels)
+	logger = enrichLoggerWithLabels(logger, labels)
 
 	description, err := loadTestsDescription(logger, cw.TestsDescriptionFile, cw.TestsDescription)
 	if err != nil {
@@ -195,51 +190,23 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		exitAndCancel()
 	}
 
-	resourceProcessBuilder := processbuilder.New()
-	resourceBuilder, err := resbuilder.New(resourceProcessBuilder)
-	if err != nil {
-		logger.Error(err, "Error creating resource builder")
-		exitAndCancel()
-	}
-
-	syscallBuilder := sysbuilder.New()
-	stepBuilder, err := stepbuilder.New(syscallBuilder)
-	if err != nil {
-		logger.Error(err, "Error creating step builder")
-		exitAndCancel()
-	}
-
-	testBuilder, err := testbuilder.New(resourceBuilder, stepBuilder)
-	if err != nil {
-		logger.Error(err, "Error creating test builder")
-		exitAndCancel()
-	}
-
-	runnerProcessBuilder := processbuilder.New()
-
-	runnerContainerBuilderOptions := []containerbuilder.Option{
-		containerbuilder.WithUnixSocketPath(cw.ContainerRuntimeUnixSocketPath),
-		containerbuilder.WithBaseImageName(cw.ContainerBaseImageName),
-		containerbuilder.WithBaseImagePullPolicy(cw.ContainerImagePullPolicy),
-	}
-	runnerContainerBuilder, err := containerbuilder.New(runnerContainerBuilderOptions...)
-	if err != nil {
-		logger.Error(err, "Error creating container builder")
-		exitAndCancel()
-	}
-
-	runnerBuilder, err := runnerbuilder.New(testBuilder, runnerProcessBuilder, runnerContainerBuilder)
+	runnerBuilder, err := cw.createRunnerBuilder()
 	if err != nil {
 		logger.Error(err, "Error creating runner builder")
 		exitAndCancel()
 	}
 
+	// Retrieve the already populated test ID. The test ID absence is used to uniquely identify the root process in the
+	// process chain.
+	testID := cw.TestID
+	isRootProcess := testID == ""
+
 	// Initialize tester and Falco alerts collection.
 	var testr tester.Tester
 	testerWaitGroup := sync.WaitGroup{}
 	if isRootProcess && !cw.skipOutcomeVerification {
-		if testr, err = cw.initTester(logger); err != nil {
-			logger.Error(err, "Error initializing tester")
+		if testr, err = cw.createTester(logger); err != nil {
+			logger.Error(err, "Error creating tester")
 			exitAndCancel()
 		}
 		go func() {
@@ -251,7 +218,6 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	}
 
 	// Prepare parameters shared by all runners.
-	runnerLogger := logger.WithName("runner")
 	runnerEnviron := cw.buildRunnerEnviron(cmd)
 	var runnerLabels *label.Set
 	if labels != nil {
@@ -274,29 +240,21 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		if isRootProcess {
 			// Generate a new UID for the test.
 			testUID = uuid.New()
-			testID = fmt.Sprintf("%s%s", testIDIgnorePrefix, testUID.String())
-
-			// Ensure the process chain has at least one element. If the user didn't specify anything, add a default
-			// process to the chain.
-			if testDesc.Context == nil {
-				testDesc.Context = &loader.TestContext{}
-			}
-			if len(testDesc.Context.Processes) == 0 && testDesc.Context.Container == nil {
-				testDesc.Context.Processes = []loader.ProcessContext{{}}
-			}
+			testID = newTestID(&testUID)
+			ensureProcessChainLeaf(testDesc)
 		} else {
 			// Extract UID from test ID.
 			var err error
-			testUID, err = uuid.Parse(strings.TrimPrefix(testID, testIDIgnorePrefix))
+			testUID, err = extractTestUID(testID)
 			if err != nil {
-				logger.Error(err, "Error parsing test UID", "testUid")
+				logger.Error(err, "Error extracting test UID from test ID", "testId", testID)
 				exitAndCancel()
 			}
 		}
 
 		logger = logger.WithValues("testUid", testUID)
-		runnerLogger := runnerLogger.WithValues("testName", testDesc.Name, "testIndex", testIndex, "testUid", testUID)
 
+		runnerLogger := logger.WithName("runner")
 		runnerDescription := &runner.Description{
 			Environ:                   runnerEnviron,
 			TestDescriptionEnvKey:     cw.DescriptionEnvKey,
@@ -328,9 +286,9 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	testerWaitGroup.Wait()
 }
 
-// enrichLogger creates a new logger, starting from the provided one, with the information extracted from the provided
-// labels.
-func enrichLogger(logger logr.Logger, labels *label.Set) logr.Logger {
+// enrichLoggerWithLabels creates a new logger, starting from the provided one, with the information extracted from the
+// provided labels.
+func enrichLoggerWithLabels(logger logr.Logger, labels *label.Set) logr.Logger {
 	if labels == nil {
 		return logger.WithName("root")
 	}
@@ -380,7 +338,42 @@ func loadTestsDescription(logger logr.Logger, descriptionFilePath, description s
 	return ldr.Load(os.Stdin)
 }
 
-func (cw *CommandWrapper) initTester(logger logr.Logger) (tester.Tester, error) {
+// createRunnerBuilder creates a new runner builder.
+func (cw *CommandWrapper) createRunnerBuilder() (runner.Builder, error) {
+	resourceProcessBuilder := processbuilder.New()
+	resourceBuilder, err := resbuilder.New(resourceProcessBuilder)
+	if err != nil {
+		return nil, fmt.Errorf("error creating resource builder: %w", err)
+	}
+
+	syscallBuilder := sysbuilder.New()
+	stepBuilder, err := stepbuilder.New(syscallBuilder)
+	if err != nil {
+		return nil, fmt.Errorf("error creating step builder: %w", err)
+	}
+
+	testBuilder, err := testbuilder.New(resourceBuilder, stepBuilder)
+	if err != nil {
+		return nil, fmt.Errorf("error creating test builder: %w", err)
+	}
+
+	runnerProcessBuilder := processbuilder.New()
+
+	runnerContainerBuilderOptions := []containerbuilder.Option{
+		containerbuilder.WithUnixSocketPath(cw.ContainerRuntimeUnixSocketPath),
+		containerbuilder.WithBaseImageName(cw.ContainerBaseImageName),
+		containerbuilder.WithBaseImagePullPolicy(cw.ContainerImagePullPolicy),
+	}
+	runnerContainerBuilder, err := containerbuilder.New(runnerContainerBuilderOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("error creating container builder: %w", err)
+	}
+
+	return runnerbuilder.New(testBuilder, runnerProcessBuilder, runnerContainerBuilder)
+}
+
+// createTester creates a new tester.
+func (cw *CommandWrapper) createTester(logger logr.Logger) (tester.Tester, error) {
 	gRPCRetrieverOptions := []grpcretriever.Option{
 		grpcretriever.WithUnixSocketPath(cw.unixSocketPath),
 		grpcretriever.WithHostname(cw.hostname),
@@ -420,6 +413,27 @@ func (cw *CommandWrapper) appendFlags(environ []string, flagSets ...*pflag.FlagS
 		flagSet.VisitAll(appendFlag)
 	}
 	return environ
+}
+
+// newTestID creates a new test ID from the provided test UID.
+func newTestID(uid *uuid.UUID) string {
+	return fmt.Sprintf("%s%s", testIDIgnorePrefix, uid.String())
+}
+
+// ensureProcessChainLeaf ensures the process chain has at least one element. If the user didn't specify anything, add a
+// default process to the chain.
+func ensureProcessChainLeaf(testDesc *loader.Test) {
+	if testDesc.Context == nil {
+		testDesc.Context = &loader.TestContext{}
+	}
+	if len(testDesc.Context.Processes) == 0 && testDesc.Context.Container == nil {
+		testDesc.Context.Processes = []loader.ProcessContext{{}}
+	}
+}
+
+// extractTestUID extracts the test UID from the provided test ID.
+func extractTestUID(testID string) (uuid.UUID, error) {
+	return uuid.Parse(strings.TrimPrefix(testID, testIDIgnorePrefix))
 }
 
 // logRunnerError logs the provided runner error using the provided logger.
