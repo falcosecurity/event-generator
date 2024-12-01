@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-logr/logr"
 
+	"github.com/falcosecurity/event-generator/pkg/process"
 	"github.com/falcosecurity/event-generator/pkg/test/loader"
 	"github.com/falcosecurity/event-generator/pkg/test/resource"
 	"github.com/falcosecurity/event-generator/pkg/test/resource/clientserver"
@@ -32,18 +33,26 @@ import (
 	"github.com/falcosecurity/event-generator/pkg/test/resource/fd/mem"
 	"github.com/falcosecurity/event-generator/pkg/test/resource/fd/pipe"
 	"github.com/falcosecurity/event-generator/pkg/test/resource/fd/signal"
-	"github.com/falcosecurity/event-generator/pkg/test/resource/process"
+	processresource "github.com/falcosecurity/event-generator/pkg/test/resource/process"
 )
 
 // builder is an implementation of resource.Builder.
-type builder struct{}
+type builder struct {
+	// processBuilder is the builder used to build a process.
+	processBuilder process.Builder
+}
 
 // Verify that builder implements resource.Builder interface.
 var _ resource.Builder = (*builder)(nil)
 
 // New creates a new builder.
-func New() (resource.Builder, error) {
-	return &builder{}, nil
+func New(processBuilder process.Builder) (resource.Builder, error) {
+	if processBuilder == nil {
+		return nil, fmt.Errorf("process builder must not be nil")
+	}
+
+	b := &builder{processBuilder: processBuilder}
+	return b, nil
 }
 
 func (b *builder) Build(logger logr.Logger, testResource *loader.TestResource) (resource.Resource, error) {
@@ -78,7 +87,7 @@ func (b *builder) Build(logger logr.Logger, testResource *loader.TestResource) (
 			return nil, fmt.Errorf("cannot parse process spec")
 		}
 
-		res := buildProcess(logger, resourceName, procSpec)
+		res := buildProcess(logger, resourceName, b.processBuilder, procSpec)
 		return res, nil
 	default:
 		return nil, fmt.Errorf("unknown test resource type %q", resourceType)
@@ -147,7 +156,9 @@ func buildFD(logger logr.Logger, resourceName string,
 	}
 }
 
-func buildProcess(logger logr.Logger, resourceName string, procSpec *loader.TestResourceProcessSpec) resource.Resource {
+// buildProcess builds a process test resource.
+func buildProcess(logger logr.Logger, resourceName string, processBuilder process.Builder,
+	procSpec *loader.TestResourceProcessSpec) resource.Resource {
 	var simExePath, name, arg0, args string
 	if procSpec.ExePath != nil {
 		simExePath = *procSpec.ExePath
@@ -162,7 +173,7 @@ func buildProcess(logger logr.Logger, resourceName string, procSpec *loader.Test
 		args = *procSpec.Args
 	}
 	procEnv := buildProcEnv(procSpec.Env)
-	return process.New(logger, resourceName, simExePath, name, arg0, args, procEnv)
+	return processresource.New(logger, resourceName, processBuilder, simExePath, name, arg0, args, procEnv)
 }
 
 func buildProcEnv(userEnv map[string]string) []string {

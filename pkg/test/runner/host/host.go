@@ -37,6 +37,8 @@ type hostRunner struct {
 	logger logr.Logger
 	// testBuilder is the builder used to build a test.
 	testBuilder test.Builder
+	// processBuilder is the builder used to build a process.
+	processBuilder process.Builder
 	// containerBuilder is the builder used to build a container.
 	containerBuilder container.Builder
 	*runner.Description
@@ -46,10 +48,14 @@ type hostRunner struct {
 var _ runner.Runner = (*hostRunner)(nil)
 
 // New creates a new host runner.
-func New(logger logr.Logger, testBuilder test.Builder, containerBuilder container.Builder,
-	description *runner.Description) (runner.Runner, error) {
+func New(logger logr.Logger, testBuilder test.Builder, processBuilder process.Builder,
+	containerBuilder container.Builder, description *runner.Description) (runner.Runner, error) {
 	if testBuilder == nil {
 		return nil, fmt.Errorf("test builder must not be nil")
+	}
+
+	if processBuilder == nil {
+		return nil, fmt.Errorf("process builder must not be nil")
 	}
 
 	if containerBuilder == nil {
@@ -79,6 +85,7 @@ func New(logger logr.Logger, testBuilder test.Builder, containerBuilder containe
 	r := &hostRunner{
 		logger:           logger,
 		testBuilder:      testBuilder,
+		processBuilder:   processBuilder,
 		containerBuilder: containerBuilder,
 		Description:      description,
 	}
@@ -251,14 +258,13 @@ func (r *hostRunner) delegateToProcess(ctx context.Context, testID string, testI
 	firstProcess := popFirstProcessContext(testDesc.Context)
 	isLastProcess := len(testDesc.Context.Processes) == 0
 
+	// Evaluate process environment variables.
 	labels := r.Labels
 	if labels == nil {
 		labels = &label.Set{TestIndex: testIndex, ProcIndex: 0, IsContainer: false}
 	} else {
 		labels.ProcIndex++
 	}
-
-	// Evaluate process environment variables.
 	procEnv, err := r.buildEnv(testID, testDesc, firstProcess.Env, isLastProcess, labels)
 	if err != nil {
 		return fmt.Errorf("error building process environment variables set: %w", err)
@@ -270,37 +276,29 @@ func (r *hostRunner) delegateToProcess(ctx context.Context, testID string, testI
 		return fmt.Errorf("error retrieving the current process executable path: %w", err)
 	}
 
-	var simExePath, name, arg0, args, username, capabilities string
-	if firstProcess.ExePath != nil {
-		simExePath = *firstProcess.ExePath
+	// Build child process using the collected information.
+	if exePath := firstProcess.ExePath; exePath != nil {
+		r.processBuilder.SetSimExePath(*exePath)
 	}
-	if firstProcess.Name != nil {
-		name = *firstProcess.Name
+	if name := firstProcess.Name; name != nil {
+		r.processBuilder.SetName(*name)
 	}
-	if firstProcess.Exe != nil {
-		arg0 = *firstProcess.Exe
+	if exe := firstProcess.Exe; exe != nil {
+		r.processBuilder.SetArg0(*exe)
 	}
-	if firstProcess.Args != nil {
-		args = *firstProcess.Args
+	if args := firstProcess.Args; args != nil {
+		r.processBuilder.SetArgs(*args)
 	}
-	if firstProcess.User != nil {
-		username = *firstProcess.User
+	if user := firstProcess.User; user != nil {
+		r.processBuilder.SetUsername(*user)
 	}
-	if firstProcess.Capabilities != nil {
-		capabilities = *firstProcess.Capabilities
+	if capabilities := firstProcess.Capabilities; capabilities != nil {
+		r.processBuilder.SetCapabilities(*capabilities)
 	}
-	procDesc := &process.Description{
-		Logger:       r.logger.WithName("process"),
-		Command:      currentExePath,
-		SimExePath:   simExePath,
-		Name:         name,
-		Arg0:         arg0,
-		Args:         args,
-		Env:          procEnv,
-		Username:     username,
-		Capabilities: capabilities,
-	}
-	proc := process.New(ctx, procDesc)
+	r.processBuilder.SetEnv(procEnv)
+	logger := r.logger.WithName("process")
+	proc := r.processBuilder.Build(ctx, logger, currentExePath)
+
 	// Run the child process and wait for it.
 	if err := proc.Start(); err != nil {
 		return fmt.Errorf("error starting child process: %w", err)
