@@ -45,7 +45,6 @@ func New(name string, rawArgs map[string]string,
 	argsContainer := reflect.ValueOf(&s.args).Elem()
 	bindOnlyArgsContainer := reflect.ValueOf(&s.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(s).Elem()
-	reflect.ValueOf(*s)
 	return base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, nil, s.run,
 		nil)
 }
