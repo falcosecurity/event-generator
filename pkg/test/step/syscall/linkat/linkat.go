@@ -67,7 +67,7 @@ func (l *linkAtSyscall) run(_ context.Context) error {
 	oldPathPtr := unsafe.Pointer(&l.args.OldPath[0])
 	//nolint:gosec // System call invocation requires access to the raw pointer.
 	newPathPtr := unsafe.Pointer(&l.args.NewPath[0])
-	if _, _, err := unix.Syscall6(unix.SYS_OPENAT, uintptr(l.bindOnlyArgs.OldDirFD), uintptr(oldPathPtr),
+	if _, _, err := unix.Syscall6(unix.SYS_LINKAT, uintptr(l.bindOnlyArgs.OldDirFD), uintptr(oldPathPtr),
 		uintptr(l.bindOnlyArgs.NewDirFD), uintptr(newPathPtr), uintptr(l.args.Flags), 0); err != 0 {
 		return err
 	}
@@ -85,11 +85,11 @@ func (l *linkAtSyscall) cleanup(_ context.Context) error {
 		l.savedNewPath = nil
 	}()
 
-	dirFD := unix.AT_FDCWD
+	newDirFD := l.bindOnlyArgs.NewDirFD
 	//nolint:gosec // System call invocation requires access to the raw pointer.
 	savedNewPathPtr := unsafe.Pointer(&l.savedNewPath[0])
 	flags := 0
-	if _, _, err := unix.Syscall(unix.SYS_UNLINKAT, uintptr(dirFD), uintptr(savedNewPathPtr),
+	if _, _, err := unix.Syscall(unix.SYS_UNLINKAT, uintptr(newDirFD), uintptr(savedNewPathPtr),
 		uintptr(flags)); err != 0 {
 		return err
 	}
