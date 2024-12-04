@@ -45,11 +45,11 @@ func New(name string, rawArgs map[string]string,
 	fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	o := &openAt2Syscall{}
 	o.bindOnlyArgs.DirFD = unix.AT_FDCWD
-	// o.args.How fields defaulted to 0
+	// o.args.How field defaulted to empty struct.
 	argsContainer := reflect.ValueOf(&o.args).Elem()
 	bindOnlyArgsContainer := reflect.ValueOf(&o.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(o).Elem()
-	defaultedArgs := []string{"dirfd", "mode"}
+	defaultedArgs := []string{"dirfd", "how"}
 	return base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, defaultedArgs,
 		o.run, nil)
 }
