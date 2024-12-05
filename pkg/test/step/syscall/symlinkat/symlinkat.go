@@ -82,7 +82,7 @@ func (s *symlinkAtSyscall) cleanup(_ context.Context) error {
 		s.savedLinkPath = nil
 	}()
 
-	dirFD := unix.AT_FDCWD
+	dirFD := s.bindOnlyArgs.NewDirFD
 	//nolint:gosec // System call invocation requires access to the raw pointer.
 	savedLinkPathPtr := unsafe.Pointer(&s.savedLinkPath[0])
 	flags := 0
