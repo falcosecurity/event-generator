@@ -42,7 +42,7 @@ type openAtSyscall struct {
 }
 
 // New creates a new openat system call test step.
-func New(name string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
+func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	o := &openAtSyscall{}
 	o.bindOnlyArgs.DirFD = unix.AT_FDCWD
 	// o.args.Mode defaulted to 0

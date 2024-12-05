@@ -39,7 +39,7 @@ type readSyscall struct {
 }
 
 // New creates a new read system call test step.
-func New(name string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
+func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	r := &readSyscall{}
 	argsContainer := reflect.ValueOf(&r.args).Elem()
 	bindOnlyArgsContainer := reflect.ValueOf(&r.bindOnlyArgs).Elem()

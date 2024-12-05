@@ -244,7 +244,7 @@ func (r *TestResource) UnmarshalYAML(node *yaml.Node) error {
 // marshal the content.
 // TODO: this method should be implemented with a pointer receiver but unfortunately, the yaml.v3 library is only able
 // to call it if it is implemented with a value receiver. Uniform the receivers once the library is replaced.
-func (r TestResource) MarshalYAML() (interface{}, error) {
+func (r TestResource) MarshalYAML() (any, error) {
 	switch resourceType := r.Type; resourceType {
 	case TestResourceTypeClientServer:
 		return struct {
@@ -271,7 +271,7 @@ func (r TestResource) MarshalYAML() (interface{}, error) {
 // provide an addition MarshalYAML method for TestResourceFDSpec, as it will not be called by the library if the Spec
 // field specify "inline" (as it should be in our case). Take care of replace this with a more elegant solution once
 // yaml.v3 is replaced.
-func (r *TestResource) marshalFD() (interface{}, error) {
+func (r *TestResource) marshalFD() (any, error) {
 	spec := r.Spec.(*TestResourceFDSpec)
 	subSpec := spec.Spec
 	switch subtype := spec.Subtype; subtype {
@@ -592,11 +592,11 @@ func (s *TestStep) UnmarshalYAML(node *yaml.Node) error {
 // marshal the content.
 // TODO: this method should be implemented with a pointer receiver but unfortunately, the yaml.v3 library is only able
 // to call it if it is implemented with a value receiver. Uniform the receivers once the library is replaced.
-func (s TestStep) MarshalYAML() (interface{}, error) {
+func (s TestStep) MarshalYAML() (any, error) {
 	switch stepType := s.Type; stepType {
 	case TestStepTypeSyscall:
 		spec := s.Spec.(*TestStepSyscallSpec)
-		args := make(map[string]interface{}, len(spec.Args)+len(s.FieldBindings))
+		args := make(map[string]any, len(spec.Args)+len(s.FieldBindings))
 		for arg, argValue := range spec.Args {
 			args[arg] = argValue
 		}
@@ -640,8 +640,8 @@ func (t *TestStepType) UnmarshalYAML(node *yaml.Node) error {
 
 // TestStepSyscallSpec describes a system call test step.
 type TestStepSyscallSpec struct {
-	Syscall SyscallName            `yaml:"syscall" validate:"-"`
-	Args    map[string]interface{} `yaml:"args" validate:"required"`
+	Syscall SyscallName    `yaml:"syscall" validate:"-"`
+	Args    map[string]any `yaml:"args" validate:"required"`
 }
 
 // TestStepFieldBinding contains the information to perform the binding of a field belonging to a source step.
@@ -653,7 +653,7 @@ type TestStepFieldBinding struct {
 
 var fieldBindingRegex = regexp.MustCompile(`^\${(.+?)\.(.+)}$`)
 
-func getFieldBindings(containingArgName string, args map[string]interface{}) []*TestStepFieldBinding {
+func getFieldBindings(containingArgName string, args map[string]any) []*TestStepFieldBinding {
 	// The prefix of each contained argument is composed by the containing argument name.
 	var argsPrefix string
 	if containingArgName != "" {
@@ -678,7 +678,7 @@ func getFieldBindings(containingArgName string, args map[string]interface{}) []*
 
 			// If an argument value is a field binding, remove it from arguments.
 			delete(args, arg)
-		case map[string]interface{}:
+		case map[string]any:
 			bindings = append(bindings, getFieldBindings(arg, argValue)...)
 		}
 	}
