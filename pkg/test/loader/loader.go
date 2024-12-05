@@ -18,10 +18,13 @@ package loader
 import (
 	"fmt"
 	"io"
+	"reflect"
 	"regexp"
 
-	"github.com/go-playground/validator/v10"
+	"github.com/go-viper/mapstructure/v2"
 	"gopkg.in/yaml.v3"
+
+	"github.com/falcosecurity/event-generator/pkg/test/loader/schema"
 )
 
 // Loader loads tests descriptions.
@@ -34,11 +37,20 @@ func New() *Loader {
 
 // Load loads the description from the provided reader.
 func (l *Loader) Load(r io.Reader) (*Description, error) {
-	dec := yaml.NewDecoder(r)
-	// Force the decoding to fail if the YAML document contains unknown fields
-	dec.KnownFields(true)
+	// Decode YAML description into generic map[string]any.
+	var rawDesc map[string]any
+	if err := yaml.NewDecoder(r).Decode(&rawDesc); err != nil {
+		return nil, fmt.Errorf("error decoding YAML description: %w", err)
+	}
+
+	// Validate generic description against schema.
+	if err := schema.Validate(rawDesc); err != nil {
+		return nil, fmt.Errorf("error validating YAML description: %w", err)
+	}
+
+	// Decode generic description into actual Description structure.
 	desc := &Description{}
-	if err := dec.Decode(desc); err != nil {
+	if err := decode(rawDesc, desc, decodeTestRunnerType, decodeTestResource, decodeTestStep); err != nil {
 		return nil, fmt.Errorf("error decoding description: %w", err)
 	}
 
@@ -49,9 +61,257 @@ func (l *Loader) Load(r io.Reader) (*Description, error) {
 	return desc, nil
 }
 
+// decode decodes the provided input into the provided output, by leveraging the provided decoding hooks.
+func decode(input, output any, decodeHooks ...mapstructure.DecodeHookFunc) error {
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(decodeHooks...),
+		Result:     output,
+	})
+	if err != nil {
+		return fmt.Errorf("error creating decoder: %w", err)
+	}
+
+	return decoder.Decode(input)
+}
+
+// decodeTestResource is a mapstructure.DecodeHookFunc allowing to unmarshal a TestResource.
+func decodeTestResource(fromType, toType reflect.Type, from any) (any, error) {
+	if fromType.Kind() != reflect.Map || toType != reflect.TypeOf(TestResource{}) {
+		return from, nil
+	}
+
+	testResource := &TestResource{}
+	if err := decode(from, testResource, decodeTestResourceType); err != nil {
+		return nil, fmt.Errorf("error decoding test resource: %w", err)
+	}
+
+	decodedType := testResource.Type
+	var spec any
+	var decodeHooks []mapstructure.DecodeHookFunc
+	switch decodedType {
+	case TestResourceTypeClientServer:
+		decodeHooks = append(decodeHooks, decodeTestResourceClientServerL4Proto)
+		spec = &TestResourceClientServerSpec{}
+	case TestResourceTypeFD:
+		decodeHooks = append(decodeHooks, decodeTestResourceFDSpec)
+		spec = &TestResourceFDSpec{}
+	case TestResourceTypeProcess:
+		spec = &TestResourceProcessSpec{}
+	default:
+		return nil, fmt.Errorf("unknown test resource type %q", decodedType)
+	}
+
+	if err := decode(from, spec, decodeHooks...); err != nil {
+		return nil, fmt.Errorf("error decoding test resource spec: %w", err)
+	}
+	testResource.Spec = spec
+
+	return testResource, nil
+}
+
+// decodeTestResourceType is a mapstructure.DecodeHookFunc allowing to unmarshal a TestResourceType.
+func decodeTestResourceType(fromType, toType reflect.Type, from any) (any, error) {
+	if fromType.Kind() != reflect.String || toType != reflect.TypeOf(TestResourceType("")) {
+		return from, nil
+	}
+
+	switch resourceType := TestResourceType(from.(string)); resourceType {
+	case TestResourceTypeClientServer, TestResourceTypeFD, TestResourceTypeProcess:
+		return resourceType, nil
+	default:
+		return nil, fmt.Errorf("unknown test resource type %q", resourceType)
+	}
+}
+
+// decodeTestResourceClientServerL4Proto is a mapstructure.DecodeHookFunc allowing to unmarshal a
+// TestResourceClientServerL4Proto.
+func decodeTestResourceClientServerL4Proto(fromType, toType reflect.Type, from any) (any, error) {
+	if fromType.Kind() != reflect.String || toType != reflect.TypeOf(TestResourceClientServerL4Proto("")) {
+		return from, nil
+	}
+
+	switch l4Proto := TestResourceClientServerL4Proto(from.(string)); l4Proto {
+	case TestResourceClientServerL4ProtoUDP4, TestResourceClientServerL4ProtoUDP6, TestResourceClientServerL4ProtoTCP4,
+		TestResourceClientServerL4ProtoTCP6, TestResourceClientServerL4ProtoUnix:
+		return l4Proto, nil
+	default:
+		return nil, fmt.Errorf("unknown clientServer test resource l4 proto %q", l4Proto)
+	}
+}
+
+// decodeTestResourceFDSpec is a mapstructure.DecodeHookFunc allowing to unmarshal a TestResourceFDSpec.
+func decodeTestResourceFDSpec(fromType, toType reflect.Type, from any) (any, error) {
+	if fromType.Kind() != reflect.Map || toType != reflect.TypeOf(TestResourceFDSpec{}) {
+		return from, nil
+	}
+
+	fdSpec := &TestResourceFDSpec{}
+	if err := decode(from, fdSpec, decodeTestResourceFDSubtype); err != nil {
+		return nil, fmt.Errorf("error decoding fd test resource spec: %w", err)
+	}
+
+	decodedSubtype := fdSpec.Subtype
+	var spec any
+	switch decodedSubtype {
+	case TestResourceFDSubtypeFile:
+		spec = &TestResourceFDFileSpec{}
+	case TestResourceFDSubtypeDirectory:
+		spec = &TestResourceFDDirectorySpec{}
+	case TestResourceFDSubtypePipe:
+		spec = &TestResourceFDPipeSpec{}
+	case TestResourceFDSubtypeEvent:
+		spec = &TestResourceFDEventSpec{}
+	case TestResourceFDSubtypeSignal:
+		spec = &TestResourceFDSignalSpec{}
+	case TestResourceFDSubtypeEpoll:
+		spec = &TestResourceFDEpollSpec{}
+	case TestResourceFDSubtypeInotify:
+		spec = &TestResourceFDInotifySpec{}
+	case TestResourceFDSubtypeMem:
+		spec = &TestResourceFDMemSpec{}
+	default:
+		return nil, fmt.Errorf("unknown fd test resource subtype %q", decodedSubtype)
+	}
+
+	if err := decode(from, spec); err != nil {
+		return nil, fmt.Errorf("error decoding fd test resource subtype spec: %w", err)
+	}
+
+	fdSpec.Spec = spec
+	return fdSpec, nil
+}
+
+// decodeTestResourceFDSubtype is a mapstructure.DecodeHookFunc allowing to unmarshal a TestResourceFDSubtype.
+func decodeTestResourceFDSubtype(fromType, toType reflect.Type, from any) (any, error) {
+	if fromType.Kind() != reflect.Map || toType != reflect.TypeOf(TestResourceFDSubtype("")) {
+		return from, nil
+	}
+
+	switch subtype := TestResourceFDSubtype(from.(string)); subtype {
+	case TestResourceFDSubtypeFile, TestResourceFDSubtypeDirectory, TestResourceFDSubtypePipe,
+		TestResourceFDSubtypeEvent, TestResourceFDSubtypeSignal, TestResourceFDSubtypeEpoll,
+		TestResourceFDSubtypeInotify, TestResourceFDSubtypeMem:
+		return subtype, nil
+	default:
+		return nil, fmt.Errorf("unknown fd test resource subtype %q", subtype)
+	}
+}
+
+// decodeTestStep is a mapstructure.DecodeHookFunc allowing to unmarshal a TestStep.
+func decodeTestStep(fromType, toType reflect.Type, from any) (any, error) {
+	if fromType.Kind() != reflect.Map || toType != reflect.TypeOf(TestStep{}) {
+		return from, nil
+	}
+
+	testStep := &TestStep{}
+	if err := decode(from, testStep, decodeTestStepType); err != nil {
+		return nil, fmt.Errorf("error decoding test step: %w", err)
+	}
+
+	decodedType := testStep.Type
+	var spec any
+	var fieldBindings []*TestStepFieldBinding
+	switch decodedType {
+	case TestStepTypeSyscall:
+		var syscallSpec TestStepSyscallSpec
+		if err := decode(from, &syscallSpec, decodeTestStepSyscallName); err != nil {
+			return nil, fmt.Errorf("error decoding syscaòò test step spec: %w", err)
+		}
+
+		spec = &syscallSpec
+		fieldBindings = getFieldBindings("", syscallSpec.Args)
+	default:
+		return nil, fmt.Errorf("unknown test step type %q", decodedType)
+	}
+
+	testStep.Spec = spec
+	testStep.FieldBindings = fieldBindings
+	return testStep, nil
+}
+
+var fieldBindingRegex = regexp.MustCompile(`^\${(.+?)\.(.+)}$`)
+
+// getFieldBindings returns the field bindings found in the provided arguments.
+func getFieldBindings(containingArgName string, args map[string]any) []*TestStepFieldBinding {
+	// The prefix of each contained argument is composed by the containing argument name.
+	var argsPrefix string
+	if containingArgName != "" {
+		argsPrefix = containingArgName + "."
+	}
+
+	var bindings []*TestStepFieldBinding
+	for arg, argValue := range args {
+		switch argValue := argValue.(type) {
+		case string:
+			// Check if the user specified a field binding as value.
+			match := fieldBindingRegex.FindStringSubmatch(argValue)
+			if match == nil {
+				continue
+			}
+
+			bindings = append(bindings, &TestStepFieldBinding{
+				SrcStep:    match[1],
+				SrcField:   match[2],
+				LocalField: argsPrefix + arg,
+			})
+
+			// If an argument value is a field binding, remove it from arguments.
+			delete(args, arg)
+		case map[string]any:
+			bindings = append(bindings, getFieldBindings(arg, argValue)...)
+		}
+	}
+	return bindings
+}
+
+// decodeTestStepType is a mapstructure.DecodeHookFunc allowing to unmarshal a TestStepType.
+func decodeTestStepType(fromType, toType reflect.Type, from any) (any, error) {
+	if fromType.Kind() != reflect.Map || toType != reflect.TypeOf(TestStepType("")) {
+		return from, nil
+	}
+
+	switch stepType := TestStepType(from.(string)); stepType {
+	case TestStepTypeSyscall:
+		return stepType, nil
+	default:
+		return nil, fmt.Errorf("unknown test step type %q", stepType)
+	}
+}
+
+// decodeTestRunnerType is a mapstructure.DecodeHookFunc allowing to unmarshal a TestRunnerType.
+func decodeTestRunnerType(fromType, toType reflect.Type, from any) (any, error) {
+	if fromType.Kind() != reflect.String || toType != reflect.TypeOf(TestRunnerType("")) {
+		return from, nil
+	}
+
+	switch runnerType := TestRunnerType(from.(string)); runnerType {
+	case TestRunnerTypeHost:
+		return runnerType, nil
+	default:
+		return nil, fmt.Errorf("unknown test runner %q", runnerType)
+	}
+}
+
+// decodeTestStepSyscallName is a mapstructure.DecodeHookFunc allowing to unmarshal a SyscallName.
+func decodeTestStepSyscallName(fromType, toType reflect.Type, from any) (any, error) {
+	if fromType.Kind() != reflect.String || toType != reflect.TypeOf(SyscallName("")) {
+		return from, nil
+	}
+
+	switch syscallName := SyscallName(from.(string)); syscallName {
+	case SyscallNameWrite, SyscallNameRead, SyscallNameOpen, SyscallNameOpenAt, SyscallNameOpenAt2, SyscallNameSymLink,
+		SyscallNameSymLinkAt, SyscallNameLink, SyscallNameLinkAt, SyscallNameInitModule, SyscallNameFinitModule,
+		SyscallNameDup, SyscallNameDup2, SyscallNameDup3, SyscallNameConnect, SyscallNameSocket, SyscallNameSendTo,
+		SyscallNameKill:
+		return syscallName, nil
+	default:
+		return nil, fmt.Errorf("unknown syscall %q", syscallName)
+	}
+}
+
 // Description contains the description of the tests.
 type Description struct {
-	Tests []Test `yaml:"tests" validate:"min=1,unique=Name,dive"`
+	Tests []Test `yaml:"tests" mapstructure:"tests"`
 }
 
 // Write writes the description to the provided writer.
@@ -66,12 +326,6 @@ func (c *Description) Write(w io.Writer) error {
 
 // validate validates the current description.
 func (c *Description) validate() error {
-	// Validate declaratively the description.
-	validate := validator.New(validator.WithRequiredStructEnabled())
-	if err := validate.Struct(c); err != nil {
-		return err
-	}
-
 	for testIndex := range c.Tests {
 		test := &c.Tests[testIndex]
 		if err := test.validateNameUniqueness(); err != nil {
@@ -89,16 +343,16 @@ func (c *Description) validate() error {
 
 // Test is a rule test description.
 type Test struct {
-	Rule            string              `yaml:"rule" validate:"required"`
-	Name            string              `yaml:"name" validate:"required"`
-	Description     *string             `yaml:"description,omitempty" validate:"omitempty,min=1"`
-	Runner          TestRunnerType      `yaml:"runner" validate:"-"`
-	Context         *TestContext        `yaml:"context,omitempty" validate:"omitempty"`
-	BeforeScript    *string             `yaml:"before,omitempty" validate:"omitempty,min=1"`
-	AfterScript     *string             `yaml:"after,omitempty" validate:"omitempty,min=1"`
-	Resources       []TestResource      `yaml:"resources,omitempty" validate:"omitempty,unique=Name,dive"`
-	Steps           []TestStep          `yaml:"steps,omitempty" validate:"omitempty,unique=Name,dive"`
-	ExpectedOutcome TestExpectedOutcome `yaml:"expectedOutcome"`
+	Rule            string              `yaml:"rule" mapstructure:"rule"`
+	Name            string              `yaml:"name" mapstructure:"name"`
+	Description     *string             `yaml:"description,omitempty" mapstructure:"description"`
+	Runner          TestRunnerType      `yaml:"runner" mapstructure:"runner"`
+	Context         *TestContext        `yaml:"context,omitempty" mapstructure:"context"`
+	BeforeScript    *string             `yaml:"before,omitempty" mapstructure:"before"`
+	AfterScript     *string             `yaml:"after,omitempty" mapstructure:"after"`
+	Resources       []TestResource      `yaml:"resources,omitempty" mapstructure:"resources"`
+	Steps           []TestStep          `yaml:"steps,omitempty" mapstructure:"steps"`
+	ExpectedOutcome TestExpectedOutcome `yaml:"expectedOutcome" mapstructure:"expectedOutcome"`
 }
 
 // validateNameUniqueness validates that names used for test resources and steps are unique.
@@ -142,102 +396,52 @@ const (
 	TestRunnerTypeHost TestRunnerType = "HostRunner"
 )
 
-// UnmarshalYAML populates the TestRunnerType instance by unmarshalling the content of the provided YAML node.
-func (r *TestRunnerType) UnmarshalYAML(node *yaml.Node) error {
-	var value string
-	if err := node.Decode(&value); err != nil {
-		return err
-	}
-
-	switch TestRunnerType(value) {
-	case TestRunnerTypeHost:
-	default:
-		return fmt.Errorf("unknown test runner %q", value)
-	}
-
-	*r = TestRunnerType(value)
-	return nil
-}
-
 // TestContext contains information regarding the running context of a test.
 type TestContext struct {
-	Container *ContainerContext `yaml:"container,omitempty" validate:"omitempty"`
-	Processes []ProcessContext  `yaml:"processes,omitempty" validate:"omitempty,dive"`
+	Container *ContainerContext `yaml:"container,omitempty" mapstructure:"container"`
+	Processes []ProcessContext  `yaml:"processes,omitempty" mapstructure:"processes"`
 }
 
 // ContainerContext contains information regarding the container instance that will run a test.
 type ContainerContext struct {
 	// Image is the name the base event-generator image must be tagged with before being used to spawn the container. If
 	// omitted, it defaults to the name of the base event-generator image.
-	Image *string `yaml:"image" validate:"omitempty,min=1"`
+	Image *string `yaml:"image" mapstructure:"image"`
 	// Name is the name that must be used to identify the container. If omitted, it defaults to "event-generator".
-	Name *string `yaml:"name,omitempty" validate:"omitempty,min=1"`
+	Name *string `yaml:"name,omitempty" mapstructure:"name"`
 	// Env is the set of environment variables that must be provided to the container (in addition to the default ones).
-	Env map[string]string `yaml:"env,omitempty" validate:"omitempty,min=1"`
+	Env map[string]string `yaml:"env,omitempty" mapstructure:"env"`
 }
 
 // ProcessContext contains information regarding the process that will run a test, or information about one of its
 // ancestors.
 type ProcessContext struct {
 	// ExePath is the executable path. If omitted, it is randomly generated.
-	ExePath *string `yaml:"exePath" validate:"omitempty,min=1"`
+	ExePath *string `yaml:"exePath,omitempty" mapstructure:"exePath"`
 	// Args is a string containing the space-separated list of command line arguments. If a single argument contains
 	// spaces, the entire argument must be quoted in order to not be considered as multiple arguments. If omitted, it
 	// defaults to "".
-	Args *string `yaml:"args,omitempty" validate:"omitempty,min=1"`
+	Args *string `yaml:"args,omitempty" mapstructure:"args"`
 	// Exe is the argument in position 0 (a.k.a. argv[0]) of the process. If omitted, it defaults to Name if this is
 	// specified; otherwise, it defaults to filepath.Base(ExePath).
-	Exe *string `yaml:"exe,omitempty" validate:"omitempty,min=1"`
+	Exe *string `yaml:"exe,omitempty" mapstructure:"exe"`
 	// Name is the process name. If omitted, it defaults to filepath.Base(ExePath).
-	Name *string `yaml:"name,omitempty" validate:"omitempty,min=1"`
+	Name *string `yaml:"name,omitempty" mapstructure:"name"`
 	// Env is the set of environment variables that must be provided to the process (in addition to the default ones).
-	Env map[string]string `yaml:"env,omitempty" validate:"omitempty,min=1"`
+	Env map[string]string `yaml:"env,omitempty" mapstructure:"env"`
 	// User is the name of the user that must run the process. If omitted, the current process user is used. If the user
 	// does not exist, it is created before running the test and deleted after test execution.
-	User *string `yaml:"user,omitempty" validate:"omitempty,min=1"`
+	User *string `yaml:"user,omitempty" mapstructure:"user"`
 	// Capabilities are the capabilities of the process. The syntax follows the conventions specified by
 	// cap_from_text(3). If omitted or empty, it defaults to "all=iep".
-	Capabilities *string `yaml:"capabilities,omitempty" validate:"omitempty,min=1"`
+	Capabilities *string `yaml:"capabilities,omitempty" mapstructure:"capabilities"`
 }
 
 // TestResource describes a test resource.
 type TestResource struct {
-	Type TestResourceType `yaml:"type" validate:"-"`
-	Name string           `yaml:"name" validate:"required"`
-	Spec any              `yaml:"-"`
-}
-
-// UnmarshalYAML populates the TestResource instance by unmarshalling the content of the provided YAML node.
-func (r *TestResource) UnmarshalYAML(node *yaml.Node) error {
-	var v struct {
-		Type TestResourceType `yaml:"type"`
-		Name string           `yaml:"name"`
-	}
-	if err := node.Decode(&v); err != nil {
-		return err
-	}
-
-	decodedType := v.Type
-	var spec any
-	switch decodedType {
-	case TestResourceTypeClientServer:
-		spec = &TestResourceClientServerSpec{}
-	case TestResourceTypeFD:
-		spec = &TestResourceFDSpec{}
-	case TestResourceTypeProcess:
-		spec = &TestResourceProcessSpec{}
-	default:
-		panic(fmt.Sprintf("unknown test resource type %q", decodedType))
-	}
-
-	if err := node.Decode(spec); err != nil {
-		return fmt.Errorf("error decoding clientServer test resource spec: %w", err)
-	}
-
-	r.Name = v.Name
-	r.Type = decodedType
-	r.Spec = spec
-	return nil
+	Type TestResourceType `yaml:"type" mapstructure:"type"`
+	Name string           `yaml:"name" mapstructure:"name"`
+	Spec any              `yaml:"-" mapstructure:"-"`
 }
 
 // MarshalYAML returns an inner representation of the TestResource instance that is used, in place of the instance, to
@@ -348,27 +552,10 @@ const (
 	TestResourceTypeProcess TestResourceType = "process"
 )
 
-// UnmarshalYAML populates the TestResourceType instance by unmarshalling the content of the provided YAML node.
-func (t *TestResourceType) UnmarshalYAML(node *yaml.Node) error {
-	var value string
-	if err := node.Decode(&value); err != nil {
-		return err
-	}
-
-	switch TestResourceType(value) {
-	case TestResourceTypeClientServer, TestResourceTypeFD, TestResourceTypeProcess:
-	default:
-		return fmt.Errorf("unknown test step type %q", value)
-	}
-
-	*t = TestResourceType(value)
-	return nil
-}
-
 // TestResourceClientServerSpec describes a clientServer test resource.
 type TestResourceClientServerSpec struct {
-	L4Proto TestResourceClientServerL4Proto `yaml:"l4Proto" validate:"-"`
-	Address string                          `yaml:"address" validate:"required"`
+	L4Proto TestResourceClientServerL4Proto `yaml:"l4Proto" mapstructure:"l4Proto"`
+	Address string                          `yaml:"address" mapstructure:"address"`
 }
 
 // TestResourceClientServerL4Proto is the transport protocol used by the clientServer test resource client and the
@@ -393,70 +580,10 @@ const (
 	TestResourceClientServerL4ProtoUnix TestResourceClientServerL4Proto = "unix"
 )
 
-// UnmarshalYAML populates the TestResourceClientServerL4Proto instance by unmarshalling the content of the provided
-// YAML node.
-func (t *TestResourceClientServerL4Proto) UnmarshalYAML(node *yaml.Node) error {
-	var value string
-	if err := node.Decode(&value); err != nil {
-		return err
-	}
-
-	switch TestResourceClientServerL4Proto(value) {
-	case TestResourceClientServerL4ProtoUDP4, TestResourceClientServerL4ProtoUDP6, TestResourceClientServerL4ProtoTCP4,
-		TestResourceClientServerL4ProtoTCP6, TestResourceClientServerL4ProtoUnix:
-	default:
-		return fmt.Errorf("unknown clientServer test resource l4 proto %q", value)
-	}
-
-	*t = TestResourceClientServerL4Proto(value)
-	return nil
-}
-
 // TestResourceFDSpec describes an fd test resource.
 type TestResourceFDSpec struct {
-	Subtype TestResourceFDSubtype `yaml:"subtype" validate:"-"`
-	Spec    any                   `yaml:"-"`
-}
-
-// UnmarshalYAML populates the TestResourceFDSpec instance by unmarshalling the content of the provided YAML node.
-func (s *TestResourceFDSpec) UnmarshalYAML(node *yaml.Node) error {
-	var v struct {
-		Subtype TestResourceFDSubtype `yaml:"subtype"`
-	}
-	if err := node.Decode(&v); err != nil {
-		return err
-	}
-
-	decodedSubtype := v.Subtype
-	var spec any
-	switch decodedSubtype {
-	case TestResourceFDSubtypeFile:
-		spec = &TestResourceFDFileSpec{}
-	case TestResourceFDSubtypeDirectory:
-		spec = &TestResourceFDDirectorySpec{}
-	case TestResourceFDSubtypePipe:
-		spec = &TestResourceFDPipeSpec{}
-	case TestResourceFDSubtypeEvent:
-		spec = &TestResourceFDEventSpec{}
-	case TestResourceFDSubtypeSignal:
-		spec = &TestResourceFDSignalSpec{}
-	case TestResourceFDSubtypeEpoll:
-		spec = &TestResourceFDEpollSpec{}
-	case TestResourceFDSubtypeInotify:
-		spec = &TestResourceFDInotifySpec{}
-	case TestResourceFDSubtypeMem:
-		spec = &TestResourceFDMemSpec{}
-	default:
-		panic(fmt.Sprintf("unknown fd test resource subtype %q", decodedSubtype))
-	}
-
-	if err := node.Decode(spec); err != nil {
-		return fmt.Errorf("error decoding fd test resource %s spec: %w", decodedSubtype, err)
-	}
-
-	s.Subtype = decodedSubtype
-	s.Spec = spec
-	return nil
+	Subtype TestResourceFDSubtype `yaml:"subtype" mapstructure:"subtype"`
+	Spec    any                   `yaml:"-" mapstructure:"-"`
 }
 
 // TestResourceFDSubtype is the subtype of fd test resource.
@@ -482,33 +609,14 @@ const (
 	TestResourceFDSubtypeMem TestResourceFDSubtype = "memfd"
 )
 
-// UnmarshalYAML populates the TestResourceFDSubtype instance by unmarshalling the content of the provided YAML node.
-func (t *TestResourceFDSubtype) UnmarshalYAML(node *yaml.Node) error {
-	var value string
-	if err := node.Decode(&value); err != nil {
-		return err
-	}
-
-	switch TestResourceFDSubtype(value) {
-	case TestResourceFDSubtypeFile, TestResourceFDSubtypeDirectory, TestResourceFDSubtypePipe,
-		TestResourceFDSubtypeEvent, TestResourceFDSubtypeSignal, TestResourceFDSubtypeEpoll,
-		TestResourceFDSubtypeInotify, TestResourceFDSubtypeMem:
-	default:
-		return fmt.Errorf("unknown fd test resource subtype %q", value)
-	}
-
-	*t = TestResourceFDSubtype(value)
-	return nil
-}
-
 // TestResourceFDFileSpec describes a regular file fd test resource.
 type TestResourceFDFileSpec struct {
-	FilePath string `yaml:"filePath" validate:"required"`
+	FilePath string `yaml:"filePath" mapstructure:"filePath"`
 }
 
 // TestResourceFDDirectorySpec describes a directory fd test resource.
 type TestResourceFDDirectorySpec struct {
-	DirPath string `yaml:"dirPath" validate:"required"`
+	DirPath string `yaml:"dirPath" mapstructure:"dirPath"`
 }
 
 // TestResourceFDPipeSpec describes a pipe fd test resource.
@@ -528,64 +636,32 @@ type TestResourceFDInotifySpec struct{}
 
 // TestResourceFDMemSpec describes a mem fd test resource.
 type TestResourceFDMemSpec struct {
-	FileName string `yaml:"fileName" validate:"required"`
+	FileName string `yaml:"fileName" mapstructure:"fileName"`
 }
 
 // TestResourceProcessSpec describes a process test resource.
 type TestResourceProcessSpec struct {
 	// ExePath is the executable path. If omitted, it is randomly generated.
-	ExePath *string `yaml:"exePath" validate:"omitempty,min=1"`
+	ExePath *string `yaml:"exePath,omitempty" mapstructure:"exePath"`
 	// Args is a string containing the space-separated list of command line arguments. If a single argument contains
 	// spaces, the entire argument must be quoted in order to not be considered as multiple arguments. If omitted, it
 	// defaults to "".
-	Args *string `yaml:"args,omitempty" validate:"omitempty,min=1"`
+	Args *string `yaml:"args,omitempty" mapstructure:"args"`
 	// Exe is the argument in position 0 (a.k.a. argv[0]) of the process. If omitted, it defaults to Name if this is
 	// specified; otherwise, it defaults to filepath.Base(ExePath).
-	Exe *string `yaml:"exe,omitempty" validate:"omitempty,min=1"`
+	Exe *string `yaml:"exe,omitempty" mapstructure:"exe"`
 	// Name is the process name. If omitted, it defaults to filepath.Base(ExePath).
-	Name *string `yaml:"procName,omitempty" validate:"omitempty,min=1"`
+	Name *string `yaml:"procName,omitempty" mapstructure:"procName"`
 	// Env is the set of environment variables that must be provided to the process (in addition to the default ones).
-	Env map[string]string `yaml:"env,omitempty" validate:"omitempty,min=1"`
+	Env map[string]string `yaml:"env,omitempty" mapstructure:"env"`
 }
 
 // TestStep describes a test step.
 type TestStep struct {
-	Type          TestStepType            `yaml:"type" validate:"-"`
-	Name          string                  `yaml:"name" validate:"required"`
-	Spec          any                     `yaml:"-"`
-	FieldBindings []*TestStepFieldBinding `yaml:"-" validate:"-"`
-}
-
-// UnmarshalYAML populates the TestStep instance by unmarshalling the content of the provided YAML node.
-func (s *TestStep) UnmarshalYAML(node *yaml.Node) error {
-	var v struct {
-		Type TestStepType `yaml:"type"`
-		Name string       `yaml:"name"`
-	}
-	if err := node.Decode(&v); err != nil {
-		return err
-	}
-
-	decodedType := v.Type
-	var spec any
-	var fieldBindings []*TestStepFieldBinding
-	switch decodedType {
-	case TestStepTypeSyscall:
-		var syscallSpec TestStepSyscallSpec
-		if err := node.Decode(&syscallSpec); err != nil {
-			return fmt.Errorf("error decoding syscall parameters: %w", err)
-		}
-		spec = &syscallSpec
-		fieldBindings = getFieldBindings("", syscallSpec.Args)
-	default:
-		panic(fmt.Sprintf("unknown test step type %q", decodedType))
-	}
-
-	s.Name = v.Name
-	s.Type = decodedType
-	s.Spec = spec
-	s.FieldBindings = fieldBindings
-	return nil
+	Type          TestStepType            `yaml:"type" mapstructure:"type"`
+	Name          string                  `yaml:"name" mapstructure:"name"`
+	Spec          any                     `yaml:"-" mapstructure:"-"`
+	FieldBindings []*TestStepFieldBinding `yaml:"-" mapstructure:"-"`
 }
 
 // MarshalYAML returns an inner representation of the TestStep instance that is used, in place of the instance, to
@@ -621,68 +697,10 @@ const (
 	TestStepTypeSyscall TestStepType = "syscall"
 )
 
-// UnmarshalYAML populates the TestStepType instance by unmarshalling the content of the provided YAML node.
-func (t *TestStepType) UnmarshalYAML(node *yaml.Node) error {
-	var value string
-	if err := node.Decode(&value); err != nil {
-		return err
-	}
-
-	switch TestStepType(value) {
-	case TestStepTypeSyscall:
-	default:
-		return fmt.Errorf("unknown test step type %q", value)
-	}
-
-	*t = TestStepType(value)
-	return nil
-}
-
 // TestStepSyscallSpec describes a system call test step.
 type TestStepSyscallSpec struct {
-	Syscall SyscallName    `yaml:"syscall" validate:"-"`
-	Args    map[string]any `yaml:"args" validate:"required"`
-}
-
-// TestStepFieldBinding contains the information to perform the binding of a field belonging to a source step.
-type TestStepFieldBinding struct {
-	LocalField string
-	SrcStep    string
-	SrcField   string
-}
-
-var fieldBindingRegex = regexp.MustCompile(`^\${(.+?)\.(.+)}$`)
-
-func getFieldBindings(containingArgName string, args map[string]any) []*TestStepFieldBinding {
-	// The prefix of each contained argument is composed by the containing argument name.
-	var argsPrefix string
-	if containingArgName != "" {
-		argsPrefix = containingArgName + "."
-	}
-
-	var bindings []*TestStepFieldBinding
-	for arg, argValue := range args {
-		switch argValue := argValue.(type) {
-		case string:
-			// Check if the user specified a field binding as value.
-			match := fieldBindingRegex.FindStringSubmatch(argValue)
-			if match == nil {
-				continue
-			}
-
-			bindings = append(bindings, &TestStepFieldBinding{
-				SrcStep:    match[1],
-				SrcField:   match[2],
-				LocalField: argsPrefix + arg,
-			})
-
-			// If an argument value is a field binding, remove it from arguments.
-			delete(args, arg)
-		case map[string]any:
-			bindings = append(bindings, getFieldBindings(arg, argValue)...)
-		}
-	}
-	return bindings
+	Syscall SyscallName    `yaml:"syscall" mapstructure:"syscall"`
+	Args    map[string]any `yaml:"args" mapstructure:"args"`
 }
 
 // SyscallName represents a system call name.
@@ -727,29 +745,17 @@ const (
 	SyscallNameKill SyscallName = "kill"
 )
 
-// UnmarshalYAML populates the SyscallName instance by unmarshalling the content of the provided YAML node.
-func (s *SyscallName) UnmarshalYAML(node *yaml.Node) error {
-	var value string
-	if err := node.Decode(&value); err != nil {
-		return err
-	}
-	switch SyscallName(value) {
-	case SyscallNameWrite, SyscallNameRead, SyscallNameOpen, SyscallNameOpenAt, SyscallNameOpenAt2, SyscallNameSymLink,
-		SyscallNameSymLinkAt, SyscallNameLink, SyscallNameLinkAt, SyscallNameInitModule, SyscallNameFinitModule,
-		SyscallNameDup, SyscallNameDup2, SyscallNameDup3, SyscallNameConnect, SyscallNameSocket, SyscallNameSendTo,
-		SyscallNameKill:
-	default:
-		return fmt.Errorf("unknown syscall %q", value)
-	}
-
-	*s = SyscallName(value)
-	return nil
+// TestStepFieldBinding contains the information to perform the binding of a field belonging to a source step.
+type TestStepFieldBinding struct {
+	LocalField string
+	SrcStep    string
+	SrcField   string
 }
 
 // TestExpectedOutcome is the expected outcome for a test.
 type TestExpectedOutcome struct {
-	Source       *string           `yaml:"source,omitempty" validate:"omitempty,min=1"`
-	Hostname     *string           `yaml:"hostname,omitempty" validate:"omitempty,min=1"`
-	Priority     *string           `yaml:"priority,omitempty" validate:"omitempty,min=1"`
-	OutputFields map[string]string `yaml:"outputFields,omitempty" validate:"omitempty,min=1"`
+	Source       *string           `yaml:"source,omitempty" mapstructure:"source"`
+	Hostname     *string           `yaml:"hostname,omitempty" mapstructure:"hostname"`
+	Priority     *string           `yaml:"priority,omitempty" mapstructure:"priority"`
+	OutputFields map[string]string `yaml:"outputFields,omitempty" mapstructure:"outputFields"`
 }
