@@ -17,6 +17,7 @@ package openat2
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"unsafe"
 
@@ -30,8 +31,12 @@ import (
 type openAt2Syscall struct {
 	// args represents arguments that can be provided by value or by binding.
 	args struct {
-		Pathname []byte       `field_type:"file_path"`
-		How      unix.OpenHow `field_type:"open_how"`
+		Pathname []byte `field_type:"file_path"`
+		How      struct {
+			Flags   uint64 `field_type:"open_how_flags"`
+			Mode    uint64 `field_type:"open_how_mode"`
+			Resolve uint64 `field_type:"open_how_resolve"`
+		} `field_type:"open_how"`
 	}
 	// bindOnlyArgs represents arguments that can only be provided by binding.
 	bindOnlyArgs struct {
@@ -41,20 +46,20 @@ type openAt2Syscall struct {
 }
 
 // New creates a new openat2 system call test step.
-func New(name string, rawArgs map[string]string,
-	fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
+func New(name string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	o := &openAt2Syscall{}
 	o.bindOnlyArgs.DirFD = unix.AT_FDCWD
 	// o.args.How field defaulted to empty struct.
 	argsContainer := reflect.ValueOf(&o.args).Elem()
 	bindOnlyArgsContainer := reflect.ValueOf(&o.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(o).Elem()
-	defaultedArgs := []string{"dirfd", "how"}
+	defaultedArgs := []string{"dirfd", "how", "how.flags", "how.mode", "how.resolve"}
 	return base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, defaultedArgs,
 		o.run, nil)
 }
 
 func (o *openAt2Syscall) run(_ context.Context) error {
+	fmt.Printf("%+v\n", *o)
 	//nolint:gosec // System call invocation requires access to the raw pointer.
 	pathnamePtr := unsafe.Pointer(&o.args.Pathname[0])
 	//nolint:gosec // System call invocation requires access to the raw pointer.

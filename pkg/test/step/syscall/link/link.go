@@ -43,7 +43,7 @@ type linkSyscall struct {
 }
 
 // New creates a new link system call test step.
-func New(name string, rawArgs map[string]string, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
+func New(name string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	l := &linkSyscall{}
 	argsContainer := reflect.ValueOf(&l.args).Elem()
 	bindOnlyArgsContainer := reflect.ValueOf(&l.bindOnlyArgs).Elem()

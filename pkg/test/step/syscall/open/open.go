@@ -42,9 +42,9 @@ type openSyscall struct {
 }
 
 // New creates a new open system call test step.
-func New(name string, rawArgs map[string]string, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
+func New(name string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	o := &openSyscall{}
-	// mode defaulted to 0
+	// o.args.Mode defaulted to 0
 	argsContainer := reflect.ValueOf(&o.args).Elem()
 	bindOnlyArgsContainer := reflect.ValueOf(&o.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(o).Elem()

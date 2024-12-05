@@ -43,7 +43,7 @@ type symlinkSyscall struct {
 }
 
 // New creates a new symlink system call test step.
-func New(name string, rawArgs map[string]string, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
+func New(name string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	s := &symlinkSyscall{}
 	argsContainer := reflect.ValueOf(&s.args).Elem()
 	bindOnlyArgsContainer := reflect.ValueOf(&s.bindOnlyArgs).Elem()
