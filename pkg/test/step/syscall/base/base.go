@@ -128,7 +128,7 @@ func setArgFieldValues(argFieldContainer reflect.Value, rawArgs map[string]any) 
 	for rawArg, rawArgValue := range rawArgs {
 		argField, err := field.ByName(rawArg, argFieldContainer)
 		if err != nil {
-			return nil, fmt.Errorf("error getting %q argument field: %w", rawArg, err)
+			return nil, fmt.Errorf("error setting %q argument field: %w", rawArg, err)
 		}
 
 		argFieldBoundArgs, err := setArgFieldValue(argField, rawArgValue)
