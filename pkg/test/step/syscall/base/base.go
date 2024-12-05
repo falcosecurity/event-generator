@@ -60,7 +60,7 @@ var _ syscall.Syscall = (*baseSyscall)(nil)
 var errOpenModeMustBePositive = fmt.Errorf("open mode must be a positive integer")
 
 // New creates a new generic system call test step.
-func New(stepName string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding, argsContainer,
+func New(stepName string, rawArgs map[string]any, fieldBindings []*step.FieldBinding, argsContainer,
 	bindOnlyArgsContainer, retValueContainer reflect.Value, defaultedArgs []string,
 	runFunc, cleanupFunc func(ctx context.Context) error) (syscall.Syscall, error) {
 	if err := checkContainersInvariants(argsContainer, bindOnlyArgsContainer, retValueContainer); err != nil {
@@ -123,7 +123,7 @@ func checkContainersInvariants(argsContainer, bindOnlyArgsContainer, retValueCon
 
 // setArgFieldValues sets the argument fields in argFieldContainer to the corresponding values in rawArgs. It returns
 // the list of set arguments field paths.
-func setArgFieldValues(argFieldContainer reflect.Value, rawArgs map[string]interface{}) ([]string, error) {
+func setArgFieldValues(argFieldContainer reflect.Value, rawArgs map[string]any) ([]string, error) {
 	fmt.Printf("setArgFieldValues rawArgs: %+v\n", rawArgs)
 	var boundArgs []string
 	for rawArg, rawArgValue := range rawArgs {
@@ -146,7 +146,7 @@ func setArgFieldValues(argFieldContainer reflect.Value, rawArgs map[string]inter
 // depending on the field type.
 //
 //nolint:gocyclo // Disable cyclomatic complexity check.
-func setArgFieldValue(argField *field.Field, value interface{}) ([]string, error) {
+func setArgFieldValue(argField *field.Field, value any) ([]string, error) {
 	boundArgs := []string{argField.Path}
 	argFieldValue := argField.Value
 	switch argFieldType := argField.Type; argFieldType {
@@ -280,7 +280,7 @@ func setArgFieldValue(argField *field.Field, value interface{}) ([]string, error
 	return boundArgs, nil
 }
 
-func setSubArgFieldValues(argField *field.Field, value interface{}) ([]string, error) {
+func setSubArgFieldValues(argField *field.Field, value any) ([]string, error) {
 	rawArgs, err := parseMap(value)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse argument field: %w", err)

@@ -45,7 +45,7 @@ type linkAtSyscall struct {
 }
 
 // New creates a new linkat system call test step.
-func New(name string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
+func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	l := &linkAtSyscall{}
 	l.bindOnlyArgs.OldDirFD = unix.AT_FDCWD
 	l.bindOnlyArgs.NewDirFD = unix.AT_FDCWD

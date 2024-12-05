@@ -39,7 +39,7 @@ type socketSyscall struct {
 }
 
 // New creates a new socket system call test step.
-func New(name string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
+func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	s := &socketSyscall{}
 	argsContainer := reflect.ValueOf(&s.args).Elem()
 	bindOnlyArgsContainer := reflect.ValueOf(&s.bindOnlyArgs).Elem()

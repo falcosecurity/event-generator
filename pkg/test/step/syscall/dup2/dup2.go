@@ -42,7 +42,7 @@ type dup2Syscall struct {
 }
 
 // New creates a new dup2 system call test step.
-func New(name string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
+func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	d := &dup2Syscall{savedFD: -1}
 	argsContainer := reflect.ValueOf(&d.args).Elem()
 	bindOnlyArgsContainer := reflect.ValueOf(&d.bindOnlyArgs).Elem()

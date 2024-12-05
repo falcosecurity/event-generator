@@ -38,7 +38,7 @@ type initModuleSyscall struct {
 }
 
 // New creates a new init_module system call test step.
-func New(name string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
+func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	i := &initModuleSyscall{}
 	// i.args.ParamValues defaulted to ""
 	argsContainer := reflect.ValueOf(&i.args).Elem()

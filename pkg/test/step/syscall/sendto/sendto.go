@@ -45,7 +45,7 @@ type sendToSyscall struct {
 }
 
 // New creates a new sendto system call test step.
-func New(name string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
+func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	s := &sendToSyscall{}
 	// s.args.Len defaults to the buffer length at run time, if unbound.
 	argsContainer := reflect.ValueOf(&s.args).Elem()

@@ -74,6 +74,6 @@ const (
 
 // Description contains information to build a new Syscall test step.
 type Description struct {
-	RawArgs       map[string]interface{}
+	RawArgs       map[string]any
 	FieldBindings []*step.FieldBinding
 }

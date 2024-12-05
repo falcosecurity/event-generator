@@ -46,7 +46,7 @@ type openAt2Syscall struct {
 }
 
 // New creates a new openat2 system call test step.
-func New(name string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
+func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	o := &openAt2Syscall{}
 	o.bindOnlyArgs.DirFD = unix.AT_FDCWD
 	// o.args.How field defaulted to empty struct.
