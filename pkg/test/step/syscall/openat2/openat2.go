@@ -17,7 +17,6 @@ package openat2
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"unsafe"
 
@@ -59,7 +58,6 @@ func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding
 }
 
 func (o *openAt2Syscall) run(_ context.Context) error {
-	fmt.Printf("%+v\n", *o)
 	//nolint:gosec // System call invocation requires access to the raw pointer.
 	pathnamePtr := unsafe.Pointer(&o.args.Pathname[0])
 	//nolint:gosec // System call invocation requires access to the raw pointer.

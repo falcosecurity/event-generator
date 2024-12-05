@@ -124,7 +124,6 @@ func checkContainersInvariants(argsContainer, bindOnlyArgsContainer, retValueCon
 // setArgFieldValues sets the argument fields in argFieldContainer to the corresponding values in rawArgs. It returns
 // the list of set arguments field paths.
 func setArgFieldValues(argFieldContainer reflect.Value, rawArgs map[string]any) ([]string, error) {
-	fmt.Printf("setArgFieldValues rawArgs: %+v\n", rawArgs)
 	var boundArgs []string
 	for rawArg, rawArgValue := range rawArgs {
 		argField, err := field.ByName(rawArg, argFieldContainer)
@@ -307,8 +306,6 @@ func (s *baseSyscall) Run(ctx context.Context) error {
 		return fmt.Errorf("the following argument fields are not bound yet: %v", unboundArgFields)
 	}
 
-	fmt.Printf("argsContainer: %+v\n", s.argsContainer)
-	fmt.Printf("bindOnlyArgsContainer: %+v\n", s.bindOnlyArgsContainer)
 	return s.runFunc(ctx)
 }
 
