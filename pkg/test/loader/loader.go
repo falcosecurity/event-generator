@@ -22,7 +22,7 @@ import (
 	"regexp"
 
 	"github.com/go-viper/mapstructure/v2"
-	"gopkg.in/yaml.v3"
+	"github.com/goccy/go-yaml"
 
 	"github.com/falcosecurity/event-generator/pkg/test/loader/schema"
 )
@@ -39,6 +39,7 @@ func New() *Loader {
 func (l *Loader) Load(r io.Reader) (*Description, error) {
 	// Decode YAML description into generic map[string]any.
 	var rawDesc map[string]any
+
 	if err := yaml.NewDecoder(r).Decode(&rawDesc); err != nil {
 		return nil, fmt.Errorf("error decoding YAML description: %w", err)
 	}
@@ -441,103 +442,7 @@ type ProcessContext struct {
 type TestResource struct {
 	Type TestResourceType `yaml:"type" mapstructure:"type"`
 	Name string           `yaml:"name" mapstructure:"name"`
-	Spec any              `yaml:"-" mapstructure:"-"`
-}
-
-// MarshalYAML returns an inner representation of the TestResource instance that is used, in place of the instance, to
-// marshal the content.
-// TODO: this method should be implemented with a pointer receiver but unfortunately, the yaml.v3 library is only able
-// to call it if it is implemented with a value receiver. Uniform the receivers once the library is replaced.
-func (r TestResource) MarshalYAML() (any, error) {
-	switch resourceType := r.Type; resourceType {
-	case TestResourceTypeClientServer:
-		return struct {
-			Type TestResourceType              `yaml:"type"`
-			Name string                        `yaml:"name"`
-			Spec *TestResourceClientServerSpec `yaml:"spec,inline"`
-		}{Type: resourceType, Name: r.Name, Spec: r.Spec.(*TestResourceClientServerSpec)}, nil
-	case TestResourceTypeFD:
-		return r.marshalFD()
-	case TestResourceTypeProcess:
-		return struct {
-			Type TestResourceType         `yaml:"type"`
-			Name string                   `yaml:"name"`
-			Spec *TestResourceProcessSpec `yaml:"spec,inline"`
-		}{Type: resourceType, Name: r.Name, Spec: r.Spec.(*TestResourceProcessSpec)}, nil
-	default:
-		return nil, fmt.Errorf("unknown test resource type %q", resourceType)
-	}
-}
-
-// marshalFD returns an inner representation of the fd test resource instance that is used, in place of the instance, to
-// marshal the content.
-// TODO: this function contains a lot of repetitions for TestResource common fields. However, it is not possible to
-// provide an addition MarshalYAML method for TestResourceFDSpec, as it will not be called by the library if the Spec
-// field specify "inline" (as it should be in our case). Take care of replace this with a more elegant solution once
-// yaml.v3 is replaced.
-func (r *TestResource) marshalFD() (any, error) {
-	spec := r.Spec.(*TestResourceFDSpec)
-	subSpec := spec.Spec
-	switch subtype := spec.Subtype; subtype {
-	case TestResourceFDSubtypeFile:
-		return struct {
-			Type    TestResourceType        `yaml:"type"`
-			Name    string                  `yaml:"name"`
-			Subtype TestResourceFDSubtype   `yaml:"subtype"`
-			Spec    *TestResourceFDFileSpec `yaml:"subspec,inline"`
-		}{Type: r.Type, Name: r.Name, Subtype: subtype, Spec: subSpec.(*TestResourceFDFileSpec)}, nil
-	case TestResourceFDSubtypeDirectory:
-		return struct {
-			Type    TestResourceType             `yaml:"type"`
-			Name    string                       `yaml:"name"`
-			Subtype TestResourceFDSubtype        `yaml:"subtype"`
-			Spec    *TestResourceFDDirectorySpec `yaml:"subspec,inline"`
-		}{Type: r.Type, Name: r.Name, Subtype: subtype, Spec: subSpec.(*TestResourceFDDirectorySpec)}, nil
-	case TestResourceFDSubtypePipe:
-		return struct {
-			Type    TestResourceType        `yaml:"type"`
-			Name    string                  `yaml:"name"`
-			Subtype TestResourceFDSubtype   `yaml:"subtype"`
-			Spec    *TestResourceFDPipeSpec `yaml:"subspec,inline"`
-		}{Type: r.Type, Name: r.Name, Subtype: subtype, Spec: subSpec.(*TestResourceFDPipeSpec)}, nil
-	case TestResourceFDSubtypeEvent:
-		return struct {
-			Type    TestResourceType         `yaml:"type"`
-			Name    string                   `yaml:"name"`
-			Subtype TestResourceFDSubtype    `yaml:"subtype"`
-			Spec    *TestResourceFDEventSpec `yaml:"subspec,inline"`
-		}{Type: r.Type, Name: r.Name, Subtype: subtype, Spec: subSpec.(*TestResourceFDEventSpec)}, nil
-	case TestResourceFDSubtypeSignal:
-		return struct {
-			Type    TestResourceType          `yaml:"type"`
-			Name    string                    `yaml:"name"`
-			Subtype TestResourceFDSubtype     `yaml:"subtype"`
-			Spec    *TestResourceFDSignalSpec `yaml:"subspec,inline"`
-		}{Type: r.Type, Name: r.Name, Subtype: subtype, Spec: subSpec.(*TestResourceFDSignalSpec)}, nil
-	case TestResourceFDSubtypeEpoll:
-		return struct {
-			Type    TestResourceType         `yaml:"type"`
-			Name    string                   `yaml:"name"`
-			Subtype TestResourceFDSubtype    `yaml:"subtype"`
-			Spec    *TestResourceFDEpollSpec `yaml:"subspec,inline"`
-		}{Type: r.Type, Name: r.Name, Subtype: subtype, Spec: subSpec.(*TestResourceFDEpollSpec)}, nil
-	case TestResourceFDSubtypeInotify:
-		return struct {
-			Type    TestResourceType           `yaml:"type"`
-			Name    string                     `yaml:"name"`
-			Subtype TestResourceFDSubtype      `yaml:"subtype"`
-			Spec    *TestResourceFDInotifySpec `yaml:"subspec,inline"`
-		}{Type: r.Type, Name: r.Name, Subtype: subtype, Spec: subSpec.(*TestResourceFDInotifySpec)}, nil
-	case TestResourceFDSubtypeMem:
-		return struct {
-			Type    TestResourceType       `yaml:"type"`
-			Name    string                 `yaml:"name"`
-			Subtype TestResourceFDSubtype  `yaml:"subtype"`
-			Spec    *TestResourceFDMemSpec `yaml:"subspec,inline"`
-		}{Type: r.Type, Name: r.Name, Subtype: subtype, Spec: subSpec.(*TestResourceFDMemSpec)}, nil
-	default:
-		return nil, fmt.Errorf("unknown fd test resource subtype %q", subtype)
-	}
+	Spec any              `yaml:"spec,inline" mapstructure:"-"`
 }
 
 // TestResourceType is the type of test resource.
@@ -583,7 +488,7 @@ const (
 // TestResourceFDSpec describes an fd test resource.
 type TestResourceFDSpec struct {
 	Subtype TestResourceFDSubtype `yaml:"subtype" mapstructure:"subtype"`
-	Spec    any                   `yaml:"-" mapstructure:"-"`
+	Spec    any                   `yaml:"spec,inline" mapstructure:"-"`
 }
 
 // TestResourceFDSubtype is the subtype of fd test resource.
@@ -666,8 +571,6 @@ type TestStep struct {
 
 // MarshalYAML returns an inner representation of the TestStep instance that is used, in place of the instance, to
 // marshal the content.
-// TODO: this method should be implemented with a pointer receiver but unfortunately, the yaml.v3 library is only able
-// to call it if it is implemented with a value receiver. Uniform the receivers once the library is replaced.
 func (s TestStep) MarshalYAML() (any, error) {
 	switch stepType := s.Type; stepType {
 	case TestStepTypeSyscall:
