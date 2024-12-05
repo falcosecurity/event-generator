@@ -26,22 +26,24 @@ import (
 )
 
 var (
-	errMustBePositive     = fmt.Errorf("value must be positive")
-	errMustBeString       = fmt.Errorf("value must be a string")
-	errCannotConvertToInt = fmt.Errorf("cannot convert to int")
-	errUnexpectedNullByte = fmt.Errorf("unexpected NULL byte")
-	errPortOutOfRange     = fmt.Errorf("port number out of range (0, 65535]")
-	errMustBeStringOrInt  = fmt.Errorf("value must be a string or an int")
-	errMustBeMap          = fmt.Errorf("value must be a map")
+	errMustBePositive       = fmt.Errorf("value must be positive")
+	errMustBeString         = fmt.Errorf("value must be a string")
+	errCannotConvertToInt   = fmt.Errorf("cannot convert to int")
+	errUnexpectedNullByte   = fmt.Errorf("unexpected NULL byte")
+	errPortOutOfRange       = fmt.Errorf("port number out of range (0, 65535]")
+	errMustBeStringOrUint64 = fmt.Errorf("value must be a string or an uint64")
+	errMustBeMap            = fmt.Errorf("value must be a map")
 )
 
 func parseInt64(value any) (int64, error) {
 	v := reflect.ValueOf(value)
-	if !v.CanInt() {
+	var n int64
+	typ := reflect.TypeOf(n)
+	if !v.CanConvert(typ) {
 		return 0, errCannotConvertToInt
 	}
 
-	return v.Int(), nil
+	return v.Convert(typ).Int(), nil
 }
 
 func parseString(value any) (string, error) {
@@ -133,22 +135,22 @@ func parseSocketAddress(value any) (unix.Sockaddr, error) {
 
 func parseSingleValue(value any, valuesMap map[string]int) (int, error) {
 	switch value := value.(type) {
-	case int:
-		return value, nil
+	case uint64:
+		return int(value), nil //nolint:gosec // Disable G115
 	case string:
 		if parsedValue, ok := valuesMap[value]; ok {
 			return parsedValue, nil
 		}
 		return strconv.Atoi(value)
 	default:
-		return 0, errMustBeStringOrInt
+		return 0, errMustBeStringOrUint64
 	}
 }
 
 func parseFlags(value any, flagsMap map[string]int) (int, error) {
 	switch value := value.(type) {
-	case int:
-		return value, nil
+	case uint64:
+		return int(value), nil //nolint:gosec // Disable G115
 	case string:
 		if flags, err := strconv.Atoi(value); err == nil {
 			return flags, nil
@@ -165,7 +167,7 @@ func parseFlags(value any, flagsMap map[string]int) (int, error) {
 
 		return flags, nil
 	default:
-		return 0, errMustBeStringOrInt
+		return 0, errMustBeStringOrUint64
 	}
 }
 
