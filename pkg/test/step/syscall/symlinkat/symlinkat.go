@@ -43,8 +43,7 @@ type symlinkAtSyscall struct {
 }
 
 // New creates a new symlinkat system call test step.
-func New(name string, rawArgs map[string]string,
-	fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
+func New(name string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	s := &symlinkAtSyscall{}
 	s.bindOnlyArgs.NewDirFD = unix.AT_FDCWD
 	argsContainer := reflect.ValueOf(&s.args).Elem()

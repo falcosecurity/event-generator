@@ -576,7 +576,7 @@ func (s *TestStep) UnmarshalYAML(node *yaml.Node) error {
 			return fmt.Errorf("error decoding syscall parameters: %w", err)
 		}
 		spec = &syscallSpec
-		fieldBindings = syscallSpec.fieldBindings()
+		fieldBindings = getFieldBindings("", syscallSpec.Args)
 	default:
 		panic(fmt.Sprintf("unknown test step type %q", decodedType))
 	}
@@ -596,7 +596,7 @@ func (s TestStep) MarshalYAML() (interface{}, error) {
 	switch stepType := s.Type; stepType {
 	case TestStepTypeSyscall:
 		spec := s.Spec.(*TestStepSyscallSpec)
-		args := make(map[string]string, len(spec.Args)+len(s.FieldBindings))
+		args := make(map[string]interface{}, len(spec.Args)+len(s.FieldBindings))
 		for arg, argValue := range spec.Args {
 			args[arg] = argValue
 		}
@@ -640,8 +640,8 @@ func (t *TestStepType) UnmarshalYAML(node *yaml.Node) error {
 
 // TestStepSyscallSpec describes a system call test step.
 type TestStepSyscallSpec struct {
-	Syscall SyscallName       `yaml:"syscall" validate:"-"`
-	Args    map[string]string `yaml:"args" validate:"required"`
+	Syscall SyscallName            `yaml:"syscall" validate:"-"`
+	Args    map[string]interface{} `yaml:"args" validate:"required"`
 }
 
 // TestStepFieldBinding contains the information to perform the binding of a field belonging to a source step.
@@ -653,22 +653,34 @@ type TestStepFieldBinding struct {
 
 var fieldBindingRegex = regexp.MustCompile(`^\${(.+?)\.(.+)}$`)
 
-func (s *TestStepSyscallSpec) fieldBindings() []*TestStepFieldBinding {
-	var bindings []*TestStepFieldBinding
-	for arg, argValue := range s.Args {
-		// Check if the user specified a field binding as value.
-		match := fieldBindingRegex.FindStringSubmatch(argValue)
-		if match == nil {
-			continue
-		}
+func getFieldBindings(containingArgName string, args map[string]interface{}) []*TestStepFieldBinding {
+	// The prefix of each contained argument is composed by the containing argument name.
+	var argsPrefix string
+	if containingArgName != "" {
+		argsPrefix = containingArgName + "."
+	}
 
-		bindings = append(bindings, &TestStepFieldBinding{
-			SrcStep:    match[1],
-			SrcField:   match[2],
-			LocalField: arg,
-		})
-		// If an argument value is a field binding, remove it from arguments.
-		delete(s.Args, arg)
+	var bindings []*TestStepFieldBinding
+	for arg, argValue := range args {
+		switch argValue := argValue.(type) {
+		case string:
+			// Check if the user specified a field binding as value.
+			match := fieldBindingRegex.FindStringSubmatch(argValue)
+			if match == nil {
+				continue
+			}
+
+			bindings = append(bindings, &TestStepFieldBinding{
+				SrcStep:    match[1],
+				SrcField:   match[2],
+				LocalField: argsPrefix + arg,
+			})
+
+			// If an argument value is a field binding, remove it from arguments.
+			delete(args, arg)
+		case map[string]interface{}:
+			bindings = append(bindings, getFieldBindings(arg, argValue)...)
+		}
 	}
 	return bindings
 }

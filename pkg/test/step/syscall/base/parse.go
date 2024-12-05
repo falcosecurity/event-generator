@@ -18,94 +18,82 @@ package base
 import (
 	"fmt"
 	"net"
+	"reflect"
 	"strconv"
 	"strings"
 
 	"golang.org/x/sys/unix"
-	"gopkg.in/yaml.v3"
 )
 
 var (
-	errNegativeValue      = fmt.Errorf("value is negative")
+	errMustBePositive     = fmt.Errorf("value must be positive")
+	errMustBeString       = fmt.Errorf("value must be a string")
+	errCannotConvertToInt = fmt.Errorf("cannot convert to int")
 	errUnexpectedNullByte = fmt.Errorf("unexpected NULL byte")
 	errPortOutOfRange     = fmt.Errorf("port number out of range (0, 65535]")
+	errMustBeStringOrInt  = fmt.Errorf("value must be a string or an int")
+	errMustBeMap          = fmt.Errorf("value must be a map")
 )
 
-func parseBufferLen(value string) (int, error) {
-	bufferLen, err := strconv.Atoi(value)
+func parseInt64(value any) (int64, error) {
+	v := reflect.ValueOf(value)
+	if !v.CanInt() {
+		return 0, errCannotConvertToInt
+	}
+
+	return v.Int(), nil
+}
+
+func parseString(value any) (string, error) {
+	v, ok := value.(string)
+	if !ok {
+		return "", errMustBeString
+	}
+
+	return v, nil
+}
+
+func parseBufferLen(value any) (int64, error) {
+	bufferLen, err := parseInt64(value)
 	if err != nil {
 		return 0, err
 	}
 
 	if bufferLen < 0 {
-		return 0, errNegativeValue
+		return 0, errMustBePositive
 	}
 
 	return bufferLen, nil
 }
 
-func parseFilePath(value string) ([]byte, error) {
-	if strings.IndexByte(value, 0) != -1 {
+func parseFilePath(value any) ([]byte, error) {
+	v, err := parseString(value)
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.IndexByte(v, 0) != -1 {
 		return nil, errUnexpectedNullByte
 	}
 
-	filePath := make([]byte, len(value)+1)
-	copy(filePath, value)
+	filePath := make([]byte, len(v)+1)
+	copy(filePath, v)
 	return filePath, nil
 }
 
-func parseOpenHow(value string) (*unix.OpenHow, error) {
-	dec := yaml.NewDecoder(strings.NewReader(value))
-	// Force the decoding to fail if the YAML document contains unknown fields
-	dec.KnownFields(true)
-	var openHowView struct {
-		Flags   string `yaml:"flags"`
-		Mode    string `yaml:"mode"`
-		Resolve string `yaml:"resolve"`
-	}
-	if err := dec.Decode(&openHowView); err != nil {
-		return nil, fmt.Errorf("error decoding: %w", err)
+func parseSocketAddress(value any) (unix.Sockaddr, error) {
+	parsedValue, err := parseString(value)
+	if err != nil {
+		return nil, err
 	}
 
-	openHow := &unix.OpenHow{}
-	if openHowView.Flags == "" {
-		flags, err := parseFlags(openHowView.Flags, openFlags)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing flags: %w", err)
-		}
-		//nolint:gosec // Disable G115
-		openHow.Flags = uint64(flags)
-	}
-
-	if openHowView.Mode == "" {
-		mode, err := parseFlags(openHowView.Mode, openModes)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing mode: %w", err)
-		}
-		//nolint:gosec // Disable G115
-		openHow.Mode = uint64(mode)
-	}
-
-	if openHowView.Resolve == "" {
-		resolve, err := parseFlags(openHowView.Resolve, openHowResolveFlags)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing resolve: %w", err)
-		}
-		//nolint:gosec // Disable G115
-		openHow.Mode = uint64(resolve)
-	}
-
-	return openHow, nil
-}
-
-func parseSocketAddress(value string) (unix.Sockaddr, error) {
-	if strings.HasPrefix(value, "unix://") {
-		value = value[len("unix://"):]
-		sockaddr := &unix.SockaddrUnix{Name: value}
+	if strings.HasPrefix(parsedValue, "unix://") {
+		parsedValue = parsedValue[len("unix://"):]
+		sockaddr := &unix.SockaddrUnix{Name: parsedValue}
 		return sockaddr, nil
 	}
 
-	host, port, err := net.SplitHostPort(value)
+	host, port, err := net.SplitHostPort(parsedValue)
 	if err != nil {
 		return nil, fmt.Errorf("cannot split address in host and port parts: %w", err)
 	}
@@ -143,27 +131,49 @@ func parseSocketAddress(value string) (unix.Sockaddr, error) {
 	return sockaddr, nil
 }
 
-func parseSingleValue(value string, valuesMap map[string]int) (int, error) {
-	if parsedValue, ok := valuesMap[value]; ok {
-		return parsedValue, nil
+func parseSingleValue(value any, valuesMap map[string]int) (int, error) {
+	switch value := value.(type) {
+	case int:
+		return value, nil
+	case string:
+		if parsedValue, ok := valuesMap[value]; ok {
+			return parsedValue, nil
+		}
+		return strconv.Atoi(value)
+	default:
+		return 0, errMustBeStringOrInt
 	}
-
-	return strconv.Atoi(value)
 }
 
-func parseFlags(value string, flagsMap map[string]int) (int, error) {
-	if flags, err := strconv.Atoi(value); err == nil {
-		return flags, nil
-	}
-
-	flags := 0
-	for _, flag := range strings.Split(value, "|") {
-		flagValue, ok := flagsMap[flag]
-		if !ok {
-			return 0, fmt.Errorf("unknown flag %q", flag)
+func parseFlags(value any, flagsMap map[string]int) (int, error) {
+	switch value := value.(type) {
+	case int:
+		return value, nil
+	case string:
+		if flags, err := strconv.Atoi(value); err == nil {
+			return flags, nil
 		}
-		flags |= flagValue
+
+		flags := 0
+		for _, flag := range strings.Split(value, "|") {
+			flagValue, ok := flagsMap[flag]
+			if !ok {
+				return 0, fmt.Errorf("unknown flag %q", flag)
+			}
+			flags |= flagValue
+		}
+
+		return flags, nil
+	default:
+		return 0, errMustBeStringOrInt
+	}
+}
+
+func parseMap(value any) (map[string]any, error) {
+	rawArgs, ok := value.(map[string]any)
+	if !ok {
+		return nil, errMustBeMap
 	}
 
-	return flags, nil
+	return rawArgs, nil
 }

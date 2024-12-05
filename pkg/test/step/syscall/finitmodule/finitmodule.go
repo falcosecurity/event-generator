@@ -40,8 +40,7 @@ type finitModuleSyscall struct {
 }
 
 // New creates a new finit_module system call test step.
-func New(name string, rawArgs map[string]string,
-	fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
+func New(name string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	f := &finitModuleSyscall{}
 	// f.args.ParamValues defaulted to ""
 	// f.args.Flags defaulted to 0
