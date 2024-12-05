@@ -41,8 +41,7 @@ type dup3Syscall struct {
 }
 
 // New creates a new dup3 system call test step.
-func New(name string, rawArgs map[string]string,
-	fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
+func New(name string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	d := &dup3Syscall{savedFD: -1}
 	// d.args.Flags defaulted to 0
 	argsContainer := reflect.ValueOf(&d.args).Elem()

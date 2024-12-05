@@ -39,8 +39,7 @@ type writeSyscall struct {
 }
 
 // New creates a new write system call test step.
-func New(name string, rawArgs map[string]string,
-	fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
+func New(name string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	w := &writeSyscall{}
 	// w.args.Len defaults to the buffer length at run time, if unbound.
 	argsContainer := reflect.ValueOf(&w.args).Elem()

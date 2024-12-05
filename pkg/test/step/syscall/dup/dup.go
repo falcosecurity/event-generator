@@ -37,13 +37,13 @@ type dupSyscall struct {
 }
 
 // New creates a new dup system call test step.
-func New(name string, rawArgs map[string]string,
-	fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
+func New(name string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	d := &dupSyscall{}
 	argsContainer := reflect.ValueOf(&d.args).Elem()
 	bindOnlyArgsContainer := reflect.ValueOf(&d.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(d).Elem()
-	return base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, nil, d.run, nil)
+	return base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, nil, d.run,
+		nil)
 }
 
 func (d *dupSyscall) run(_ context.Context) error {

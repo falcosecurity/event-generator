@@ -39,8 +39,7 @@ type killSyscall struct {
 }
 
 // New creates a new kill system call test step.
-func New(name string, rawArgs map[string]string,
-	fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
+func New(name string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding) (syscall.Syscall, error) {
 	k := &killSyscall{}
 	argsContainer := reflect.ValueOf(&k.args).Elem()
 	bindOnlyArgsContainer := reflect.ValueOf(&k.bindOnlyArgs).Elem()

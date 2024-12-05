@@ -61,6 +61,12 @@ const (
 	TypeOpenMode Type = "open_mode"
 	// TypeOpenHow specifies that the field contains the openat2 system call open_how parameter.
 	TypeOpenHow Type = "open_how"
+	// TypeOpenHowFlags specifies that the field contains the openat2 system call open_how flags.
+	TypeOpenHowFlags Type = "open_how_flags"
+	// TypeOpenHowMode specifies that the field contains the openat2 system call open_how mode.
+	TypeOpenHowMode Type = "open_how_mode"
+	// TypeOpenHowResolve specifies that the field contains the openat2 system call open_how resolve value.
+	TypeOpenHowResolve Type = "open_how_resolve"
 	// TypeLinkAtFlags specifies that the field contains the linkat system call flags.
 	TypeLinkAtFlags Type = "linkat_flags"
 	// TypeModuleParams specifies that the field contains the init_module system call params.
@@ -121,7 +127,7 @@ func Paths(fieldContainer reflect.Type) map[string]struct{} {
 		subFieldPaths := Paths(fieldTy)
 		// Generate the complete field path by prefixing, to each subfield, the current field path.
 		for subFieldPath := range subFieldPaths {
-			fieldPaths[fieldPath+fieldPathSegmentsSeparator+subFieldPath] = struct{}{}
+			fieldPaths[JoinFieldPathSegments(fieldPath, subFieldPath)] = struct{}{}
 		}
 	}
 	return fieldPaths
@@ -132,16 +138,21 @@ func Path(s string) string {
 	return strings.ToLower(s)
 }
 
-// splitFieldPath splits the provided field path into multiple segments.
-func splitFieldPath(fieldPath string) []string {
+// splitFieldPathSegments splits the provided field path into multiple segments.
+func splitFieldPathSegments(fieldPath string) []string {
 	return strings.Split(fieldPath, fieldPathSegmentsSeparator)
+}
+
+// JoinFieldPathSegments joins the provided field path segments into a single field path.
+func JoinFieldPathSegments(pathSegments ...string) string {
+	return strings.Join(pathSegments, fieldPathSegmentsSeparator)
 }
 
 // ByName returns information for the field identified by name. The field is searched in the provided fieldContainers,
 // and the first match is returned.
 func ByName(name string, fieldContainers ...reflect.Value) (*Field, error) {
 	fieldPath := Path(name)
-	fieldPathSegments := splitFieldPath(fieldPath)
+	fieldPathSegments := splitFieldPathSegments(fieldPath)
 
 	for _, fieldContainer := range fieldContainers {
 		if field := byName(fieldContainer, fieldPath, fieldPathSegments); field != nil {

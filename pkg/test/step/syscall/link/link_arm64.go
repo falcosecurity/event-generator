@@ -22,6 +22,6 @@ import (
 	"github.com/falcosecurity/event-generator/pkg/test/step/syscall"
 )
 
-func New(_ string, _ map[string]string, _ []*step.FieldBinding) (syscall.Syscall, error) {
+func New(_ string, _ map[string]interface{}, _ []*step.FieldBinding) (syscall.Syscall, error) {
 	return nil, fmt.Errorf("not supported by the architecture")
 }

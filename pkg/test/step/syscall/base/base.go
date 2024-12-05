@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strconv"
 
 	"github.com/falcosecurity/event-generator/pkg/test/field"
 	"github.com/falcosecurity/event-generator/pkg/test/step"
@@ -61,7 +60,7 @@ var _ syscall.Syscall = (*baseSyscall)(nil)
 var errOpenModeMustBePositive = fmt.Errorf("open mode must be a positive integer")
 
 // New creates a new generic system call test step.
-func New(stepName string, rawArgs map[string]string, fieldBindings []*step.FieldBinding, argsContainer,
+func New(stepName string, rawArgs map[string]interface{}, fieldBindings []*step.FieldBinding, argsContainer,
 	bindOnlyArgsContainer, retValueContainer reflect.Value, defaultedArgs []string,
 	runFunc, cleanupFunc func(ctx context.Context) error) (syscall.Syscall, error) {
 	if err := checkContainersInvariants(argsContainer, bindOnlyArgsContainer, retValueContainer); err != nil {
@@ -72,9 +71,13 @@ func New(stepName string, rawArgs map[string]string, fieldBindings []*step.Field
 		return nil, fmt.Errorf("run function must not be nil")
 	}
 
-	unboundArgs, err := setArgFieldValues(argsContainer, rawArgs)
+	unboundArgs := field.Paths(argsContainer.Type())
+	boundArgs, err := setArgFieldValues(argsContainer, rawArgs)
 	if err != nil {
 		return nil, fmt.Errorf("error setting argument field values: %w", err)
+	}
+	for _, boundArg := range boundArgs {
+		delete(unboundArgs, boundArg)
 	}
 
 	unboundBindOnlyArgs := field.Paths(bindOnlyArgsContainer.Type())
@@ -119,141 +122,179 @@ func checkContainersInvariants(argsContainer, bindOnlyArgsContainer, retValueCon
 }
 
 // setArgFieldValues sets the argument fields in argFieldContainer to the corresponding values in rawArgs. It returns
-// the set of arguments that remain to be set.
-func setArgFieldValues(argFieldContainer reflect.Value, rawArgs map[string]string) (map[string]struct{}, error) {
-	unboundArgs := field.Paths(argFieldContainer.Type())
+// the list of set arguments field paths.
+func setArgFieldValues(argFieldContainer reflect.Value, rawArgs map[string]interface{}) ([]string, error) {
+	fmt.Printf("setArgFieldValues rawArgs: %+v\n", rawArgs)
+	var boundArgs []string
 	for rawArg, rawArgValue := range rawArgs {
 		argField, err := field.ByName(rawArg, argFieldContainer)
 		if err != nil {
-			return nil, fmt.Errorf("error getting %q argument field info: %w", rawArg, err)
+			return nil, fmt.Errorf("error getting %q argument field: %w", rawArg, err)
 		}
 
-		if err := setArgFieldValue(argField, rawArgValue); err != nil {
-			return nil, fmt.Errorf("error setting %q argument field value to %q: %w", rawArg, rawArgValue, err)
+		argFieldBoundArgs, err := setArgFieldValue(argField, rawArgValue)
+		if err != nil {
+			return nil, fmt.Errorf("error setting %q argument field value to %v: %w", rawArg, rawArgValue, err)
 		}
 
-		delete(unboundArgs, field.Path(rawArg))
+		boundArgs = append(boundArgs, argFieldBoundArgs...)
 	}
-	return unboundArgs, nil
+	return boundArgs, nil
 }
 
-// setArgFieldValue sets the value of the field identified by the provided field info to the provided value, parsing it
-// differently depending on the field type.
+// setArgFieldValue sets the value of the provided field and/or sub-fields to the provided value, parsing it differently
+// depending on the field type.
 //
 //nolint:gocyclo // Disable cyclomatic complexity check.
-func setArgFieldValue(argField *field.Field, value string) error {
+func setArgFieldValue(argField *field.Field, value interface{}) ([]string, error) {
+	boundArgs := []string{argField.Path}
 	argFieldValue := argField.Value
 	switch argFieldType := argField.Type; argFieldType {
 	case field.TypeFD:
-		fd, err := strconv.Atoi(value)
+		fd, err := parseInt64(value)
 		if err != nil {
-			return fmt.Errorf("cannot parse value as FD: %w", err)
+			return nil, fmt.Errorf("cannot parse value as fd: %w", err)
 		}
-		argFieldValue.SetInt(int64(fd))
+		argFieldValue.SetInt(fd)
 	case field.TypeBuffer:
-		argFieldValue.Set(reflect.ValueOf([]byte(value)))
+		buffer, err := parseString(value)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse value as buffer: %w", err)
+		}
+		argFieldValue.Set(reflect.ValueOf([]byte(buffer)))
 	case field.TypeBufferLen:
 		bufferLen, err := parseBufferLen(value)
 		if err != nil {
-			return fmt.Errorf("cannot parse value as buffer length: %w", err)
+			return nil, fmt.Errorf("cannot parse value as buffer length: %w", err)
 		}
-		argFieldValue.SetInt(int64(bufferLen))
+		argFieldValue.SetInt(bufferLen)
 	case field.TypeFilePath:
 		filePath, err := parseFilePath(value)
 		if err != nil {
-			return fmt.Errorf("cannot parse value as file path: %w", err)
+			return nil, fmt.Errorf("cannot parse value as file path: %w", err)
 		}
 		argFieldValue.Set(reflect.ValueOf(filePath))
-	case field.TypeOpenFlags:
+	case field.TypeOpenFlags, field.TypeOpenHowFlags:
 		openFlags, err := parseFlags(value, openFlags)
 		if err != nil {
-			return fmt.Errorf("cannot parse value as open flags: %w", err)
+			return nil, fmt.Errorf("cannot parse value as open flags: %w", err)
 		}
-		argFieldValue.SetInt(int64(openFlags))
-	case field.TypeOpenMode:
+		if argFieldValue.CanInt() {
+			argFieldValue.SetInt(int64(openFlags))
+		} else {
+			argFieldValue.SetUint(uint64(openFlags)) //nolint:gosec // Disable G115
+		}
+	case field.TypeOpenMode, field.TypeOpenHowMode:
 		openMode, err := parseFlags(value, openModes)
 		if err != nil {
-			return fmt.Errorf("cannot parse value as open mode: %w", err)
+			return nil, fmt.Errorf("cannot parse value as open mode: %w", err)
 		}
 		if openMode < 0 {
-			return errOpenModeMustBePositive
+			return nil, errOpenModeMustBePositive
 		}
 		argFieldValue.SetUint(uint64(openMode))
 	case field.TypeOpenHow:
-		openHow, err := parseOpenHow(value)
+		fieldBoundArgs, err := setSubArgFieldValues(argField, value)
 		if err != nil {
-			return fmt.Errorf("cannot parse value as open_how struct: %w", err)
+			return nil, fmt.Errorf("cannot parse value as open_how struct: %w", err)
 		}
-		argFieldValue.Set(reflect.ValueOf(*openHow))
+		boundArgs = append(boundArgs, fieldBoundArgs...)
+	case field.TypeOpenHowResolve:
+		resolveFlags, err := parseFlags(value, openHowResolveFlags)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse value as open resolve value: %w", err)
+		}
+		argFieldValue.SetUint(uint64(resolveFlags)) //nolint:gosec // Disable G115
 	case field.TypeLinkAtFlags:
 		linkAtFlags, err := parseFlags(value, linkAtFlags)
 		if err != nil {
-			return fmt.Errorf("cannot parse value as linkat flags: %w", err)
+			return nil, fmt.Errorf("cannot parse value as linkat flags: %w", err)
 		}
 		argFieldValue.SetInt(int64(linkAtFlags))
 	case field.TypeModuleParams:
-		argFieldValue.SetString(value)
+		moduleParams, err := parseString(value)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse value as module params: %w", err)
+		}
+		argFieldValue.SetString(moduleParams)
 	case field.TypeFinitModuleFlags:
 		finitModuleFlags, err := parseFlags(value, finitModuleFlags)
 		if err != nil {
-			return fmt.Errorf("cannot parse value as finit_module flags: %w", err)
+			return nil, fmt.Errorf("cannot parse value as finit_module flags: %w", err)
 		}
 		argFieldValue.SetInt(int64(finitModuleFlags))
 	case field.TypeDup3Flags:
 		dup3Flags, err := parseFlags(value, dup3Flags)
 		if err != nil {
-			return fmt.Errorf("cannot parse value as dup3 flags: %w", err)
+			return nil, fmt.Errorf("cannot parse value as dup3 flags: %w", err)
 		}
 		argFieldValue.SetInt(int64(dup3Flags))
 	case field.TypeSocketAddress:
 		sockaddr, err := parseSocketAddress(value)
 		if err != nil {
-			return fmt.Errorf("cannot parse value as socket address: %w", err)
+			return nil, fmt.Errorf("cannot parse value as socket address: %w", err)
 		}
 		argFieldValue.Set(reflect.ValueOf(sockaddr))
 	case field.TypeSocketDomain:
 		socketDomain, err := parseSingleValue(value, socketDomains)
 		if err != nil {
-			return fmt.Errorf("cannot parse value as socket domain: %w", err)
+			return nil, fmt.Errorf("cannot parse value as socket domain: %w", err)
 		}
 		argFieldValue.SetInt(int64(socketDomain))
 	case field.TypeSocketType:
 		socketType, err := parseSingleValue(value, socketTypes)
 		if err != nil {
-			return fmt.Errorf("cannot parse value as socket type: %w", err)
+			return nil, fmt.Errorf("cannot parse value as socket type: %w", err)
 		}
 		argFieldValue.SetInt(int64(socketType))
 	case field.TypeSocketProtocol:
 		socketProtocol, err := parseSingleValue(value, socketProtocols)
 		if err != nil {
-			return fmt.Errorf("cannot parse value as socket protocol: %w", err)
+			return nil, fmt.Errorf("cannot parse value as socket protocol: %w", err)
 		}
 		argFieldValue.SetInt(int64(socketProtocol))
 	case field.TypeSendFlags:
 		sendFlags, err := parseFlags(value, sendFlags)
 		if err != nil {
-			return fmt.Errorf("cannot parse value as send flags: %w", err)
+			return nil, fmt.Errorf("cannot parse value as send flags: %w", err)
 		}
 		argFieldValue.SetInt(int64(sendFlags))
 	case field.TypePID:
-		pid, err := strconv.Atoi(value)
+		pid, err := parseInt64(value)
 		if err != nil {
-			return fmt.Errorf("cannot parse value as PID: %w", err)
+			return nil, fmt.Errorf("cannot parse value as PID: %w", err)
 		}
-		argFieldValue.SetInt(int64(pid))
+		argFieldValue.SetInt(pid)
 	case field.TypeSignal:
 		signal, err := parseSingleValue(value, signals)
 		if err != nil {
-			return fmt.Errorf("cannot parse value as signal: %w", err)
+			return nil, fmt.Errorf("cannot parse value as signal: %w", err)
 		}
 		argFieldValue.SetInt(int64(signal))
 	case field.TypeUndefined:
-		return fmt.Errorf("argument field type is undefined")
+		return nil, fmt.Errorf("argument field type is undefined")
 	default:
-		return fmt.Errorf("unknown syscall argument field type %q", argFieldType)
+		return nil, fmt.Errorf("unknown syscall argument field type %q", argFieldType)
 	}
 
-	return nil
+	return boundArgs, nil
+}
+
+func setSubArgFieldValues(argField *field.Field, value interface{}) ([]string, error) {
+	rawArgs, err := parseMap(value)
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse argument field: %w", err)
+	}
+
+	boundArgs, err := setArgFieldValues(argField.Value, rawArgs)
+	if err != nil {
+		return nil, fmt.Errorf("error seting argument sub-fields: %w", err)
+	}
+
+	for idx := range boundArgs {
+		boundArgs[idx] = field.JoinFieldPathSegments(argField.Path, boundArgs[idx])
+	}
+	return boundArgs, nil
 }
 
 func (s *baseSyscall) Name() string {
@@ -266,6 +307,8 @@ func (s *baseSyscall) Run(ctx context.Context) error {
 		return fmt.Errorf("the following argument fields are not bound yet: %v", unboundArgFields)
 	}
 
+	fmt.Printf("argsContainer: %+v\n", s.argsContainer)
+	fmt.Printf("bindOnlyArgsContainer: %+v\n", s.bindOnlyArgsContainer)
 	return s.runFunc(ctx)
 }
 
