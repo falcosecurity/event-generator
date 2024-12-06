@@ -20,6 +20,7 @@ import (
 	"io"
 	"reflect"
 	"regexp"
+	"strings"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/goccy/go-yaml"
@@ -579,9 +580,23 @@ func (s TestStep) MarshalYAML() (any, error) {
 		for arg, argValue := range spec.Args {
 			args[arg] = argValue
 		}
+
+		// Restore field bindings in the original locations.
 		for _, fieldBinding := range s.FieldBindings {
-			args[fieldBinding.LocalField] = fmt.Sprintf("${%s.%s}", fieldBinding.SrcStep, fieldBinding.SrcField)
+			localFieldSegments := strings.Split(fieldBinding.LocalField, ".")
+			fieldContainer := args
+			for _, fieldSegment := range localFieldSegments[:len(localFieldSegments)-1] {
+				value, ok := fieldContainer[fieldSegment]
+				if !ok {
+					value = map[string]any{}
+					fieldContainer[fieldSegment] = value
+				}
+				fieldContainer = value.(map[string]any)
+			}
+			fieldContainer[localFieldSegments[len(localFieldSegments)-1]] = fmt.Sprintf("${%s.%s}",
+				fieldBinding.SrcStep, fieldBinding.SrcField)
 		}
+
 		return struct {
 			Type TestStepType         `yaml:"type"`
 			Name string               `yaml:"name"`
