@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "resources.fd.eventpoll.schema.json",
+  "title": "The eventpoll fd test resource",
+  "description": "An eventpoll fd test resource creates an epoll fd and exposes it"
+}

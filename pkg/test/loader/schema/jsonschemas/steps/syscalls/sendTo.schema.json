@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "steps.syscall.sendTo.schema.json",
+  "title": "The sendto syscall test step",
+  "description": "The sendto syscall test step runs the sendto system call with the provided arguments. The return value is not bindable",
+  "properties": {
+    "args": {
+      "description": "The sendto system call arguments",
+      "type": "object",
+      "properties": {
+        "fd": {
+          "description": "The file descriptor referencing the socket the system call send to",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "minimum": 0,
+          "$ref": "binding.schema.json"
+        },
+        "buf": {
+          "description": "The buffer containing the data to send to the socket referenced by 'fd'",
+          "type": "string",
+          "minLength": 1
+        },
+        "len": {
+          "description": "The buffer length",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "minimum": 0,
+          "$ref": "binding.schema.json",
+          "default": "The length of the provided buffer"
+        },
+        "flags": {
+          "description": "The sendto flags, expressed as an OR-ed combination of the supported flags or as integer",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "examples": [
+            "MSG_CONFIRM"
+          ]
+        },
+        "address": {
+          "description": "The address the system call sends to. It can assume the following forms: 'unix://<path-to-unix-socket>', '<ipv4_address>:<port>' or '[<ipv6_address>]:<port>'",
+          "type": "string",
+          "minLength": 1,
+          "examples": [
+            "unix:///tmp/socket1.sock",
+            "123.123.123.123:4444",
+            "[fd00::1]:4444"
+          ]
+        }
+      },
+      "required": [
+        "fd",
+        "buf",
+        "flags",
+        "destAddr"
+      ]
+    }
+  },
+  "required": [
+    "args"
+  ]
+}

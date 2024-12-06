@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "steps.syscall.schema.json",
+  "title": "The syscall test step",
+  "description": "A syscall test step allows to run a system call on the system",
+  "properties": {
+    "syscall": {
+      "description": "The system call name",
+      "type": "string",
+      "enum": [
+        "write",
+        "read",
+        "open",
+        "openat",
+        "openat2",
+        "symlink",
+        "symlinkat",
+        "link",
+        "linkat",
+        "init_module",
+        "finit_module",
+        "dup",
+        "dup2",
+        "dup3",
+        "connect",
+        "socket",
+        "sendto",
+        "kill"
+      ],
+      "examples": [
+        "write"
+      ]
+    }
+  },
+  "required": [
+    "syscall"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "syscall": {
+            "const": "write"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.write.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "syscall": {
+            "const": "read"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.read.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "syscall": {
+            "const": "open"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.open.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "syscall": {
+            "const": "openat"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.openAt.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "syscall": {
+            "const": "openat2"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.openAt2.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "syscall": {
+            "const": "symlink"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.symLink.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "syscall": {
+            "const": "symlinkat"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.symLinkAt.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "syscall": {
+            "const": "link"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.link.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "syscall": {
+            "const": "linkat"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.linkAt.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "syscall": {
+            "const": "init_module"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.initModule.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "syscall": {
+            "const": "finit_module"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.finitModule.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "syscall": {
+            "const": "dup"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.dup.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "syscall": {
+            "const": "dup2"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.dup2.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "syscall": {
+            "const": "dup3"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.dup3.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "syscall": {
+            "const": "connect"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.connect.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "syscall": {
+            "const": "socket"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.socket.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "syscall": {
+            "const": "sendto"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.sendTo.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "syscall": {
+            "const": "kill"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.kill.schema.json"
+      }
+    }
+  ]
+}

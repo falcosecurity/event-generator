@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "description.schema.json",
+  "title": "Tests description",
+  "description": "The tests description",
+  "type": "object",
+  "properties": {
+    "tests": {
+      "description": "The list of tests to run",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "test.schema.json"
+      }
+    }
+  }
+}

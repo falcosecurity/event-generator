@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "binding.schema.json",
+  "title": "Field binding",
+  "description": "A field binding allows to bind a value in a test step's field with the value in a preceding test resource/step's field. The syntax requires to specify the name of the source resource/step followed by a '.' and the relative path to the source resource/step's field",
+  "examples": [
+    "${resourceA.fieldX}",
+    "${stepA.fieldY.subFieldZ}"
+  ],
+  "pattern": "\\${.+}"
+}

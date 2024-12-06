@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "test.schema.json",
+  "title": "Test",
+  "description": "A test specifies the configuration and the actions to perform to test how Falco reacts to specific events",
+  "type": "object",
+  "properties": {
+    "rule": {
+      "description": "The rule name",
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "description": "The test name",
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "description": "The test description",
+      "type": "string",
+      "minLength": 1
+    },
+    "runner": {
+      "description": "The type of test runner",
+      "type": "string",
+      "enum": [
+        "HostRunner"
+      ]
+    },
+    "context": {
+      "$ref": "context.schema.json"
+    },
+    "before": {
+      "description": "The script that is run before executing the test. It can be used to set up the test environment configuration",
+      "type": "string",
+      "minLength": 1
+    },
+    "after": {
+      "description": "The script that is run after executing the test. It can be used to clean up the test environment configuration",
+      "type": "string",
+      "minLength": 1
+    },
+    "resources": {
+      "description": "The list of test resources",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "resource.schema.json"
+      }
+    },
+    "steps": {
+      "description": "The list of test steps",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "step.schema.json"
+      }
+    },
+    "expectedOutcome": {
+      "$ref": "expectedOutcome.schema.json"
+    }
+  },
+  "required": [
+    "rule",
+    "name",
+    "runner",
+    "expectedOutcome"
+  ]
+}

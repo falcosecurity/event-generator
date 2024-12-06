@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "steps.syscall.write.schema.json",
+  "title": "The write syscall test step",
+  "description": "The write syscall test step runs the write system call with the provided arguments",
+  "properties": {
+    "args": {
+      "description": "The write system call arguments",
+      "type": "object",
+      "properties": {
+        "fd": {
+          "description": "The file descriptor referencing the file the system call writes to",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "minimum": 0,
+          "$ref": "binding.schema.json"
+        },
+        "buffer": {
+          "description": "The buffer containing the data to write to the file referenced by 'fd'",
+          "type": "string",
+          "minLength": 1
+        },
+        "len": {
+          "description": "The buffer length",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "minimum": 0,
+          "$ref": "binding.schema.json",
+          "default": "The length of the provided buffer"
+        }
+      },
+      "required": [
+        "fd"
+      ]
+    }
+  },
+  "required": [
+    "args"
+  ]
+}

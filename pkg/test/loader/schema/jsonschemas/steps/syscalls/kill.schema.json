@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "steps.syscall.kill.schema.json",
+  "title": "The kill syscall test step",
+  "description": "The kill syscall test step runs the kill system call with the provided arguments",
+  "properties": {
+    "args": {
+      "description": "The kill system call arguments",
+      "type": "object",
+      "properties": {
+        "pid": {
+          "description": "The reference to the pid the signal must be sent to",
+          "type": [
+            "string"
+          ],
+          "$ref": "binding.schema.json"
+        },
+        "sig": {
+          "description": "The signal that must be sent to the target process, expressed as one of the supported signal symbol or as integer",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "minLength": 1,
+          "examples": [
+            "SIGINT"
+          ]
+        }
+      },
+      "required": [
+        "pid",
+        "sig"
+      ]
+    }
+  },
+  "required": [
+    "args"
+  ]
+}

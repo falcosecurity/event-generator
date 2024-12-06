@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "resources.fd.directory.schema.json",
+  "title": "The directory fd test resource",
+  "description": "A directory fd test resource opens or creates a directory and exposes its file descriptor",
+  "properties": {
+    "dirPath": {
+      "description": "The directory path",
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "dirPath"
+  ]
+}
