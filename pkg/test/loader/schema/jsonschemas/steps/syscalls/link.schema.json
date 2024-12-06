@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "steps.syscall.link.schema.json",
+  "title": "The link syscall test step",
+  "description": "The link syscall test step runs the link system call with the provided arguments",
+  "properties": {
+    "args": {
+      "description": "The kill system call arguments",
+      "type": "object",
+      "properties": {
+        "oldPath": {
+          "description": "The file path referring to the existing file that must be linked",
+          "type": [
+            "string"
+          ],
+          "minLength": 1,
+          "examples": [
+            "/path/to/file"
+          ]
+        },
+        "newPath": {
+          "description": "The file path of the link that is requested to be created",
+          "type": [
+            "string"
+          ],
+          "minLength": 1,
+          "examples": [
+            "/path/to/link"
+          ]
+        }
+      },
+      "required": [
+        "oldPath",
+        "newPath"
+      ]
+    }
+  },
+  "required": [
+    "args"
+  ]
+}

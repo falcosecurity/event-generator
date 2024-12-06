@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "resources.fd.schema.json",
+  "title": "The fd test resource",
+  "description": "An fd test resource sets up one or more file descriptors",
+  "properties": {
+    "subtype": {
+      "description": "The fd test resource subtype",
+      "type": "string",
+      "enum": [
+        "file",
+        "directory",
+        "pipe",
+        "event",
+        "signalfd",
+        "eventpoll",
+        "inotify",
+        "memfd"
+      ]
+    }
+  },
+  "required": [
+    "subtype"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "subtype": {
+            "const": "file"
+          }
+        }
+      },
+      "then": {
+        "$ref": "resources.fd.file.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "subtype": {
+            "const": "directory"
+          }
+        }
+      },
+      "then": {
+        "$ref": "resources.fd.directory.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "subtype": {
+            "const": "pipe"
+          }
+        }
+      },
+      "then": {
+        "$ref": "resources.fd.pipe.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "subtype": {
+            "const": "event"
+          }
+        }
+      },
+      "then": {
+        "$ref": "resources.fd.event.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "subtype": {
+            "const": "signalfd"
+          }
+        }
+      },
+      "then": {
+        "$ref": "resources.fd.signalfd.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "subtype": {
+            "const": "eventpoll"
+          }
+        }
+      },
+      "then": {
+        "$ref": "resources.fd.eventpoll.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "subtype": {
+            "const": "inotify"
+          }
+        }
+      },
+      "then": {
+        "$ref": "resources.fd.inotify.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "subtype": {
+            "const": "memfd"
+          }
+        }
+      },
+      "then": {
+        "$ref": "resources.fd.memfd.schema.json"
+      }
+    }
+  ]
+}

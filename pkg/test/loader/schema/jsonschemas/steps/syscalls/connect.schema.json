@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "steps.syscall.connect.schema.json",
+  "title": "The connect syscall test step",
+  "description": "The connect syscall test step runs the connect system call with the provided arguments",
+  "properties": {
+    "args": {
+      "description": "The connect system call arguments",
+      "type": "object",
+      "properties": {
+        "fd": {
+          "description": "The file descriptor of the client socket",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "minimum": 0,
+          "$ref": "binding.schema.json"
+        },
+        "address": {
+          "description": "The address the system call connects to. It can assume the following forms: 'unix://<path-to-unix-socket>', '<ipv4_address>:<port>' or '[<ipv6_address>]:<port>'",
+          "type": "string",
+          "minLength": 1,
+          "examples": [
+            "unix:///tmp/socket1.sock",
+            "123.123.123.123:4444",
+            "[fd00::1]:4444"
+          ]
+        }
+      },
+      "required": [
+        "fd",
+        "address"
+      ]
+    }
+  },
+  "required": [
+    "args"
+  ]
+}

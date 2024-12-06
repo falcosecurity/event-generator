@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "resources.clientServer.schema.json",
+  "title": "The clientServer test resource",
+  "description": "A clientServer test resource sets up a client and a server, and enables their communication by tuning the underlying network infrastructure. The user can specify udp4, udp6, tcp4, tcp6 or unix as transport protocol. For connection-oriented transport protocols, the client is automatically connected to the server. The resource enables field binding to both client and server information",
+  "properties": {
+    "l4Proto": {
+      "description": "The transport protocol used by the client and the server",
+      "type": "string",
+      "enum": [
+        "udp4",
+        "udp6",
+        "tcp4",
+        "tcp6",
+        "unix"
+      ]
+    },
+    "address": {
+      "description": "The endpoint exposed by the server (as accepted by net.SplitHostPort or empty, in case of l4Proto equals to 'unix'",
+      "type": "string"
+    }
+  },
+  "required": [
+    "l4Proto",
+    "address"
+  ]
+}

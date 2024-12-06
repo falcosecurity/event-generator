@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "steps.syscall.dup.schema.json",
+  "title": "The dup syscall test step",
+  "description": "The dup syscall test step runs the dup system call with the provided arguments",
+  "properties": {
+    "args": {
+      "description": "The dup system call arguments",
+      "type": "object",
+      "properties": {
+        "oldFd": {
+          "description": "The file descriptor referencing the file for which a new file descriptor is requested",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "minimum": 0,
+          "$ref": "binding.schema.json"
+        }
+      },
+      "required": [
+        "oldFd"
+      ]
+    }
+  },
+  "required": [
+    "args"
+  ]
+}

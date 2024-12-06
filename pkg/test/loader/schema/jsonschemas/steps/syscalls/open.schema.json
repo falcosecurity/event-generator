@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "steps.syscall.open.schema.json",
+  "title": "The open syscall test step",
+  "description": "The open syscall test step runs the open system call with the provided arguments",
+  "properties": {
+    "args": {
+      "description": "The open system call arguments",
+      "type": "object",
+      "properties": {
+        "pathname": {
+          "description": "The path to the file to be opened",
+          "type": [
+            "string"
+          ],
+          "minLength": 1,
+          "examples": [
+            "/path/to/file"
+          ]
+        },
+        "flags": {
+          "description": "The open flags, expressed as an OR-ed combination of the supported flags or as integer",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "minLength": 1,
+          "examples": [
+            "O_CREAT|O_CLOEXEC|O_RDWR"
+          ]
+        },
+        "mode": {
+          "description": "The open mode, expressed as an OR-ed combination of the supported modes or as integer",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "minLength": 1,
+          "default": 0,
+          "examples": [
+            "S_IRWXU|S_IRWXG|S_IRWXO"
+          ]
+        }
+      },
+      "required": [
+        "pathname",
+        "flags"
+      ]
+    }
+  },
+  "required": [
+    "args"
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "steps.syscall.symLinkAt.schema.json",
+  "title": "The symlinkat syscall test step",
+  "description": "The symlinkat syscall test step runs the symlinkat system call with the provided arguments",
+  "properties": {
+    "args": {
+      "description": "The symlinkat system call arguments",
+      "type": "object",
+      "properties": {
+        "target": {
+          "description": "The file path referring to the existing file that must be symbolically linked",
+          "type": [
+            "string"
+          ],
+          "minLength": 1,
+          "examples": [
+            "/path/to/file"
+          ]
+        },
+        "newDirFd": {
+          "description": "The file descriptor referring to the directory containing the 'linkPath'",
+          "type": [
+            "string"
+          ],
+          "$ref": "binding.schema.json",
+          "examples": [
+            "/path/to/dir"
+          ]
+        },
+        "linkPath": {
+          "description": "The file path of the symbolic link that is requested to be created",
+          "type": [
+            "string"
+          ],
+          "minLength": 1,
+          "examples": [
+            "/path/to/symlink"
+          ]
+        }
+      },
+      "required": [
+        "target",
+        "newDirFd",
+        "linkPath"
+      ]
+    }
+  },
+  "required": [
+    "args"
+  ]
+}

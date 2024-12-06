@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "steps.syscall.openAt2.schema.json",
+  "title": "The openat2 syscall test step",
+  "description": "The openat2 syscall test step runs the openat2 system call with the provided arguments",
+  "properties": {
+    "args": {
+      "description": "The openat2 system call arguments",
+      "type": "object",
+      "properties": {
+        "dirFd": {
+          "description": "The file descriptor referring to the directory containing the 'pathname'",
+          "type": [
+            "string"
+          ],
+          "$ref": "binding.schema.json",
+          "examples": [
+            "/path/to/dir"
+          ]
+        },
+        "pathname": {
+          "description": "The path that must be opened. If it is relative, it is interpreted relative to the directory referred to by 'dirFd'",
+          "type": [
+            "string"
+          ],
+          "examples": [
+            "/path/to/file"
+          ]
+        },
+        "how": {
+          "description": "Specifies how 'pathname' should be opened, and acts as a superset of the flags and mode arguments to openat",
+          "type": "object",
+          "properties": {
+            "flags": {
+              "description": "The openat2 open_how structure flags, expressed as an OR-ed combination of the supported flags or as integer",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "minLength": 1,
+              "examples": [
+                "O_CREAT|O_CLOEXEC|O_RDWR"
+              ]
+            },
+            "mode": {
+              "description": "The openat2 open_how structure mode, expressed as an OR-ed combination of the supported modes or as integer",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "minLength": 1,
+              "examples": [
+                "S_IRWXU|S_IRWXG|S_IRWXO"
+              ]
+            },
+            "resolve": {
+              "description": "The openat2 open_how structure resolve flags, expressed as an OR-ed combination of the supported modes or as integer",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "minLength": 1,
+              "examples": [
+                "RESOLVE_BENEATH"
+              ]
+            }
+          }
+        }
+      },
+      "required": [
+        "dirFd",
+        "pathname"
+      ]
+    }
+  },
+  "required": [
+    "args"
+  ]
+}

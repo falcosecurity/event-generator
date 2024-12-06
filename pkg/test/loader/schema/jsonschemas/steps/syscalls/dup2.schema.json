@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "steps.syscall.dup2.schema.json",
+  "title": "The dup2 syscall test step",
+  "description": "The dup2 syscall test step runs the dup2 system call with the provided arguments",
+  "properties": {
+    "args": {
+      "description": "The dup2 system call arguments",
+      "type": "object",
+      "properties": {
+        "oldFd": {
+          "description": "The file descriptor referencing the file for which a new file descriptor is requested",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "minimum": 0,
+          "$ref": "binding.schema.json"
+        },
+        "newFd": {
+          "description": "The file descriptor that is requested to reference the same file 'oldFd' refers to",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "minimum": 0,
+          "$ref": "binding.schema.json"
+        }
+      },
+      "required": [
+        "oldFd",
+        "newFd"
+      ]
+    }
+  },
+  "required": [
+    "args"
+  ]
+}

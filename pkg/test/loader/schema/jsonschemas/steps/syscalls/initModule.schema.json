@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "steps.syscall.initModule.schema.json",
+  "title": "The init_module syscall test step",
+  "description": "The init_module syscall test step runs the init_module system call with the provided arguments",
+  "properties": {
+    "args": {
+      "description": "The init_module system call arguments",
+      "type": "object",
+      "properties": {
+        "moduleImage": {
+          "description": "The buffer containing binary image to be loaded",
+          "type": [
+            "string"
+          ],
+          "minLength": 1
+        },
+        "paramValues": {
+          "description": "A string containing space-delimited specifications of the values for module parameters",
+          "type": "string",
+          "minLength": 1,
+          "default": "",
+          "examples": [
+            "name1=value1_1,value1_2 name2=value2"
+          ]
+        }
+      },
+      "required": [
+        "moduleImage"
+      ]
+    }
+  },
+  "required": [
+    "args"
+  ]
+}

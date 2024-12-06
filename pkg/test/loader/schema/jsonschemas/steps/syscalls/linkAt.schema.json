@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "steps.syscall.linkAt.schema.json",
+  "title": "The linkat syscall test step",
+  "description": "The linkat syscall test step runs the linkat system call with the provided arguments",
+  "properties": {
+    "args": {
+      "description": "The linkat system call arguments",
+      "type": "object",
+      "properties": {
+        "oldDirFd": {
+          "description": "The file descriptor referring the directory containing the 'oldPath'",
+          "type": [
+            "string"
+          ],
+          "$ref": "binding.schema.json",
+          "examples": [
+            "/path/to/old/dir"
+          ]
+        },
+        "oldPath": {
+          "description": "The file path referring to the existing file that must be linked. If it is relative, it is interpreted relative to the directory referred to by 'oldDirFd'",
+          "type": [
+            "string"
+          ],
+          "minLength": 1,
+          "examples": [
+            "/path/to/file"
+          ]
+        },
+        "newDirFd": {
+          "description": "The file descriptor referring the directory containing the 'newPath'",
+          "type": [
+            "string"
+          ],
+          "$ref": "binding.schema.json",
+          "examples": [
+            "/path/to/new/dir"
+          ]
+        },
+        "newPath": {
+          "description": "The file path of the link that is requested to be created. If it is relative, it is interpreted relative to the directory referred to by 'newDirFd'",
+          "type": [
+            "string"
+          ],
+          "minLength": 1,
+          "examples": [
+            "/path/to/link"
+          ]
+        },
+        "flags": {
+          "description": "The linkat flags, expressed as an OR-ed combination of the supported flags or as integer",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "minLength": 1,
+          "default": 0,
+          "examples": [
+            "AT_SYMLINK_FOLLOW"
+          ]
+        }
+      },
+      "required": [
+        "oldDirFd",
+        "oldPath",
+        "newDirFd",
+        "newPath"
+      ]
+    }
+  },
+  "required": [
+    "args"
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "resources.fd.memfd.schema.json",
+  "title": "The memfd fd test resource",
+  "description": "A memfd fd test resource creates a mem fd and exposes it"
+}
