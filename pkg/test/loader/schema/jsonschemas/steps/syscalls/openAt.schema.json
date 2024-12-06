@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "steps.syscall.openAt.schema.json",
+  "title": "The openat syscall test step",
+  "description": "The openat syscall test step runs the openat system call with the provided arguments",
+  "properties": {
+    "args": {
+      "description": "The openat system call arguments",
+      "type": "object",
+      "properties": {
+        "dirFd": {
+          "description": "The file descriptor referring the directory containing the 'pathname'",
+          "type": [
+            "string"
+          ],
+          "$ref": "binding.schema.json",
+          "examples": [
+            "/path/to/dir"
+          ]
+        },
+        "pathname": {
+          "description": "The path that must be opened. If it is relative, it is interpreted relative to the directory referred to by 'dirFd'",
+          "type": [
+            "string"
+          ],
+          "minLength": 1,
+          "examples": [
+            "/path/to/file"
+          ]
+        },
+        "flags": {
+          "description": "The openat flags, expressed as an OR-ed combination of the supported flags or as integer",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "minLength": 1,
+          "examples": [
+            "O_CREAT|O_CLOEXEC|O_RDWR"
+          ]
+        },
+        "mode": {
+          "description": "The openat mode, expressed as an OR-ed combination of the supported modes or as integer",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "minLength": 1,
+          "examples": [
+            "S_IRWXU|S_IRWXG|S_IRWXO"
+          ]
+        }
+      },
+      "required": [
+        "dirFd",
+        "pathname",
+        "flags"
+      ]
+    }
+  },
+  "required": [
+    "args"
+  ]
+}

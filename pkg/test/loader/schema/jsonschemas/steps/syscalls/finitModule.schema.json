@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "steps.syscall.finitModule.schema.json",
+  "title": "The finit_module syscall test step",
+  "description": "The finit_module syscall test step runs the finit_module system call with the provided arguments",
+  "properties": {
+    "args": {
+      "description": "The finit_module system call arguments",
+      "type": "object",
+      "properties": {
+        "fd": {
+          "description": "The file descriptor referencing to the kernel module",
+          "type": [
+            "string"
+          ],
+          "$ref": "binding.schema.json"
+        },
+        "paramValues": {
+          "description": "A string containing space-delimited specifications of the values for module parameters",
+          "type": "string",
+          "minLength": 1,
+          "default": "",
+          "examples": [
+            "name1=value1_1,value1_2 name2=value2"
+          ]
+        },
+        "flags": {
+          "description": "The finit_module flags, expressed as an OR-ed combination of the supported flags or as integer",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "minLength": 1,
+          "default": 0,
+          "examples": [
+            "MODULE_INIT_IGNORE_MODVERSIONS"
+          ]
+        }
+      },
+      "required": [
+        "fd"
+      ]
+    }
+  },
+  "required": [
+    "args"
+  ]
+}

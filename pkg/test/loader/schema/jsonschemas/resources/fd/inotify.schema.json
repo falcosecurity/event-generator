@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "resources.fd.inotify.schema.json",
+  "title": "The inotify fd test resource",
+  "description": "An inotify fd test resource creates an inotify fd and exposes it"
+}

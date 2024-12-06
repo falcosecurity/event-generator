@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "step.schema.json",
+  "title": "Test step",
+  "description": "A test step performs an action in the context of a test",
+  "type": "object",
+  "properties": {
+    "type": {
+      "description": "The test step type",
+      "type": "string",
+      "enum": [
+        "syscall"
+      ],
+      "examples": [
+        "syscall"
+      ]
+    },
+    "name": {
+      "description": "The test step name",
+      "type": "string",
+      "minLength": 1,
+      "examples": [
+        "syscall1"
+      ]
+    }
+  },
+  "required": [
+    "type",
+    "name"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "syscall"
+          }
+        }
+      },
+      "then": {
+        "$ref": "steps.syscall.schema.json"
+      }
+    }
+  ]
+}

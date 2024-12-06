@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "steps.syscall.read.schema.json",
+  "title": "The read syscall test step",
+  "description": "The read syscall test step runs the read system call with the provided arguments",
+  "properties": {
+    "args": {
+      "description": "The read system call arguments",
+      "type": "object",
+      "properties": {
+        "fd": {
+          "description": "The file descriptor referencing the file the system call reads from",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "minimum": 0,
+          "$ref": "binding.schema.json"
+        },
+        "buffer": {
+          "description": "The buffer acting as container for the data read from the file referenced by 'fd'. If empty or not provided, it defaults as specified in the default section",
+          "type": "string",
+          "minLength": 1,
+          "default": "buffer of size 'len' if 'len' > 0; else ''"
+        },
+        "len": {
+          "description": "The buffer length. If '0' or not provided, it defaults as specified in the default section",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "minimum": 0,
+          "$ref": "binding.schema.json",
+          "default": "The size of 'buffer' if size of 'buffer' > 0; else '0'"
+        }
+      },
+      "required": [
+        "fd"
+      ]
+    }
+  },
+  "required": [
+    "args"
+  ]
+}

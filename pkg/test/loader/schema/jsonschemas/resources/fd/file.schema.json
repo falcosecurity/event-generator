@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "resources.fd.file.schema.json",
+  "title": "The file fd test resource",
+  "description": "A file fd test resource opens or creates a regular file and exposes its file descriptor",
+  "properties": {
+    "filePath": {
+      "description": "The regular file path",
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "filePath"
+  ]
+}

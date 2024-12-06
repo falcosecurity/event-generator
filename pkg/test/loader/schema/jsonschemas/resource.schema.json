@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "resource.schema.json",
+  "title": "Test resource",
+  "description": "A test resource creates one or more system resource and exposes some of their information as bindable fields",
+  "type": "object",
+  "properties": {
+    "type": {
+      "description": "The test resource type",
+      "type": "string",
+      "enum": [
+        "clientServer",
+        "fd",
+        "process"
+      ],
+      "examples": [
+        "clientServer"
+      ]
+    },
+    "name": {
+      "description": "The test resource name",
+      "type": "string",
+      "minLength": 1,
+      "examples": [
+        "clientServer1"
+      ]
+    }
+  },
+  "required": [
+    "type",
+    "name"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "clientServer"
+          }
+        }
+      },
+      "then": {
+        "$ref": "resources.clientServer.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "fd"
+          }
+        }
+      },
+      "then": {
+        "$ref": "resources.fd.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "process"
+          }
+        }
+      },
+      "then": {
+        "$ref": "resources.process.schema.json"
+      }
+    }
+  ]
+}

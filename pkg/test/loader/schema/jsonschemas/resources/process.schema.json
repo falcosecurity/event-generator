@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "resources.process.schema.json",
+  "title": "The process test resource",
+  "description": "A process test resource sets up a process and exposes its PID",
+  "type": "object",
+  "properties": {
+    "exePath": {
+      "description": "The executable path",
+      "type": "string",
+      "default": "/tmp/event-generator<X>, where X is a randomly generated sequence",
+      "minLength": 1
+    },
+    "args": {
+      "description": "A string containing the space-separated list of command line arguments. If a single argument contains spaces, the entire argument must be quoted in order to not be considered as multiple arguments",
+      "type": "string",
+      "default": "",
+      "minLength": 1
+    },
+    "exe": {
+      "description": "The argument in position 0 (a.k.a. argv[0]) of the process",
+      "type": "string",
+      "default": "The name if this is specified; otherwise, filepath.Base(exePath)",
+      "minLength": 1
+    },
+    "procName": {
+      "description": "The process name",
+      "type": "string",
+      "default": "filepath.Base(exePath)",
+      "minLength": 1
+    },
+    "env": {
+      "description": "The set of environment variables that must be provided to the process (in addition to the default ones)",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "description": "An environment variable in the form KEY=VALUE",
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

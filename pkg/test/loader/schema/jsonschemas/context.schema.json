@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "context.schema.json",
+  "title": "Test context",
+  "description": "The test context allowing to specify process chain details. It can be used to run the test under a specific (even containerized) process chain",
+  "type": "object",
+  "properties": {
+    "container": {
+      "description": "The container context containing information regarding the container that will run a test",
+      "type": "object",
+      "properties": {
+        "image": {
+          "description": "The name the base event-generator image must be tagged with before being used to spawn the container",
+          "type": "string",
+          "default": "docker.io/falcosecurity/event-generator:latest",
+          "minLength": 1
+        },
+        "name": {
+          "description": "The name that must be used to identify the running container",
+          "type": "string",
+          "default": "event-generator",
+          "minLength": 1
+        },
+        "env": {
+          "description": "The set of environment variables that must be provided to the container (in addition to the default ones)",
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "description": "An environment variable in the form KEY=VALUE",
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "processes": {
+      "description": "The list of process contexts",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "description": "The process context containing information regarding the process that will run a test, or information about one of its ancestors",
+        "type": "object",
+        "properties": {
+          "exePath": {
+            "description": "The executable path",
+            "type": "string",
+            "default": "/tmp/event-generator<X>, where X is a randomly generated sequence",
+            "minLength": 1
+          },
+          "args": {
+            "description": "A string containing the space-separated list of command line arguments. If a single argument contains spaces, the entire argument must be quoted in order to not be considered as multiple arguments",
+            "type": "string",
+            "default": "",
+            "minLength": 1
+          },
+          "exe": {
+            "description": "The argument in position 0 (a.k.a. argv[0]) of the process",
+            "type": "string",
+            "default": "The name if this is specified; otherwise, filepath.Base(exePath)",
+            "minLength": 1
+          },
+          "name": {
+            "description": "The process name",
+            "type": "string",
+            "default": "filepath.Base(exePath)",
+            "minLength": 1
+          },
+          "env": {
+            "description": "The set of environment variables that must be provided to the process (in addition to the default ones)",
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "description": "An environment variable in the form KEY=VALUE",
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "user": {
+            "description": "The name of the user that must run the process. If the user does not exist, it is created before running the test and deleted after test execution",
+            "type": "string",
+            "default": "The current process user",
+            "minLength": 1
+          },
+          "capabilities": {
+            "description": "The capabilities of the process. The syntax follows the conventions specified by cap_from_text(3)",
+            "type": "string",
+            "default": "all=iep",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
