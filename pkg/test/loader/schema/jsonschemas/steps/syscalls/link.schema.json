@@ -33,6 +33,30 @@
         "oldPath",
         "newPath"
       ]
+    },
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "existingFields": {
+          "args": {
+            "fields": {
+              "oldPath": {
+                "fieldType": "file_path"
+              },
+              "newPath": {
+                "fieldType": "file_path"
+              }
+            }
+          }
+        },
+        "newFields": {
+          "ret": {
+            "description": "The link system call return value",
+            "fieldType": "-"
+          }
+        }
+      }
     }
   },
   "required": [

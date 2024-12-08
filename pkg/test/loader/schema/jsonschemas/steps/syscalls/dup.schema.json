@@ -21,6 +21,27 @@
       "required": [
         "oldFd"
       ]
+    },
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "existingFields": {
+          "args": {
+            "fields": {
+              "oldFd": {
+                "fieldType": "fd"
+              }
+            }
+          }
+        },
+        "newFields": {
+          "ret": {
+            "description": "The dup system call return value",
+            "fieldType": "fd"
+          }
+        }
+      }
     }
   },
   "required": [

@@ -59,6 +59,40 @@
         "flags",
         "destAddr"
       ]
+    },
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "existingFields": {
+          "args": {
+            "fields": {
+              "fd": {
+                "fieldType": "fd",
+                "bindOnly": true
+              },
+              "buf": {
+                "fieldType": "buffer"
+              },
+              "len": {
+                "fieldType": "buffer_len"
+              },
+              "flags": {
+                "fieldType": "send_flags"
+              },
+              "destAddr": {
+                "fieldType": "socket_address"
+              }
+            }
+          }
+        },
+        "newFields": {
+          "ret": {
+            "description": "The sendto system call return value",
+            "fieldType": "-"
+          }
+        }
+      }
     }
   },
   "required": [

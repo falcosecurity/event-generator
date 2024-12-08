@@ -67,6 +67,41 @@
         "newDirFd",
         "newPath"
       ]
+    },
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "existingFields": {
+          "args": {
+            "fields": {
+              "oldDirFd": {
+                "fieldType": "fd",
+                "bindOnly": true
+              },
+              "oldPath": {
+                "fieldType": "file_path"
+              },
+              "newDirFd": {
+                "fieldType": "fd",
+                "bindOnly":  true
+              },
+              "newPath": {
+                "fieldType": "file_path"
+              },
+              "flags": {
+                "fieldType": "linkat_flags"
+              }
+            }
+          }
+        },
+        "newFields": {
+          "ret": {
+            "description": "The linkat system call return value",
+            "fieldType": "-"
+          }
+        }
+      }
     }
   },
   "required": [

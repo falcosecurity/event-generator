@@ -44,6 +44,34 @@
         "newDirFd",
         "linkPath"
       ]
+    },
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "existingFields": {
+          "args": {
+            "fields": {
+              "target": {
+                "fieldType": "file_path"
+              },
+              "newDirFd": {
+                "fieldType": "fd",
+                "bindOnly": true
+              },
+              "linkPath": {
+                "fieldType": "file_path"
+              }
+            }
+          }
+        },
+        "newFields": {
+          "ret": {
+            "description": "The syscall system call return value",
+            "fieldType": "-"
+          }
+        }
+      }
     }
   },
   "required": [
