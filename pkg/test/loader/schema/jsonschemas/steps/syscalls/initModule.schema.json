@@ -28,6 +28,30 @@
       "required": [
         "moduleImage"
       ]
+    },
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "existingFields": {
+          "args": {
+            "fields": {
+              "moduleImage": {
+                "fieldType": "buffer"
+              },
+              "paramValues": {
+                "fieldType": "module_params"
+              }
+            }
+          }
+        },
+        "newFields": {
+          "ret": {
+            "description": "The init_module system call return value",
+            "fieldType": "-"
+          }
+        }
+      }
     }
   },
   "required": [

@@ -40,6 +40,34 @@
       "required": [
         "fd"
       ]
+    },
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "existingFields": {
+          "args": {
+            "fields": {
+              "fd": {
+                "fieldType": "fd",
+                "bindOnly": true
+              },
+              "paramValues": {
+                "fieldType": "module_params"
+              },
+              "flags": {
+                "fieldType": "finit_module_flags"
+              }
+            }
+          }
+        },
+        "newFields": {
+          "ret": {
+            "description": "The finit_module system call return value",
+            "fieldType": "-"
+          }
+        }
+      }
     }
   },
   "required": [

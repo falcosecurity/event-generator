@@ -43,6 +43,33 @@
         "oldFd",
         "newFd"
       ]
+    },
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "existingFields": {
+          "args": {
+            "fields": {
+              "oldFd": {
+                "fieldType": "fd"
+              },
+              "newFd": {
+                "fieldType": "fd"
+              },
+              "flags": {
+                "fieldType": "dup3_flags"
+              }
+            }
+          }
+        },
+        "newFields": {
+          "ret": {
+            "description": "The dup3 system call return value",
+            "fieldType": "fd"
+          }
+        }
+      }
     }
   },
   "required": [

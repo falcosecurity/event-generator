@@ -71,6 +71,45 @@
         "dirFd",
         "pathname"
       ]
+    },
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "existingFields": {
+          "args": {
+            "fields": {
+              "dirFd": {
+                "fieldType": "fd",
+                "bindOnly": true
+              },
+              "pathname": {
+                "fieldType": "file_path"
+              },
+              "how": {
+                "fieldType": "open_how",
+                "fields": {
+                  "flags": {
+                    "fieldType": "open_how_flags"
+                  },
+                  "mode": {
+                    "fieldType": "open_how_mode"
+                  },
+                  "resolve": {
+                    "fieldType": "open_how_resolve"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "newFields": {
+          "ret": {
+            "description": "The openat2 system call return value",
+            "fieldType": "fd"
+          }
+        }
+      }
     }
   },
   "required": [

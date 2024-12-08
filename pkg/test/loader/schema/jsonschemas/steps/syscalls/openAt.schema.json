@@ -56,6 +56,37 @@
         "pathname",
         "flags"
       ]
+    },
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "existingFields": {
+          "args": {
+            "fields": {
+              "dirFd": {
+                "fieldType": "fd",
+                "bindOnly": true
+              },
+              "pathname": {
+                "fieldType": "file_path"
+              },
+              "flags": {
+                "fieldType": "open_flags"
+              },
+              "mode": {
+                "fieldType": "open_mode"
+              }
+            }
+          }
+        },
+        "newFields": {
+          "ret": {
+            "description": "The openat system call return value",
+            "fieldType": "fd"
+          }
+        }
+      }
     }
   },
   "required": [

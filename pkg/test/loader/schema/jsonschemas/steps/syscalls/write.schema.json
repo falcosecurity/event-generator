@@ -36,6 +36,33 @@
       "required": [
         "fd"
       ]
+    },
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "existingFields": {
+          "args": {
+            "fields": {
+              "fd": {
+                "fieldType": "fd"
+              },
+              "buffer": {
+                "fieldType": "buffer"
+              },
+              "len": {
+                "fieldType": "buffer_len"
+              }
+            }
+          }
+        },
+        "newFields": {
+          "ret": {
+            "description": "The write system call return value",
+            "fieldType": "buffer_len"
+          }
+        }
+      }
     }
   },
   "required": [

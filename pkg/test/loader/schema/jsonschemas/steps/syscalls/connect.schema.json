@@ -32,6 +32,30 @@
         "fd",
         "address"
       ]
+    },
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "existingFields": {
+          "args": {
+            "fields": {
+              "fd": {
+                "fieldType": "fd"
+              },
+              "address": {
+                "fieldType": "socket_address"
+              }
+            }
+          }
+        },
+        "newFields": {
+          "ret": {
+            "description": "The connect system call return value",
+            "fieldType": "-"
+          }
+        }
+      }
     }
   },
   "required": [
