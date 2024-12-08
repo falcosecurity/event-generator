@@ -51,6 +51,33 @@
         "type",
         "protocol"
       ]
+    },
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "existingFields": {
+          "args": {
+            "fields": {
+              "domain": {
+                "fieldType": "socket_domain"
+              },
+              "type": {
+                "fieldType": "socket_type"
+              },
+              "protocol": {
+                "fieldType": "socket_protocol"
+              }
+            }
+          }
+        },
+        "newFields": {
+          "ret": {
+            "description": "The socket system call return value",
+            "fieldType": "fd"
+          }
+        }
+      }
     }
   },
   "required": [

@@ -31,6 +31,30 @@
         "oldFd",
         "newFd"
       ]
+    },
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "existingFields": {
+          "args": {
+            "fields": {
+              "oldFd": {
+                "fieldType": "fd"
+              },
+              "newFd": {
+                "fieldType": "fd"
+              }
+            }
+          }
+        },
+        "newFields": {
+          "ret": {
+            "description": "The dup2 system call return value",
+            "fieldType": "fd"
+          }
+        }
+      }
     }
   },
   "required": [
