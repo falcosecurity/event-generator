@@ -18,6 +18,32 @@
     "address": {
       "description": "The endpoint exposed by the server (as accepted by net.SplitHostPort or empty, in case of l4Proto equals to 'unix'",
       "type": "string"
+    },
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "newFields": {
+          "client": {
+            "description": "The exposed client information",
+            "fields": {
+              "fd": {
+                "description": "The client file descriptor",
+                "fieldType": "fd"
+              }
+            }
+          },
+          "server": {
+            "description": "The exposed server information",
+            "fields": {
+              "fd": {
+                "description": "The server file descriptor",
+                "fieldType": "fd"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "required": [

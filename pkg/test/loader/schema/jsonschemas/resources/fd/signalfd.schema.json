@@ -2,5 +2,19 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "resources.fd.signalfd.schema.json",
   "title": "The signalfd fd test resource",
-  "description": "A signalfd fd test resource creates a signal fd and exposes it"
+  "description": "A signalfd fd test resource creates a signal fd and exposes it",
+  "properties": {
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "newFields": {
+          "fd": {
+            "description": "The signal file descriptor",
+            "fieldType": "fd"
+          }
+        }
+      }
+    }
+  }
 }
