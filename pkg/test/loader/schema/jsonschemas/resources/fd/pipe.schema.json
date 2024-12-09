@@ -2,5 +2,23 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "resources.fd.pipe.schema.json",
   "title": "The pipe fd test resource",
-  "description": "A pipe fd test resource creates a pipe and exposes its file descriptors"
+  "description": "A pipe fd test resource creates a pipe and exposes its file descriptors",
+  "properties": {
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "newFields": {
+          "readFd": {
+            "description": "the pipe's read end file descriptor",
+            "fieldType": "fd"
+          },
+          "writeFd": {
+            "description": "the pipe's write end file descriptor",
+            "fieldType": "fd"
+          }
+        }
+      }
+    }
+  }
 }

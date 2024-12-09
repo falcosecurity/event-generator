@@ -2,5 +2,19 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "resources.fd.memfd.schema.json",
   "title": "The memfd fd test resource",
-  "description": "A memfd fd test resource creates a mem fd and exposes it"
+  "description": "A memfd fd test resource creates a mem fd and exposes it",
+  "properties": {
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "newFields": {
+          "fd": {
+            "description": "The mem file descriptor",
+            "fieldType": "fd"
+          }
+        }
+      }
+    }
+  }
 }
