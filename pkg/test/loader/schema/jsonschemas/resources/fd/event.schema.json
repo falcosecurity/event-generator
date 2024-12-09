@@ -2,5 +2,19 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "resources.fd.event.schema.json",
   "title": "The event fd test resource",
-  "description": "An event fd test resource creates an event fd and exposes it"
+  "description": "An event fd test resource creates an event fd and exposes it",
+  "properties": {
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "newFields": {
+          "fd": {
+            "description": "The event file descriptor",
+            "fieldType": "fd"
+          }
+        }
+      }
+    }
+  }
 }

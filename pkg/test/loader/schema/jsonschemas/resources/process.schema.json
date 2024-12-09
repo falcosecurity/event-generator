@@ -38,6 +38,18 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "newFields": {
+          "pid": {
+            "description": "The process identifier",
+            "fieldType": "pid"
+          }
+        }
+      }
     }
   }
 }

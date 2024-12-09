@@ -8,6 +8,18 @@
       "description": "The regular file path",
       "type": "string",
       "minLength": 1
+    },
+    "x-metadata": {
+      "not": {},
+      "type": "object",
+      "default": {
+        "newFields": {
+          "fd": {
+            "description": "The regular file descriptor",
+            "fieldType": "fd"
+          }
+        }
+      }
     }
   },
   "required": [
