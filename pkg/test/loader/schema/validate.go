@@ -13,6 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package schema provides validation for the loaded tests description and documentation generation leveraging JSON
-// schemas.
 package schema
+
+import "fmt"
+
+// Validate validates the provided object against the schema.
+func Validate(obj any) error {
+	schema, err := load()
+	if err != nil {
+		return fmt.Errorf("error loading schema: %w", err)
+	}
+
+	return schema.Validate(obj)
+}
