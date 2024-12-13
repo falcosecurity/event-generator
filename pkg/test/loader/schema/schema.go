@@ -101,13 +101,17 @@ var (
 	expectedOutcomeSchema string
 )
 
-// rootSchema is the identifier of the root schema.
-var rootSchema = "description.schema.json"
+var (
+	// rootSchemaURL is the identifier of the root schema.
+	rootSchemaURL = "description.schema.json"
+	// rootSchemaURL is the identifier of the binding schema.
+	bindingSchemaURL = "binding.schema.json"
+)
 
 // schemas associated to each schema identifier the corresponding schema.
 var schemas = map[string]string{
-	rootSchema:                              descriptionSchema,
-	"binding.schema.json":                   bindingSchema,
+	rootSchemaURL:                           descriptionSchema,
+	bindingSchemaURL:                        bindingSchema,
 	"test.schema.json":                      testSchema,
 	"context.schema.json":                   contextSchema,
 	"resource.schema.json":                  resourceSchema,
@@ -145,16 +149,6 @@ var schemas = map[string]string{
 	"expectedOutcome.schema.json":           expectedOutcomeSchema,
 }
 
-// Validate validates the provided object against the schema.
-func Validate(obj any) error {
-	schema, err := load()
-	if err != nil {
-		return fmt.Errorf("error loading schema: %w", err)
-	}
-
-	return schema.Validate(obj)
-}
-
 // load loads the schema.
 func load() (*jsonschema.Schema, error) {
 	compiler := jsonschema.NewCompiler()
@@ -169,7 +163,7 @@ func load() (*jsonschema.Schema, error) {
 		}
 	}
 
-	schema, err := compiler.Compile(rootSchema)
+	schema, err := compiler.Compile(rootSchemaURL)
 	if err != nil {
 		return nil, fmt.Errorf("error compiling: %w", err)
 	}
