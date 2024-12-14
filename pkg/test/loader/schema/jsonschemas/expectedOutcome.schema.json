@@ -4,34 +4,36 @@
   "title": "Test expected outcome",
   "description": "The outcome expected from Falco as a result of the test execution",
   "type": "object",
-  "source": {
-    "description": "The Falco event source",
-    "type": "string",
-    "minLength": 1,
-    "examples": [
-      "syscall"
-    ]
-  },
-  "hostname": {
-    "description": "The Falco event hostname",
-    "type": "string",
-    "minLength": 1
-  },
-  "priority": {
-    "description": "The Falco event priority",
-    "type": "string",
-    "minLength": 1,
-    "examples": [
-      "WARNING"
-    ]
-  },
-  "outputFields": {
-    "description": "The output fields attached to the Falco event",
-    "type": "object",
-    "minProperties": 1,
-    "additionalProperties": {
+  "properties": {
+    "source": {
+      "description": "The Falco event source",
+      "type": "string",
+      "minLength": 1,
+      "examples": [
+        "syscall"
+      ]
+    },
+    "hostname": {
+      "description": "The Falco event hostname",
       "type": "string",
       "minLength": 1
+    },
+    "priority": {
+      "description": "The Falco event priority",
+      "type": "string",
+      "minLength": 1,
+      "examples": [
+        "WARNING"
+      ]
+    },
+    "outputFields": {
+      "description": "The output fields attached to the Falco event",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
     }
   }
 }
