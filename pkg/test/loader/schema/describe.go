@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (C) 2024 The Falco Authors
+// Copyright (C) 2025 The Falco Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,54 +34,54 @@ type EnumRequirement struct {
 
 // NodeMetadata contains node metadata.
 type NodeMetadata struct {
-	Type       string
-	IsBindOnly bool
+	Type       string `yaml:"fieldType,omitempty"`
+	IsBindOnly bool   `yaml:"isBindOnly,omitempty"`
 }
 
 // A Node represents a single schema element.
 type Node struct {
 	// Name is the name of the node.
-	Name string
+	Name string `yaml:"name"`
 	// Descriptions is the list of node's descriptions. A node can have multiple descriptions if it is the result of the
 	// merging of multiple nodes.
-	Descriptions []string
+	Descriptions []string `yaml:"descriptions,omitempty"`
 	// JSONTypes is the node's optional list of JSON types.
-	JSONTypes []string
+	JSONTypes []string `yaml:"types,omitempty"`
 	// Required is true if the user is required to provide the current node in order to completely describe the
 	// containing node.
-	Required bool
+	Required bool `yaml:"required,omitempty"`
 	// Minimum is the minimum supported integer value (it can be different from nil only if JSONTypes contains the
 	// integer type).
-	Minimum *float64
+	Minimum *float64 `yaml:"minimum,omitempty"`
 	// MinLength is the minimum string value length (it can be different from nil only if JSONTypes contains the string
 	// type).
-	MinLength *int
+	MinLength *int `yaml:"minLength,omitempty"`
 	// MinItems is the minimum number of node items (it can be different from nil only if JSONTypes contains the array
 	// type).
-	MinItems *int
+	MinItems *int `yaml:"minItems,omitempty"`
 	// MinProperties is the minimum number of properties the node can contain (it can be different from nil only if
 	// JSONTypes contains the object type).
-	MinProperties *int
+	MinProperties *int `yaml:"minProperties,omitempty"`
 	// Pattern is the regular expression the node is constrained to adhere (it can be different from nil only if
 	// JSONTypes contains the string type).
-	Pattern *string
+	Pattern *string `yaml:"pattern,omitempty"`
 	// Default is the node's optional default value.
-	Default *any
+	Default *any `yaml:"default,omitempty"`
 	// Examples is the node's optional list of examples.
-	Examples []any
+	Examples []any `yaml:"examples,omitempty"`
 	// Enum is the node's optional list of enumerated values that are allowed to be set as node's value. It is only
 	// populated if the node represents an enumerated value.
-	Enum []any
+	Enum []any `yaml:"enum,omitempty"`
 	// Children is the node's optional list of child nodes (a.k.a node's fields).
-	Children []*Node
+	Children []*Node `yaml:"fields,omitempty"`
 	// PseudoChildren is the node's optional list of pseudo child nodes (a.k.a node's exposed fields).
-	PseudoChildren []*Node
+	PseudoChildren []*Node `yaml:"exposedFields,omitempty"`
 	// Pseudo is true if the node is "pseudo" node. In the context of a node tree, a pseudo node is a node not present
 	// in the original schema: it is added to augment the schema with additional information, such as node's additional
 	// exposed fields.
-	Pseudo bool
+	Pseudo bool `yaml:"-"`
 	// Metadata are the node's metadata.
-	Metadata *NodeMetadata
+	Metadata *NodeMetadata `yaml:",inline"`
 }
 
 // mergeMetadataSchema merges the provided metadata schema in the current node.
