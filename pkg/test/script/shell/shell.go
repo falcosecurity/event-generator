@@ -52,7 +52,7 @@ __SLEEP_PID=
 
 # __cleanup is used as handler for SIGTERM and SIGINT signals, as well as handler for script EXIT pseudo-signal.
 __cleanup() {
-	[ -n "$__SLEEP_PID" ] && kill -9 $__SLEEP_PID
+	[[ -n "$__SLEEP_PID" ]] && kill -9 $__SLEEP_PID
 	exit
 }
 
@@ -80,7 +80,7 @@ wait $__SLEEP_PID
 
 # The SIGUSR1 signal triggers __usr1 handler invocation and sets the exit code to 138. Existing from wait, we check if
 # the exit code value is as expected and reset it to 0; otherwise, we return the obtained exit code.
-if [ $? != 138 ]; then
+if [[ $? != 138 ]]; then
 	echo "Wait on sleep unblocked due to a reason different from USR1 signal" >&2
 	exit $?
 else
@@ -121,7 +121,7 @@ func (s *shellScript) RunBefore(ctx context.Context) (func(context.Context) erro
 	}
 
 	processCtx, cancel := context.WithCancel(context.Background())
-	cmd := exec.CommandContext(processCtx, "sh", "-c", script) //nolint:gosec // Disable G204
+	cmd := exec.CommandContext(processCtx, "bash", "-c", script) //nolint:gosec // Disable G204
 	cmd.Cancel = func() error {
 		return cmd.Process.Signal(unix.SIGTERM)
 	}
