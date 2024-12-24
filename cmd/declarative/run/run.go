@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (C) 2024 The Falco Authors
+// Copyright (C) 2025 The Falco Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,12 +44,19 @@ var (
 
 // New creates a new run command.
 func New(commonConf *config.Config) *cobra.Command {
+	// Run command performs the same actions the test command performs, but skips outcomes verification.
+	testCmd := test.New(commonConf, true)
+
+	// Initialize the run command using the test command Run function.
 	c := &cobra.Command{
 		Use:               "run",
 		Short:             longDescriptionHeading,
 		Long:              longDescription,
 		DisableAutoGenTag: true,
-		Run:               test.New(commonConf, true).Command.Run,
+		Run:               testCmd.Command.Run,
 	}
+
+	// Set the run command's flag set to be equal to the set of flags the test command exports.
+	c.Flags().AddFlagSet(testCmd.Command.Flags())
 	return c
 }

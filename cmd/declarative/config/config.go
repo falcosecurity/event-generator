@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (C) 2024 The Falco Authors
+// Copyright (C) 2025 The Falco Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -93,8 +93,8 @@ var containerImagePullPolicies = map[builder.ImagePullPolicy][]string{
 	builder.ImagePullPolicyIfNotPresent: {"ifnotpresent"},
 }
 
-// New creates a new config linked to the provided command.
-func New(cmd *cobra.Command, declarativeEnvKey, envKeysPrefix string) *Config {
+// New creates a new config.
+func New(declarativeEnvKey, envKeysPrefix string) *Config {
 	commonConf := &Config{
 		DeclarativeEnvKey:     declarativeEnvKey,
 		EnvKeysPrefix:         envKeysPrefix,
@@ -104,21 +104,22 @@ func New(cmd *cobra.Command, declarativeEnvKey, envKeysPrefix string) *Config {
 		LabelsEnvKey:          envKeyFromFlagName(envKeysPrefix, LabelsFlagName),
 		TimeoutEnvKey:         envKeyFromFlagName(envKeysPrefix, TimeoutFlagName),
 	}
-	commonConf.initFlags(cmd)
 	return commonConf
 }
 
-// initFlags initializes the provided command's flags and uses the config instance to store the flag bound values.
-func (c *Config) initFlags(cmd *cobra.Command) {
-	flags := cmd.PersistentFlags()
+// InitCommandFlags initializes the provided command's flags and uses the config instance to store the flag bound
+// values.
+func (c *Config) InitCommandFlags(cmd *cobra.Command) {
+	flags := cmd.Flags()
 
+	// Miscellaneous flags.
 	flags.StringVarP(&c.TestsDescriptionFile, DescriptionFileFlagName, "f", "",
 		"The tests description YAML file specifying the tests to be run")
 	flags.StringVarP(&c.TestsDescription, DescriptionFlagName, "d", "",
 		"The YAML-formatted tests description string specifying the tests to be run")
 	cmd.MarkFlagsMutuallyExclusive(DescriptionFileFlagName, DescriptionFlagName)
 	flags.DurationVarP(&c.TestsTimeout, TimeoutFlagName, "t", time.Minute,
-		"The maximal duration of the tests. If running tests lasts more than testsTimeout, the execution of "+
+		"The maximal duration of the tests. If running tests lasts more than the provided timeout, the execution of "+
 			"all pending tasks is canceled")
 
 	// Container runtime flags.
