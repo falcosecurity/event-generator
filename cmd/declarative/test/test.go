@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (C) 2024 The Falco Authors
+// Copyright (C) 2025 The Falco Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -127,6 +127,11 @@ func New(commonConf *config.Config, skipOutcomesVerification bool) *CommandWrapp
 
 // initFlags initializes the provided command's flags.
 func (cw *CommandWrapper) initFlags(c *cobra.Command) {
+	// Initialize command's flags with the ones exported by the config.
+	cw.Config.InitCommandFlags(c)
+
+	// The following flags are all associated with outcome verification, so early return if we are going to skip that
+	// step.
 	if cw.skipOutcomeVerification {
 		return
 	}

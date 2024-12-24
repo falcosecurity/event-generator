@@ -301,25 +301,12 @@ func Describe(nodePath []string, requirements []*EnumRequirement) (*Node, error)
 	if err != nil {
 		return nil, fmt.Errorf("error extracting node tree: %w", err)
 	}
-	printNode("", root)
 
 	if err := root.pruneChildren(nodePath); err != nil {
 		return nil, fmt.Errorf("error pruning node tree: %w", err)
 	}
-	printNode("", root)
 
 	return root, nil
-}
-
-func printNode(space string, n *Node) {
-	if n == nil {
-		return
-	}
-
-	fmt.Printf("%s%s\n", space, n.Name)
-	for _, child := range n.Children {
-		printNode(space+"   ", child)
-	}
 }
 
 const metadataPropName = "x-metadata"
