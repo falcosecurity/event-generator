@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (C) 2024 The Falco Authors
+// Copyright (C) 2025 The Falco Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/falcosecurity/event-generator/cmd/declarative/config"
+	"github.com/falcosecurity/event-generator/cmd/declarative/explain"
 	"github.com/falcosecurity/event-generator/cmd/declarative/run"
 	"github.com/falcosecurity/event-generator/cmd/declarative/test"
 )
@@ -32,11 +33,13 @@ func New(declarativeEnvKey, envKeysPrefix string) *cobra.Command {
 		DisableAutoGenTag: true,
 	}
 
-	commonConf := config.New(c, declarativeEnvKey, envKeysPrefix)
+	commonConf := config.New(declarativeEnvKey, envKeysPrefix)
 
 	runCmd := run.New(commonConf)
 	testCmd := test.New(commonConf, false).Command
+	explainCmd := explain.New().Command
 	c.AddCommand(runCmd)
 	c.AddCommand(testCmd)
+	c.AddCommand(explainCmd)
 	return c
 }
