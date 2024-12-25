@@ -21,23 +21,35 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/goccy/go-yaml"
+
 	"github.com/falcosecurity/event-generator/pkg/test/loader/schema"
 )
 
-// encoder encodes a node tree using a custom text-based format.
+// documentationEncoder allows to encode the documentation.
+type documentationEncoder interface {
+	// encode encodes the node tree starting at the provided node with a specific format and writes it to the underlying
+	// destination.
+	encode(node *schema.Node) error
+}
+
+// textEncoder encodes a node tree using a custom text-based format.
 // Notice: the format slightly variates from YAML, as it uses capitalized snake-cased key, adaptive list printing and
 // additional spacing.
-type encoder struct {
+type textEncoder struct {
 	w io.Writer
 }
 
-// newEncoder creates a new encoder able to write the node tree to the provided destination.
-func newEncoder(w io.Writer) *encoder {
-	return &encoder{w: w}
+// Verify that textEncoder implements documentationEncoder interface.
+var _ documentationEncoder = (*textEncoder)(nil)
+
+// newTextEncoder creates a new textEncoder able to write the node tree to the provided destination.
+func newTextEncoder(w io.Writer) *textEncoder {
+	return &textEncoder{w: w}
 }
 
 // encode encodes the provided node tree and writes it to the underlying destination.
-func (e *encoder) encode(node *schema.Node) error {
+func (e *textEncoder) encode(node *schema.Node) error {
 	if node == nil {
 		return nil
 	}
@@ -160,4 +172,21 @@ func writeKeySliceInline[T any](sb *strings.Builder, padding, key string, slice 
 		}
 	}
 	sb.WriteByte('\n')
+}
+
+// yamlEncoder encodes a node tree using a YAML format.
+type yamlEncoder struct {
+	w io.Writer
+}
+
+// Verify that yamlEncoder implements documentationEncoder interface.
+var _ documentationEncoder = (*yamlEncoder)(nil)
+
+// newYAMLEncoder creates a new yamlEncoder able to write the node tree to the provided destination.
+func newYAMLEncoder(w io.Writer) *yamlEncoder {
+	return &yamlEncoder{w: w}
+}
+
+func (e *yamlEncoder) encode(node *schema.Node) error {
+	return yaml.NewEncoder(e.w).Encode(node)
 }
