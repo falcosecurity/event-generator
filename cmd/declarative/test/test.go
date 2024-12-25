@@ -82,7 +82,7 @@ const (
 	reportFormatText reportFormat = iota
 	// reportFormatJSON specifies to format a tester report using a JSON encoding.
 	reportFormatJSON
-	// reportFormatYAML specifies to format a tester report using a YAML text encoding.
+	// reportFormatYAML specifies to format a tester report using a YAML encoding.
 	reportFormatYAML
 )
 
