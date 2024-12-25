@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/thediveo/enumflag"
 
 	"github.com/falcosecurity/event-generator/pkg/test/loader/schema"
 )
@@ -52,6 +53,21 @@ var (
 	longDescription = fmt.Sprintf(longDescriptionTemplate, longDescriptionHeading)
 )
 
+// documentationFormat defines the types of format used for outputting the documentation.
+type documentationFormat int
+
+const (
+	// documentationFormatText specifies to format the documentation using a formatted text encoding.
+	documentationFormatText documentationFormat = iota
+	// documentationFormatYAML specifies to format the documentation using a YAML encoding.
+	documentationFormatYAML
+)
+
+var documentationFormats = map[documentationFormat][]string{
+	documentationFormatText: {"text"},
+	documentationFormatYAML: {"yaml"},
+}
+
 // CommandWrapper wraps the command and stores the associated flag values.
 type CommandWrapper struct {
 	Command *cobra.Command
@@ -62,6 +78,8 @@ type CommandWrapper struct {
 	// path segments leading to a property accepting enumerated values. This flag is empty if <propertyPathExpr>
 	// contains enum requirements.
 	with []string
+	// docFormat defines the documentation output format.
+	docFormat documentationFormat
 }
 
 // New creates a new explain command.
@@ -88,6 +106,9 @@ func (cw *CommandWrapper) initCommandFlags() {
 			"Each key is a dot-separated list of property path segments leading to a property accepting enumerated "+
 			"values. This flag cannot be used if <propertyPathExpr> contains enum requirements. "+
 			"Example: '--with tests.steps.type=syscall,tests.steps.syscall=write'")
+	flags.VarP(
+		enumflag.New(&cw.docFormat, "format", documentationFormats, enumflag.EnumCaseInsensitive), "format", "f",
+		"The output format for the documentation; can be 'text' or 'yaml'")
 }
 
 var errForbiddenWithClauses = fmt.Errorf("enum requirements cannot be specified both using <propertyPathExpr> and " +
@@ -124,12 +145,27 @@ func (cw *CommandWrapper) runE(_ *cobra.Command, args []string) error {
 	}
 
 	// Print the documentation to stdout.
-	enc := newEncoder(os.Stdout)
-	if err := enc.encode(rootProperty); err != nil {
+	if err := printDoc(rootProperty, cw.docFormat); err != nil {
 		return fmt.Errorf("error outputting documentation: %w", err)
 	}
 
 	return nil
+}
+
+// printDoc prints the documentation for the node tree starting at the provided node, by using the provided format
+// specifier, to stdout.
+func printDoc(node *schema.Node, docFormat documentationFormat) error {
+	var encoder documentationEncoder
+	switch docFormat {
+	case documentationFormatText:
+		encoder = newTextEncoder(os.Stdout)
+	case documentationFormatYAML:
+		encoder = newYAMLEncoder(os.Stdout)
+	default:
+		panic(fmt.Sprintf("unsupported documentation output format %v", docFormat))
+	}
+
+	return encoder.encode(node)
 }
 
 var (
