@@ -65,7 +65,7 @@ func (t *testerImpl) StartAlertsCollection(ctx context.Context) error {
 	}
 
 	alertInfoCh := t.filterAlertsWithUID(ctx, alertCh)
-	t.startAlertsCaching(ctx, alertInfoCh)
+	t.startAlertsCaching(alertInfoCh)
 	return nil
 }
 
@@ -142,17 +142,9 @@ func (t *testerImpl) findUID(alrt *alert.Alert) *uuid.UUID {
 }
 
 // startAlertsCaching starts caching the alerts received through the provided channel.
-func (t *testerImpl) startAlertsCaching(ctx context.Context, alertInfoCh <-chan *alertInfo) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case info, ok := <-alertInfoCh:
-			if !ok {
-				return
-			}
-			t.cacheAlert(info.uid, info.alert)
-		}
+func (t *testerImpl) startAlertsCaching(alertInfoCh <-chan *alertInfo) {
+	for info := range alertInfoCh {
+		t.cacheAlert(info.uid, info.alert)
 	}
 }
 
