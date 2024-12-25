@@ -171,7 +171,7 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 
 	ctx, cancel := context.WithTimeout(ctx, cw.TestsTimeout)
 	defer cancel()
-	exitAndCancel := func() {
+	cancelAndExit := func() {
 		cancel()
 		os.Exit(1)
 	}
@@ -179,7 +179,7 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	labels, err := label.ParseSet(cw.Labels)
 	if err != nil {
 		logger.Error(err, "Error parsing labels")
-		exitAndCancel()
+		cancelAndExit()
 	}
 
 	logger = enrichLoggerWithLabels(logger, labels)
@@ -187,13 +187,13 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	description, err := loadTestsDescription(logger, cw.TestsDescriptionFile, cw.TestsDescription)
 	if err != nil {
 		logger.Error(err, "Error loading tests description")
-		exitAndCancel()
+		cancelAndExit()
 	}
 
 	runnerBuilder, err := cw.createRunnerBuilder()
 	if err != nil {
 		logger.Error(err, "Error creating runner builder")
-		exitAndCancel()
+		cancelAndExit()
 	}
 
 	// Retrieve the already populated test ID. The test ID absence is used to uniquely identify the root process in the
@@ -201,21 +201,34 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	testID := cw.TestID
 	isRootProcess := testID == ""
 
+	// globalWaitGroup accounts for all spawned goroutines.
+	globalWaitGroup := sync.WaitGroup{}
+	waitAndExit := func() {
+		cancel()
+		globalWaitGroup.Wait()
+		os.Exit(1)
+	}
+
 	// Initialize tester and Falco alerts collection.
 	var testr tester.Tester
-	testerWaitGroup := sync.WaitGroup{}
 	if isRootProcess && !cw.skipOutcomeVerification {
 		if testr, err = cw.createTester(logger); err != nil {
 			logger.Error(err, "Error creating tester")
-			exitAndCancel()
+			cancelAndExit()
 		}
+
+		globalWaitGroup.Add(1)
 		go func() {
+			defer globalWaitGroup.Done()
+			defer cancel()
 			if err := testr.StartAlertsCollection(ctx); err != nil {
 				logger.Error(err, "Error starting tester execution")
-				exitAndCancel()
 			}
 		}()
 	}
+
+	// testerWaitGroup accounts for all goroutines producing reports.
+	testerWaitGroup := sync.WaitGroup{}
 
 	// Prepare parameters shared by all runners.
 	runnerEnviron := cw.buildRunnerEnviron(cmd)
@@ -248,7 +261,7 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 			testUID, err = extractTestUID(testID)
 			if err != nil {
 				logger.Error(err, "Error extracting test UID from test ID", "testId", testID)
-				exitAndCancel()
+				waitAndExit()
 			}
 		}
 
@@ -267,23 +280,25 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		runnerInstance, err := runnerBuilder.Build(testDesc.Runner, runnerLogger, runnerDescription)
 		if err != nil {
 			logger.Error(err, "Error creating runner")
-			exitAndCancel()
+			waitAndExit()
 		}
 
 		logger.Info("Starting test execution...")
 		if err := runnerInstance.Run(ctx, testID, testIndex, testDesc); err != nil {
 			logRunnerError(logger, err)
-			exitAndCancel()
+			waitAndExit()
 		}
 
 		logger.Info("Test execution completed")
 
 		if testr != nil {
-			produceReport(&testerWaitGroup, testr, &testUID, testDesc, cw.reportFormat)
+			produceReport(&globalWaitGroup, &testerWaitGroup, testr, &testUID, testDesc, cw.reportFormat)
 		}
 	}
 
 	testerWaitGroup.Wait()
+	cancel()
+	globalWaitGroup.Wait()
 }
 
 // enrichLoggerWithLabels creates a new logger, starting from the provided one, with the information extracted from the
@@ -462,11 +477,13 @@ func logRunnerError(logger logr.Logger, err error) {
 }
 
 // produceReport produces a report for the given test by using the provided tester.
-func produceReport(wg *sync.WaitGroup, testr tester.Tester, testUID *uuid.UUID, testDesc *loader.Test,
-	reportFmt reportFormat) {
-	wg.Add(1)
+func produceReport(globalWaitGroup, testerWaitGroup *sync.WaitGroup, testr tester.Tester, testUID *uuid.UUID,
+	testDesc *loader.Test, reportFmt reportFormat) {
+	globalWaitGroup.Add(1)
+	testerWaitGroup.Add(1)
 	go func() {
-		defer wg.Done()
+		defer globalWaitGroup.Done()
+		defer testerWaitGroup.Done()
 		testName, ruleName := testDesc.Name, testDesc.Rule
 		report := getReport(testr, testUID, ruleName, &testDesc.ExpectedOutcome)
 		report.TestName, report.RuleName = testName, ruleName
