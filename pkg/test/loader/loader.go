@@ -345,16 +345,16 @@ func (c *Description) validate() error {
 
 // Test is a rule test description.
 type Test struct {
-	Rule            string              `yaml:"rule" mapstructure:"rule"`
-	Name            string              `yaml:"name" mapstructure:"name"`
-	Description     *string             `yaml:"description,omitempty" mapstructure:"description"`
-	Runner          TestRunnerType      `yaml:"runner" mapstructure:"runner"`
-	Context         *TestContext        `yaml:"context,omitempty" mapstructure:"context"`
-	BeforeScript    *string             `yaml:"before,omitempty" mapstructure:"before"`
-	AfterScript     *string             `yaml:"after,omitempty" mapstructure:"after"`
-	Resources       []TestResource      `yaml:"resources,omitempty" mapstructure:"resources"`
-	Steps           []TestStep          `yaml:"steps,omitempty" mapstructure:"steps"`
-	ExpectedOutcome TestExpectedOutcome `yaml:"expectedOutcome" mapstructure:"expectedOutcome"`
+	Rule            *string              `yaml:"rule,omitempty" mapstructure:"rule"`
+	Name            string               `yaml:"name" mapstructure:"name"`
+	Description     *string              `yaml:"description,omitempty" mapstructure:"description"`
+	Runner          TestRunnerType       `yaml:"runner" mapstructure:"runner"`
+	Context         *TestContext         `yaml:"context,omitempty" mapstructure:"context"`
+	BeforeScript    *string              `yaml:"before,omitempty" mapstructure:"before"`
+	AfterScript     *string              `yaml:"after,omitempty" mapstructure:"after"`
+	Resources       []TestResource       `yaml:"resources,omitempty" mapstructure:"resources"`
+	Steps           []TestStep           `yaml:"steps,omitempty" mapstructure:"steps"`
+	ExpectedOutcome *TestExpectedOutcome `yaml:"expectedOutcome,omitempty" mapstructure:"expectedOutcome"`
 }
 
 // validateNameUniqueness validates that names used for test resources and steps are unique.

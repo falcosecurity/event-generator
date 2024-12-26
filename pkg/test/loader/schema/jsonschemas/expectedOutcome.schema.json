@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "expectedOutcome.schema.json",
   "title": "Test expected outcome",
-  "description": "The outcome expected from Falco as a result of the test execution",
+  "description": "The outcome expected from Falco as a result of the test execution. It is only taken into account when running the test through the 'test' command. If not provided, it matches any outcome resulting from the application of the test actions",
   "type": "object",
   "properties": {
     "source": {
