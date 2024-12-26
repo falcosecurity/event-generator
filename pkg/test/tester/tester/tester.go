@@ -173,10 +173,17 @@ func (t *testerImpl) Report(uid *uuid.UUID, rule string, expectedOutcome *loader
 }
 
 // accountAlert accounts the provided alert in the provided report, by matching it against the provided expected outcome
-// for the provided rule.
+// for the provided rule. If the provided expected outcome is nil or empty, and the alert is generated for the requested
+// rule, it is accounted as a successful match.
 func accountAlert(report *tester.Report, reportRule string, alrt *alert.Alert,
 	expectedOutcome *loader.TestExpectedOutcome) {
 	if alrt.Rule != reportRule {
+		return
+	}
+
+	// A nil expected outcome matches any alert.
+	if expectedOutcome == nil {
+		report.SuccessfulMatches++
 		return
 	}
 

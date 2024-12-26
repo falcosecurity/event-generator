@@ -28,7 +28,8 @@ type Tester interface {
 	// StartAlertsCollection starts the process of alerts collection.
 	StartAlertsCollection(ctx context.Context) error
 	// Report returns a report containing information regarding the alerts matching or not matching the provided
-	// expected outcome for the provided rule.
+	// expected outcome for the provided rule. A nil or empty expected outcome matches any alert corresponding to the
+	// provided rule.
 	Report(uid *uuid.UUID, rule string, expectedOutcome *loader.TestExpectedOutcome) *Report
 }
 

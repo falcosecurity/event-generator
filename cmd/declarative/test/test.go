@@ -63,7 +63,7 @@ It is possible to provide the YAML description in multiple ways. The order of ev
 2) If the --%s=<description> flag is provided, the description is read from the <description> string
 3) Otherwise, it is read from standard input`
 	longDescriptionHeading = "Run test(s) specified via a YAML description and verify that they produce the expected outcomes"
-	warningMessage         = `ReportWarning:
+	warningMessage         = `Warning:
   This command might alter your system. For example, some actions modify files and directories below /bin, /etc, /dev,
   etc... Make sure you fully understand what is the purpose of this tool before running any action.`
 )
@@ -166,6 +166,8 @@ func envKeyFromFlagName(envKeysPrefix, flagName string) string {
 	return strings.ReplaceAll(s, "-", "_")
 }
 
+var errRuleNameNotDefined = fmt.Errorf("rule name not defined")
+
 // run runs the provided command with the provided arguments.
 func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	ctx := cmd.Context()
@@ -201,22 +203,34 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		cancelAndExit()
 	}
 
-	// Retrieve the already populated test ID. The test ID absence is used to uniquely identify the root process in the
-	// process chain.
+	// Retrieve the already populated test ID.
 	testID := cw.TestID
+	// The test ID absence is used to uniquely identify the root process in the process chain.
 	isRootProcess := testID == ""
 
-	// globalWaitGroup accounts for all spawned goroutines.
-	globalWaitGroup := sync.WaitGroup{}
+	// globalWaitGroup accounts for all spawned goroutines, while testerWaitGroup accounts for all goroutines producing
+	// reports.
+	var globalWaitGroup, testerWaitGroup sync.WaitGroup
 	waitAndExit := func() {
 		cancel()
 		globalWaitGroup.Wait()
 		os.Exit(1)
 	}
 
-	// Initialize tester and Falco alerts collection.
+	// Verify and initialize everything related to tests outcome verification.
 	var testr tester.Tester
-	if isRootProcess && !cw.skipOutcomeVerification {
+	if verifyExpectedOutcome := isRootProcess && !cw.skipOutcomeVerification; verifyExpectedOutcome {
+		// Ensure each test is associated with a rule.
+		for testIndex := range description.Tests {
+			testDesc := &description.Tests[testIndex]
+			if testDesc.Rule == nil {
+				logger := logger.WithValues("testName", testDesc.Name, "testIndex", testIndex)
+				logger.Error(errRuleNameNotDefined, "Error verifying test rule name presence")
+				cancelAndExit()
+			}
+		}
+
+		// Initialize tester and Falco alerts collection.
 		if testr, err = cw.createTester(logger); err != nil {
 			logger.Error(err, "Error creating tester")
 			cancelAndExit()
@@ -231,9 +245,6 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 			}
 		}()
 	}
-
-	// testerWaitGroup accounts for all goroutines producing reports.
-	testerWaitGroup := sync.WaitGroup{}
 
 	// Prepare parameters shared by all runners.
 	runnerEnviron := cw.buildRunnerEnviron(cmd)
@@ -489,8 +500,8 @@ func produceReport(globalWaitGroup, testerWaitGroup *sync.WaitGroup, testr teste
 	go func() {
 		defer globalWaitGroup.Done()
 		defer testerWaitGroup.Done()
-		testName, ruleName := testDesc.Name, testDesc.Rule
-		report := getReport(testr, testUID, ruleName, &testDesc.ExpectedOutcome)
+		testName, ruleName := testDesc.Name, *testDesc.Rule
+		report := getReport(testr, testUID, ruleName, testDesc.ExpectedOutcome)
 		report.TestName, report.RuleName = testName, ruleName
 		printReport(report, reportFmt)
 	}()
