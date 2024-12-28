@@ -359,14 +359,44 @@ type Test struct {
 
 // validateNameUniqueness validates that names used for test resources and steps are unique.
 func (t *Test) validateNameUniqueness() error {
+	type nameInfo struct {
+		isResource bool
+		index      int
+	}
+
+	nameInfoToString := func(info *nameInfo) string {
+		var s string
+		if info.isResource {
+			s = "resource"
+		} else {
+			s = "step"
+		}
+		return fmt.Sprintf("test %s at index %d", s, info.index)
+	}
+
+	addNameInfo := func(names map[string]*nameInfo, name string, info *nameInfo) error {
+		if i, ok := names[name]; ok {
+			el1, el2 := nameInfoToString(info), nameInfoToString(i)
+			return fmt.Errorf("%s and %s have the same name %q", el1, el2, name)
+		}
+		names[name] = info
+		return nil
+	}
+
+	names := make(map[string]*nameInfo)
+
 	for resourceIndex, testResource := range t.Resources {
-		for stepIndex, testStep := range t.Steps {
-			if testStep.Name == testResource.Name {
-				return fmt.Errorf("test resource at index %d and test step at index %d have the same name %q",
-					resourceIndex, stepIndex, testResource.Name)
-			}
+		if err := addNameInfo(names, testResource.Name, &nameInfo{isResource: true, index: resourceIndex}); err != nil {
+			return err
 		}
 	}
+
+	for stepIndex, testStep := range t.Steps {
+		if err := addNameInfo(names, testStep.Name, &nameInfo{isResource: false, index: stepIndex}); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
