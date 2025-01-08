@@ -44,6 +44,7 @@ import (
 	runnerbuilder "github.com/falcosecurity/event-generator/pkg/test/runner/builder"
 	stepbuilder "github.com/falcosecurity/event-generator/pkg/test/step/builder"
 	sysbuilder "github.com/falcosecurity/event-generator/pkg/test/step/syscall/builder"
+	"github.com/falcosecurity/event-generator/pkg/test/suite"
 	"github.com/falcosecurity/event-generator/pkg/test/tester"
 	"github.com/falcosecurity/event-generator/pkg/test/tester/reportencoder/jsonencoder"
 	"github.com/falcosecurity/event-generator/pkg/test/tester/reportencoder/textencoder"
@@ -193,9 +194,9 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 
 	logger = enrichLoggerWithLabels(logger, labels)
 
-	description, err := loadTestsDescription(logger, cw.TestsDescriptionFile, cw.TestsDescription)
+	testSuites, err := loadTestSuites(logger, cw.TestsDescriptionFile, cw.TestsDescription)
 	if err != nil {
-		logger.Error(err, "Error loading tests description")
+		logger.Error(err, "Error loading test suites")
 		cancelAndExit()
 	}
 
@@ -223,11 +224,16 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	var testr tester.Tester
 	if verifyExpectedOutcome := isRootProcess && !cw.skipOutcomeVerification; verifyExpectedOutcome {
 		// Ensure each test is associated with a rule.
-		for testIndex := range description.Tests {
-			testDesc := &description.Tests[testIndex]
-			if testDesc.Rule == nil {
-				logger := logger.WithValues("testName", testDesc.Name, "testIndex", testIndex)
-				logger.Error(errRuleNameNotDefined, "Error verifying test rule name presence")
+		for _, testSuite := range testSuites {
+			// Notice: there cannot be more than a test suite specifying no rule name, as rule names are guaranteed to
+			// be distinct among test suites. For this reason, it is ok to just stop on the first invalid test suite.
+			if testSuite.RuleName == suite.NoRuleNamePlaceholder {
+				logger := logger.WithValues("testSuite", testSuite.RuleName)
+				for _, testInfo := range testSuite.TestsInfo {
+					logger := logger.WithValues("testFile", testInfo.SourceName, "testName", testInfo.Test.Name,
+						"testIndex", testInfo.Index)
+					logger.Error(errRuleNameNotDefined, "Error verifying test rule name presence")
+				}
 				cancelAndExit()
 			}
 		}
@@ -255,58 +261,19 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		runnerLabels = labels.Clone()
 	}
 
-	// Build and run the tests.
-	for testIndex := range description.Tests {
-		testDesc := &description.Tests[testIndex]
-		logger := logger.WithValues("testName", testDesc.Name)
+	// Run test suites.
+	for _, testSuite := range testSuites {
+		logger := logger.WithValues("testSuiteName", testSuite.RuleName)
+		logger.Info("Starting test suite execution...")
 
-		var testUID uuid.UUID
-		if isRootProcess {
-			logger = logger.WithValues("testIndex", testIndex)
-
-			// Generate a new UID for the test.
-			testUID = uuid.New()
-			testID = newTestID(&testUID)
-			ensureProcessChainLeaf(testDesc)
-		} else {
-			// Extract UID from test ID.
-			var err error
-			testUID, err = extractTestUID(testID)
-			if err != nil {
-				logger.Error(err, "Error extracting test UID from test ID", "testId", testID)
-				waitAndExit()
-			}
-		}
-
-		logger = logger.WithValues("testUid", testUID)
-
-		runnerLogger := logger.WithName("runner")
-		runnerDescription := &runner.Description{
-			Environ:                   runnerEnviron,
-			TestDescriptionEnvKey:     cw.DescriptionEnvKey,
-			TestDescriptionFileEnvKey: cw.DescriptionFileEnvKey,
-			TestIDEnvKey:              cw.TestIDEnvKey,
-			TestIDIgnorePrefix:        testIDIgnorePrefix,
-			LabelsEnvKey:              cw.LabelsEnvKey,
-			Labels:                    runnerLabels,
-		}
-		runnerInstance, err := runnerBuilder.Build(testDesc.Runner, runnerLogger, runnerDescription)
-		if err != nil {
-			logger.Error(err, "Error creating runner")
+		success := cw.runTestSuite(ctx, logger, testSuite, runnerBuilder, runnerEnviron, labels, runnerLabels, testr,
+			&globalWaitGroup, &testerWaitGroup, isRootProcess, testID)
+		if !success {
+			logger.Info("Test suite execution failed")
 			waitAndExit()
 		}
 
-		logger.Info("Starting test execution...")
-		if err := runnerInstance.Run(ctx, testID, testIndex, testDesc); err != nil {
-			logRunnerError(logger, err)
-			waitAndExit()
-		}
-
-		logger.Info("Test execution completed")
-
-		if testr != nil {
-			produceReport(&globalWaitGroup, &testerWaitGroup, testr, &testUID, testDesc, cw.reportFormat)
-		}
+		logger.Info("Test suite execution completed")
 	}
 
 	testerWaitGroup.Wait()
@@ -334,13 +301,13 @@ func enrichLoggerWithLabels(logger logr.Logger, labels *label.Set) logr.Logger {
 	return logger
 }
 
-// loadTestsDescription loads the YAML tests description from a different source, depending on the content of the
-// provided values:
-// - if the provided descriptionFilePath is not empty, the description is loaded from the specified file
-// - if the provided description is not empty, the description is loaded from its content
-// - otherwise, it is loaded from standard input.
-func loadTestsDescription(logger logr.Logger, descriptionFilePath, description string) (*loader.Description, error) {
-	ldr := loader.New()
+// loadTestSuites loads the test suites from a different source, depending on the content of the provided values:
+// - if the provided descriptionFilePath is not empty, the test suites are loaded from the specified file;
+// - if the provided description is not empty, the test suites are loaded from its content;
+// - otherwise, they are loaded from standard input.
+func loadTestSuites(logger logr.Logger, descriptionFilePath, description string) ([]*suite.Suite, error) {
+	descLoader := loader.New()
+	suiteLoader := suite.NewLoader(descLoader)
 
 	if descriptionFilePath != "" {
 		descriptionFilePath = filepath.Clean(descriptionFilePath)
@@ -354,14 +321,17 @@ func loadTestsDescription(logger logr.Logger, descriptionFilePath, description s
 			}
 		}()
 
-		return ldr.Load(descriptionFile)
+		sources := []suite.Source{suite.NewSourceFromFile(descriptionFile)}
+		return suiteLoader.Load(sources)
 	}
 
 	if description != "" {
-		return ldr.Load(strings.NewReader(description))
+		sources := []suite.Source{suite.NewSourceFromReader("<description flag>", strings.NewReader(description))}
+		return suiteLoader.Load(sources)
 	}
 
-	return ldr.Load(os.Stdin)
+	sources := []suite.Source{suite.NewSourceFromReader("<stdin>", os.Stdin)}
+	return suiteLoader.Load(sources)
 }
 
 // createRunnerBuilder creates a new runner builder.
@@ -439,6 +409,69 @@ func (cw *CommandWrapper) appendFlags(environ []string, flagSets ...*pflag.FlagS
 		flagSet.VisitAll(appendFlag)
 	}
 	return environ
+}
+
+// runTestSuite runs the provided test suite.
+// TODO: simplify the following function signature once the termination logic is relaxed.
+func (cw *CommandWrapper) runTestSuite(ctx context.Context, logger logr.Logger, testSuite *suite.Suite,
+	runnerBuilder runner.Builder, runnerEnviron []string, labels, runnerLabels *label.Set, testr tester.Tester,
+	globalWaitGroup, testerWaitGroup *sync.WaitGroup, isRootProcess bool, testID string) bool {
+	// Build and run the tests.
+	for _, testInfo := range testSuite.TestsInfo {
+		testIndex, testDesc := testInfo.Index, testInfo.Test
+
+		logger := logger.WithValues("testName", testDesc.Name)
+
+		var testUID uuid.UUID
+		if isRootProcess {
+			logger = logger.WithValues("testIndex", testIndex)
+
+			// Generate a new UID for the test.
+			testUID = uuid.New()
+			testID = newTestID(&testUID)
+			ensureProcessChainLeaf(testDesc)
+		} else {
+			// Extract UID from test ID.
+			var err error
+			testUID, err = extractTestUID(testID)
+			if err != nil {
+				logger.Error(err, "Error extracting test UID from test ID", "testId", testID)
+				return false
+			}
+		}
+
+		logger = logger.WithValues("testUid", testUID)
+
+		runnerLogger := logger.WithName("runner")
+		runnerDescription := &runner.Description{
+			Environ:                   runnerEnviron,
+			TestDescriptionEnvKey:     cw.DescriptionEnvKey,
+			TestDescriptionFileEnvKey: cw.DescriptionFileEnvKey,
+			TestIDEnvKey:              cw.TestIDEnvKey,
+			TestIDIgnorePrefix:        testIDIgnorePrefix,
+			LabelsEnvKey:              cw.LabelsEnvKey,
+			Labels:                    runnerLabels,
+		}
+		runnerInstance, err := runnerBuilder.Build(testDesc.Runner, runnerLogger, runnerDescription)
+		if err != nil {
+			logger.Error(err, "Error creating runner")
+			return false
+		}
+
+		logger.Info("Starting test execution...")
+		if err := runnerInstance.Run(ctx, testID, testIndex, testDesc); err != nil {
+			logRunnerError(logger, err)
+			return false
+		}
+
+		logger.Info("Test execution completed")
+
+		if testr != nil {
+			produceReport(globalWaitGroup, testerWaitGroup, testr, &testUID, testDesc, cw.reportFormat)
+		}
+	}
+
+	return true
 }
 
 // newTestID creates a new test ID from the provided test UID.
