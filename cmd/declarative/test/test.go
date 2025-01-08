@@ -176,6 +176,8 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		panic(fmt.Sprintf("logger unconfigured: %v", err))
 	}
 
+	logger = logger.WithName("main")
+
 	ctx, cancel := context.WithTimeout(ctx, cw.TestsTimeout)
 	defer cancel()
 	cancelAndExit := func() {
@@ -256,17 +258,12 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	// Build and run the tests.
 	for testIndex := range description.Tests {
 		testDesc := &description.Tests[testIndex]
-
-		// If this process belongs to a test process chain, override the logged test index in order to match its
-		// absolute index among all the test descriptions.
-		if labels != nil {
-			testIndex = labels.TestIndex
-		}
-
-		logger := logger.WithValues("testName", testDesc.Name, "testIndex", testIndex)
+		logger := logger.WithValues("testName", testDesc.Name)
 
 		var testUID uuid.UUID
 		if isRootProcess {
+			logger = logger.WithValues("testIndex", testIndex)
+
 			// Generate a new UID for the test.
 			testUID = uuid.New()
 			testID = newTestID(&testUID)
@@ -321,22 +318,20 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 // provided labels.
 func enrichLoggerWithLabels(logger logr.Logger, labels *label.Set) logr.Logger {
 	if labels == nil {
-		return logger.WithName("root")
+		return logger
 	}
 
-	testName := fmt.Sprintf("test%d", labels.TestIndex)
-	logger = logger.WithName(testName)
+	logger = logger.WithValues("testIndex", labels.TestIndex, "procIndex", labels.ProcIndex, "inContainer",
+		labels.IsContainer)
 	if labels.IsContainer {
-		logger = logger.WithName("cont")
 		if imageName := labels.ImageName; imageName != "" {
-			logger = logger.WithValues("imageName", imageName)
+			logger = logger.WithValues("containerImageName", imageName)
 		}
 		if containerName := labels.ContainerName; containerName != "" {
 			logger = logger.WithValues("containerName", containerName)
 		}
 	}
-	procName := fmt.Sprintf("proc%d", labels.ProcIndex)
-	return logger.WithName(procName)
+	return logger
 }
 
 // loadTestsDescription loads the YAML tests description from a different source, depending on the content of the
