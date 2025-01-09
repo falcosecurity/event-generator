@@ -33,8 +33,8 @@ import (
 
 	"github.com/falcosecurity/event-generator/cmd/declarative/config"
 	"github.com/falcosecurity/event-generator/pkg/alert/retriever/grpcretriever"
+	"github.com/falcosecurity/event-generator/pkg/baggage"
 	containerbuilder "github.com/falcosecurity/event-generator/pkg/container/builder"
-	"github.com/falcosecurity/event-generator/pkg/label"
 	processbuilder "github.com/falcosecurity/event-generator/pkg/process/builder"
 	"github.com/falcosecurity/event-generator/pkg/test"
 	testbuilder "github.com/falcosecurity/event-generator/pkg/test/builder"
@@ -186,13 +186,13 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		os.Exit(1)
 	}
 
-	labels, err := label.ParseSet(cw.Labels)
+	baseBag, err := baggage.NewFromString(cw.Baggage)
 	if err != nil {
-		logger.Error(err, "Error parsing labels")
+		logger.Error(err, "Error parsing baggage")
 		cancelAndExit()
 	}
 
-	logger = enrichLoggerWithLabels(logger, labels)
+	logger = enrichLoggerWithBaggage(logger, baseBag)
 
 	testSuites, err := loadTestSuites(logger, cw.TestsDescriptionFile, cw.TestsDescription)
 	if err != nil {
@@ -206,10 +206,8 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		cancelAndExit()
 	}
 
-	// Retrieve the already populated test ID.
-	testID := cw.TestID
 	// The test ID absence is used to uniquely identify the root process in the process chain.
-	isRootProcess := testID == ""
+	isRootProcess := cw.TestID == ""
 
 	// globalWaitGroup accounts for all spawned goroutines, while testerWaitGroup accounts for all goroutines producing
 	// reports.
@@ -256,24 +254,20 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 
 	// Prepare parameters shared by all runners.
 	runnerEnviron := cw.buildRunnerEnviron(cmd)
-	var runnerLabels *label.Set
-	if labels != nil {
-		runnerLabels = labels.Clone()
-	}
 
 	// Run test suites.
+	baseLogger := logger
 	for _, testSuite := range testSuites {
-		logger := logger.WithValues("testSuiteName", testSuite.RuleName)
-		logger.Info("Starting test suite execution...")
-
-		success := cw.runTestSuite(ctx, logger, testSuite, runnerBuilder, runnerEnviron, labels, runnerLabels, testr,
-			&globalWaitGroup, &testerWaitGroup, isRootProcess, testID)
+		logger := baseLogger.WithValues("testSuiteName", testSuite.RuleName)
+		logInfoIf(logger, isRootProcess, "Starting test suite execution...")
+		success := cw.runTestSuite(ctx, baseLogger, testSuite, runnerBuilder, runnerEnviron, baseBag, testr,
+			&globalWaitGroup, &testerWaitGroup, isRootProcess)
 		if !success {
-			logger.Info("Test suite execution failed")
+			logInfoIf(logger, isRootProcess, "Test suite execution failed")
 			waitAndExit()
 		}
 
-		logger.Info("Test suite execution completed")
+		logInfoIf(logger, isRootProcess, "Test suite execution completed")
 	}
 
 	testerWaitGroup.Wait()
@@ -281,20 +275,24 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	globalWaitGroup.Wait()
 }
 
-// enrichLoggerWithLabels creates a new logger, starting from the provided one, with the information extracted from the
-// provided labels.
-func enrichLoggerWithLabels(logger logr.Logger, labels *label.Set) logr.Logger {
-	if labels == nil {
+// enrichLoggerWithBaggage creates a new logger, starting from the provided one, with the information extracted from the
+// provided baggage.
+func enrichLoggerWithBaggage(logger logr.Logger, bag *baggage.Baggage) logr.Logger {
+	if bag == nil {
 		return logger
 	}
 
-	logger = logger.WithValues("testIndex", labels.TestIndex, "procIndex", labels.ProcIndex, "inContainer",
-		labels.IsContainer)
-	if labels.IsContainer {
-		if imageName := labels.ImageName; imageName != "" {
+	logger = logger.WithValues("testSuiteName", bag.TestSuiteName, "testName", bag.TestName, "testSourceName",
+		bag.TestSourceName, "testSourceIndex", bag.TestSourceIndex)
+	if bag.ProcIndex != -1 {
+		logger = logger.WithValues("procIndex", bag.ProcIndex)
+	}
+	if bag.IsContainer {
+		logger = logger.WithValues("inContainer", bag.IsContainer)
+		if imageName := bag.ContainerImageName; imageName != "" {
 			logger = logger.WithValues("containerImageName", imageName)
 		}
-		if containerName := labels.ContainerName; containerName != "" {
+		if containerName := bag.ContainerName; containerName != "" {
 			logger = logger.WithValues("containerName", containerName)
 		}
 	}
@@ -411,20 +409,42 @@ func (cw *CommandWrapper) appendFlags(environ []string, flagSets ...*pflag.FlagS
 	return environ
 }
 
+// logInfoIf outputs to the provided logger the provided informational message only if the provided condition is true.
+func logInfoIf(logger logr.Logger, cond bool, msg string) {
+	if cond {
+		logger.Info(msg)
+	}
+}
+
 // runTestSuite runs the provided test suite.
 // TODO: simplify the following function signature once the termination logic is relaxed.
-func (cw *CommandWrapper) runTestSuite(ctx context.Context, logger logr.Logger, testSuite *suite.Suite,
-	runnerBuilder runner.Builder, runnerEnviron []string, labels, runnerLabels *label.Set, testr tester.Tester,
-	globalWaitGroup, testerWaitGroup *sync.WaitGroup, isRootProcess bool, testID string) bool {
+func (cw *CommandWrapper) runTestSuite(ctx context.Context, baseLogger logr.Logger, testSuite *suite.Suite,
+	runnerBuilder runner.Builder, runnerEnviron []string, baseBag *baggage.Baggage, testr tester.Tester,
+	globalWaitGroup, testerWaitGroup *sync.WaitGroup, isRootProcess bool) bool {
 	// Build and run the tests.
 	for _, testInfo := range testSuite.TestsInfo {
-		testIndex, testDesc := testInfo.Index, testInfo.Test
+		// Init baggage and logger for the current test.
+		var bag *baggage.Baggage
+		if baseBag != nil {
+			bag = baseBag.Clone()
+		}
+		logger := baseLogger
 
-		logger := logger.WithValues("testName", testDesc.Name)
+		testSourceName, testSourceIndex, testDesc := testInfo.SourceName, testInfo.Index, testInfo.Test
 
+		testID := cw.TestID
 		var testUID uuid.UUID
 		if isRootProcess {
-			logger = logger.WithValues("testIndex", testIndex)
+			// The root process must initialize the baggage.
+			bag = &baggage.Baggage{
+				TestSuiteName:   testSuite.RuleName,
+				TestName:        testDesc.Name,
+				TestSourceName:  testSourceName,
+				TestSourceIndex: testSourceIndex,
+				// ProcIndex is set to -1 on the root process.
+				ProcIndex: -1,
+			}
+			logger = enrichLoggerWithBaggage(logger, bag)
 
 			// Generate a new UID for the test.
 			testUID = uuid.New()
@@ -449,8 +469,8 @@ func (cw *CommandWrapper) runTestSuite(ctx context.Context, logger logr.Logger, 
 			TestDescriptionFileEnvKey: cw.DescriptionFileEnvKey,
 			TestIDEnvKey:              cw.TestIDEnvKey,
 			TestIDIgnorePrefix:        testIDIgnorePrefix,
-			LabelsEnvKey:              cw.LabelsEnvKey,
-			Labels:                    runnerLabels,
+			BaggageEnvKey:             cw.BaggageEnvKey,
+			Baggage:                   bag,
 		}
 		runnerInstance, err := runnerBuilder.Build(testDesc.Runner, runnerLogger, runnerDescription)
 		if err != nil {
@@ -458,13 +478,13 @@ func (cw *CommandWrapper) runTestSuite(ctx context.Context, logger logr.Logger, 
 			return false
 		}
 
-		logger.Info("Starting test execution...")
-		if err := runnerInstance.Run(ctx, testID, testIndex, testDesc); err != nil {
+		logInfoIf(logger, isRootProcess, "Starting test execution...")
+		if err := runnerInstance.Run(ctx, testID, testDesc); err != nil {
 			logRunnerError(logger, err)
 			return false
 		}
 
-		logger.Info("Test execution completed")
+		logInfoIf(logger, isRootProcess, "Test execution completed")
 
 		if testr != nil {
 			produceReport(globalWaitGroup, testerWaitGroup, testr, &testUID, testDesc, cw.reportFormat)

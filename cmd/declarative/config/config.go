@@ -34,8 +34,8 @@ const (
 	DescriptionFlagName = "description"
 	// TestIDFlagName is the name of the flag allowing to specify the test identifier.
 	TestIDFlagName = "test-id"
-	// LabelsFlagName is the name of the flag allowing to specify labels.
-	LabelsFlagName = "labels"
+	// BaggageFlagName is the name of the flag allowing to specify the baggage.
+	BaggageFlagName = "baggage"
 	// TimeoutFlagName is the name of the flag allowing to specify the test timeout.
 	TimeoutFlagName = "timeout"
 )
@@ -51,8 +51,8 @@ type Config struct {
 	DescriptionEnvKey string
 	// TestIDEnvKey is the environment variable key corresponding to TestIDFlagName.
 	TestIDEnvKey string
-	// LabelsEnvKey is the environment variable key corresponding to LabelsFlagName.
-	LabelsEnvKey string
+	// BaggageEnvKey is the environment variable key corresponding to BaggageFlagName.
+	BaggageEnvKey string
 	// TimeoutEnvKey is the environment variable key corresponding to TimeoutFlagName.
 	TimeoutEnvKey string
 
@@ -82,9 +82,9 @@ type Config struct {
 	//
 	// A process having a test ID in the form <testUID> (i.e.: the leaf process) is the only one that is monitored.
 	TestID string
-	// Labels is the string containing the comma-separated list of labels in the form <labelX>=<labelXValue>. It is used
-	// for logging purposes and to potentially generate the child process/container labels.
-	Labels string
+	// Baggage is the string encoding a set of supported key-value pairs. It is used for logging purposes and to
+	// potentially generate the child process/container baggages.
+	Baggage string
 }
 
 var containerImagePullPolicies = map[builder.ImagePullPolicy][]string{
@@ -101,7 +101,7 @@ func New(declarativeEnvKey, envKeysPrefix string) *Config {
 		DescriptionFileEnvKey: envKeyFromFlagName(envKeysPrefix, DescriptionFileFlagName),
 		DescriptionEnvKey:     envKeyFromFlagName(envKeysPrefix, DescriptionFlagName),
 		TestIDEnvKey:          envKeyFromFlagName(envKeysPrefix, TestIDFlagName),
-		LabelsEnvKey:          envKeyFromFlagName(envKeysPrefix, LabelsFlagName),
+		BaggageEnvKey:         envKeyFromFlagName(envKeysPrefix, BaggageFlagName),
 		TimeoutEnvKey:         envKeyFromFlagName(envKeysPrefix, TimeoutFlagName),
 	}
 	return commonConf
@@ -133,13 +133,13 @@ func (c *Config) InitCommandFlags(cmd *cobra.Command) {
 
 	// Hidden flags.
 	flags.StringVar(&c.TestID, TestIDFlagName, "",
-		"(used during process chain building) The test identifier in the form <ignorePrefix><testUID>. It is "+
-			"used to propagate the test UID to child processes/container in the process chain")
-	flags.StringVar(&c.Labels, LabelsFlagName, "",
-		"(used during process chain building) The list of comma-separated labels in the form <labelX>=<labelXValue>. "+
-			"It is used for logging purposes and to potentially generate the child process/container labels")
+		"(used during process chain building) The test identifier in the form <ignorePrefix><testUID>. It is used to "+
+			"propagate the test UID to child processes/container in the process chain")
+	flags.StringVar(&c.Baggage, BaggageFlagName, "",
+		"(used during process chain building) The string encoding a set of supported key-value pais. It is used for "+
+			"logging purposes and to potentially generate the child process/container baggage")
 	_ = flags.MarkHidden(TestIDFlagName)
-	_ = flags.MarkHidden(LabelsFlagName)
+	_ = flags.MarkHidden(BaggageFlagName)
 }
 
 // envKeyFromFlagName converts the provided flag name into the corresponding environment variable key.
