@@ -30,6 +30,9 @@ const (
 	// DescriptionFileFlagName is the name of the flag allowing to specify the pathnames of files containing the YAML
 	// tests descriptions.
 	DescriptionFileFlagName = "description-file"
+	// DescriptionDirFlagName is the name of the flag allowing to specify the pathnames of directories containing the
+	// YAML tests description files.
+	DescriptionDirFlagName = "description-dir"
 	// DescriptionFlagName is the name of the flag allowing to specify the YAML tests description.
 	DescriptionFlagName = "description"
 	// TestIDFlagName is the name of the flag allowing to specify the test identifier.
@@ -47,6 +50,8 @@ type Config struct {
 	DeclarativeEnvKey string
 	// DescriptionFileEnvKey is the environment variable key corresponding to DescriptionFileFlagName.
 	DescriptionFileEnvKey string
+	// DescriptionDirEnvKey is the environment variable key corresponding to DescriptionDirFlagName.
+	DescriptionDirEnvKey string
 	// DescriptionEnvKey is the environment variable key corresponding to DescriptionFlagName.
 	DescriptionEnvKey string
 	// TestIDEnvKey is the environment variable key corresponding to TestIDFlagName.
@@ -61,7 +66,11 @@ type Config struct {
 	// TestsDescriptionFiles is the list of pathnames of files containing the YAML tests descriptions. If
 	// TestsDescription is provided, this is empty.
 	TestsDescriptionFiles []string
-	// TestsDescription is the YAML tests description. If TestsDescriptionFiles is provided, this is empty.
+	// TestsDescriptionDirs is the list of pathnames of directories containing the YAML tests description files. If
+	// TestsDescription is provided, this is empty.
+	TestsDescriptionDirs []string
+	// TestsDescription is the YAML tests description. If TestsDescriptionFiles or TestsDescriptionDirs are provided,
+	// this is empty.
 	TestsDescription string
 	// TestID is the test identifier in the form [testIDIgnorePrefix]<testUID>. It is used to propagate the test UID to
 	// child processes in the process chain. The following invariants hold:
@@ -99,6 +108,7 @@ func New(declarativeEnvKey, envKeysPrefix string) *Config {
 		DeclarativeEnvKey:     declarativeEnvKey,
 		EnvKeysPrefix:         envKeysPrefix,
 		DescriptionFileEnvKey: envKeyFromFlagName(envKeysPrefix, DescriptionFileFlagName),
+		DescriptionDirEnvKey:  envKeyFromFlagName(envKeysPrefix, DescriptionDirFlagName),
 		DescriptionEnvKey:     envKeyFromFlagName(envKeysPrefix, DescriptionFlagName),
 		TestIDEnvKey:          envKeyFromFlagName(envKeysPrefix, TestIDFlagName),
 		BaggageEnvKey:         envKeyFromFlagName(envKeysPrefix, BaggageFlagName),
@@ -117,9 +127,15 @@ func (c *Config) InitCommandFlags(cmd *cobra.Command) {
 		"The pathnames of tests description YAML files specifying the tests to be run. Multiple pathnames can be "+
 			"specified as a comma-separated list. The flag can be specified multiple times. Pathnames are evaluated "+
 			"in order of appearance")
-	flags.StringVarP(&c.TestsDescription, DescriptionFlagName, "d", "",
+	flags.StringSliceVarP(&c.TestsDescriptionDirs, DescriptionDirFlagName, "d", nil,
+		"The pathnames of directories containing tests description YAML files specifying the tests to be run. "+
+			"Sub-directories of the provided pathnames are not recursively loaded. Only files with YAML extensions "+
+			"are loaded. Multiple pathnames can be specified as a comma-separated list. The flag can be specified "+
+			"multiple times. Pathnames are evaluated in order of appearance")
+	flags.StringVar(&c.TestsDescription, DescriptionFlagName, "",
 		"The YAML-formatted tests description string specifying the tests to be run")
 	cmd.MarkFlagsMutuallyExclusive(DescriptionFileFlagName, DescriptionFlagName)
+	cmd.MarkFlagsMutuallyExclusive(DescriptionDirFlagName, DescriptionFlagName)
 	flags.DurationVarP(&c.TestsTimeout, TimeoutFlagName, "t", time.Minute,
 		"The maximal duration of the tests. If running tests lasts more than the provided timeout, the execution of "+
 			"all pending tasks is canceled")

@@ -70,6 +70,10 @@ func New(logger logr.Logger, testBuilder test.Builder, processBuilder process.Bu
 		return nil, fmt.Errorf("description.TestDescriptionFileEnvKey must not be empty")
 	}
 
+	if description.TestDescriptionDirEnvKey == "" {
+		return nil, fmt.Errorf("description.TestDescriptionDirEnvKey must not be empty")
+	}
+
 	if description.TestIDEnvKey == "" {
 		return nil, fmt.Errorf("description.TestIDEnvKey must not be empty")
 	}
@@ -226,11 +230,12 @@ func (r *hostRunner) buildEnv(testID string, testDesc *loader.Test, userEnv map[
 	}
 	baggageEnvVar := buildEnvVar(r.BaggageEnvKey, baggageValue)
 
-	// Override test description file environment variable to avoid conflicts with the test description environment
-	// variable.
+	// Override test description file and directory environment variables to avoid conflicts with the test description
+	// environment variable.
 	descriptionFileEnvVar := buildEnvVar(r.TestDescriptionFileEnvKey, "")
+	descriptionDirEnvVar := buildEnvVar(r.TestDescriptionDirEnvKey, "")
 
-	env = append(env, descriptionEnvVar, testIDEnvVar, baggageEnvVar, descriptionFileEnvVar)
+	env = append(env, descriptionEnvVar, testIDEnvVar, baggageEnvVar, descriptionFileEnvVar, descriptionDirEnvVar)
 	return env, nil
 }
 
