@@ -194,7 +194,7 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 
 	logger = enrichLoggerWithBaggage(logger, baseBag)
 
-	testSuites, err := loadTestSuites(logger, cw.TestsDescriptionFiles, cw.TestsDescription)
+	testSuites, err := loadTestSuites(logger, cw.TestsDescriptionFiles, cw.TestsDescriptionDirs, cw.TestsDescription)
 	if err != nil {
 		logger.Error(err, "Error loading test suites")
 		cancelAndExit()
@@ -300,20 +300,29 @@ func enrichLoggerWithBaggage(logger logr.Logger, bag *baggage.Baggage) logr.Logg
 }
 
 // loadTestSuites loads the test suites from a different source, depending on the content of the provided values:
-// - if the provided descriptionFilePaths is not empty, the test suites are loaded from the specified files;
-// - if the provided description is not empty, the test suites are loaded from its content;
-// - otherwise, they are loaded from standard input.
-func loadTestSuites(logger logr.Logger, descriptionFilePaths []string, description string) ([]*suite.Suite, error) {
+//   - if the provided descriptionFilePaths or descriptionDirPaths are not empty, the test suites are loaded both from
+//     the specified files (if any) and from the YAML files (if any) in the specified directories (if any);
+//   - if the provided description is not empty, the test suites are loaded from its content;
+//   - otherwise, they are loaded from standard input.
+func loadTestSuites(logger logr.Logger, descriptionFilePaths, descriptionDirPaths []string,
+	description string) ([]*suite.Suite, error) {
 	descLoader := loader.New()
 	suiteLoader := suite.NewLoader(descLoader)
 
-	// Load from the specified files.
-	if len(descriptionFilePaths) != 0 {
+	// Load from the specified files or directories.
+	if len(descriptionFilePaths) > 0 || len(descriptionDirPaths) > 0 {
+		for _, descriptionDirPath := range descriptionDirPaths {
+			if err := loadTestsFromDescriptionDir(logger, suiteLoader, descriptionDirPath); err != nil {
+				return nil, fmt.Errorf("error loading description directory %q: %w", descriptionDirPath, err)
+			}
+		}
+
 		for _, descriptionFilePath := range descriptionFilePaths {
 			if err := loadTestsFromDescriptionFile(logger, suiteLoader, descriptionFilePath); err != nil {
 				return nil, fmt.Errorf("error loading description file %q: %w", descriptionFilePath, err)
 			}
 		}
+
 		return suiteLoader.Get(), nil
 	}
 
@@ -332,6 +341,34 @@ func loadTestSuites(logger logr.Logger, descriptionFilePaths []string, descripti
 		return nil, fmt.Errorf("error loading from stdin: %w", err)
 	}
 	return suiteLoader.Get(), nil
+}
+
+// loadTestsFromDescriptionDir loads tests, from YAML files inside the directory at the provided path, into the provided
+// suite loader.
+func loadTestsFromDescriptionDir(logger logr.Logger, suiteLoader *suite.Loader, descriptionDirPath string) error {
+	descriptionDirPath = filepath.Clean(descriptionDirPath)
+	dirEntries, err := os.ReadDir(descriptionDirPath)
+	if err != nil {
+		return fmt.Errorf("error reading entries in directory %q: %w", descriptionDirPath, err)
+	}
+
+	for _, dirEntry := range dirEntries {
+		if dirEntry.IsDir() {
+			continue
+		}
+
+		name := dirEntry.Name()
+		if !strings.HasSuffix(name, ".yaml") {
+			continue
+		}
+
+		descriptionFilePath := filepath.Join(descriptionDirPath, name)
+		if err := loadTestsFromDescriptionFile(logger, suiteLoader, descriptionFilePath); err != nil {
+			return fmt.Errorf("error loading description file %q: %w", name, err)
+		}
+	}
+
+	return nil
 }
 
 // loadTestsFromDescriptionFile loads tests from the file at the provided path into the provided suite loader.
@@ -485,6 +522,7 @@ func (cw *CommandWrapper) runTestSuite(ctx context.Context, baseLogger logr.Logg
 			Environ:                   runnerEnviron,
 			TestDescriptionEnvKey:     cw.DescriptionEnvKey,
 			TestDescriptionFileEnvKey: cw.DescriptionFileEnvKey,
+			TestDescriptionDirEnvKey:  cw.DescriptionDirEnvKey,
 			TestIDEnvKey:              cw.TestIDEnvKey,
 			TestIDIgnorePrefix:        testIDIgnorePrefix,
 			BaggageEnvKey:             cw.BaggageEnvKey,

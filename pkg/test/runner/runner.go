@@ -43,9 +43,12 @@ type Description struct {
 	// TestDescriptionEnvKey is the key identifying the environment variable used to store the serialized test
 	// description.
 	TestDescriptionEnvKey string
-	// TestDescriptionFileEnvKey is the key identifying the environment variable used to store path of the file
-	// containing the serialized test description.
+	// TestDescriptionFileEnvKey is the key identifying the environment variable used to store paths of the files
+	// containing the serialized tests description.
 	TestDescriptionFileEnvKey string
+	// TestDescriptionDirEnvKey is the key identifying the environment variable used to store paths of the directories
+	// containing the test description files.
+	TestDescriptionDirEnvKey string
 	// TestIDEnvKey is the key identifying the environment variable used to store the test identifier in the form
 	// [<ignorePrefix>]<testUID>.
 	TestIDEnvKey string
