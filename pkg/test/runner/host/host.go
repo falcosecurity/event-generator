@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (C) 2024 The Falco Authors
+// Copyright (C) 2025 The Falco Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@ import (
 
 	"github.com/go-logr/logr"
 
+	"github.com/falcosecurity/event-generator/pkg/baggage"
 	"github.com/falcosecurity/event-generator/pkg/container"
-	"github.com/falcosecurity/event-generator/pkg/label"
 	"github.com/falcosecurity/event-generator/pkg/process"
 	"github.com/falcosecurity/event-generator/pkg/test"
 	"github.com/falcosecurity/event-generator/pkg/test/loader"
@@ -78,8 +78,8 @@ func New(logger logr.Logger, testBuilder test.Builder, processBuilder process.Bu
 		return nil, fmt.Errorf("description.TestIDIgnorePrefix must not be empty")
 	}
 
-	if description.LabelsEnvKey == "" {
-		return nil, fmt.Errorf("description.LabelsEnvKey must not be empty")
+	if description.BaggageEnvKey == "" {
+		return nil, fmt.Errorf("description.BaggageEnvKey must not be empty")
 	}
 
 	r := &hostRunner{
@@ -92,11 +92,11 @@ func New(logger logr.Logger, testBuilder test.Builder, processBuilder process.Bu
 	return r, nil
 }
 
-func (r *hostRunner) Run(ctx context.Context, testID string, testIndex int, testDesc *loader.Test) error {
+func (r *hostRunner) Run(ctx context.Context, testID string, testDesc *loader.Test) error {
 	if testContext := testDesc.Context; testContext != nil {
 		// Delegate to container if the user specified a container context.
 		if testContext.Container != nil {
-			if err := r.delegateToContainer(ctx, testID, testIndex, testDesc); err != nil {
+			if err := r.delegateToContainer(ctx, testID, testDesc); err != nil {
 				return fmt.Errorf("error delegating to container: %w", err)
 			}
 
@@ -105,7 +105,7 @@ func (r *hostRunner) Run(ctx context.Context, testID string, testIndex int, test
 
 		// Delegate to child process if we are not at the end of the process chain.
 		if len(testDesc.Context.Processes) != 0 {
-			if err := r.delegateToProcess(ctx, testID, testIndex, testDesc); err != nil {
+			if err := r.delegateToProcess(ctx, testID, testDesc); err != nil {
 				return fmt.Errorf("error delegating to child process: %w", err)
 			}
 
@@ -114,8 +114,7 @@ func (r *hostRunner) Run(ctx context.Context, testID string, testIndex int, test
 	}
 
 	// Build test.
-	testLogger := r.logger.WithName("test").WithValues("testUid", r.getTestUID(testID), "testName",
-		testDesc.Name, "testIndex", testIndex)
+	testLogger := r.logger.WithName("test")
 	testInstance, err := r.testBuilder.Build(testLogger, testDesc)
 	if err != nil {
 		return fmt.Errorf("error building test: %w", err)
@@ -130,15 +129,11 @@ func (r *hostRunner) Run(ctx context.Context, testID string, testIndex int, test
 }
 
 // delegateToContainer delegates the execution of the test to a container, created and tuned as per test specification.
-func (r *hostRunner) delegateToContainer(ctx context.Context, testID string, testIndex int,
-	testDesc *loader.Test) error {
-	// Initialize labels for the container's process.
-	labels := r.Labels
-	if labels == nil {
-		labels = &label.Set{TestIndex: testIndex, ProcIndex: 0, IsContainer: true}
-	} else {
-		labels.ProcIndex++
-	}
+func (r *hostRunner) delegateToContainer(ctx context.Context, testID string, testDesc *loader.Test) error {
+	// Initialize baggage for the container's process.
+	bag := r.Baggage
+	bag.IsContainer = true
+	bag.ProcIndex++
 
 	containerContext := popContainer(testDesc.Context)
 
@@ -149,15 +144,15 @@ func (r *hostRunner) delegateToContainer(ctx context.Context, testID string, tes
 
 	if imageName := containerContext.Image; imageName != nil {
 		containerBuilder.SetImageName(*imageName)
-		labels.ImageName = *imageName
+		bag.ContainerImageName = *imageName
 	}
 
 	if containerName := containerContext.Name; containerName != nil {
 		containerBuilder.SetContainerName(*containerName)
-		labels.ContainerName = *containerName
+		bag.ContainerName = *containerName
 	}
 
-	containerEnv, err := r.buildEnv(testID, testDesc, containerContext.Env, false, labels)
+	containerEnv, err := r.buildEnv(testID, testDesc, containerContext.Env, false, bag)
 	if err != nil {
 		return fmt.Errorf("error building container environment variables set: %w", err)
 	}
@@ -185,9 +180,9 @@ func popContainer(testContext *loader.TestContext) *loader.ContainerContext {
 }
 
 // buildEnv builds the environment variable set for a given process, leveraging the provided test data and the
-// additional user-provide environment variables and labels.
+// additional user-provided environment variables and the baggage.
 func (r *hostRunner) buildEnv(testID string, testDesc *loader.Test, userEnv map[string]string,
-	isLastProcess bool, labels *label.Set) ([]string, error) {
+	isLastProcess bool, bag *baggage.Baggage) ([]string, error) {
 	env := r.Environ
 
 	// Add the user-provided environment variable.
@@ -208,18 +203,18 @@ func (r *hostRunner) buildEnv(testID string, testDesc *loader.Test, userEnv map[
 	}
 	testIDEnvVar := buildEnvVar(r.TestIDEnvKey, testID)
 
-	// Set labels environment variable.
-	labelsValue, err := marshalLabels(labels)
+	// Set baggage environment variable.
+	baggageValue, err := marshalBaggage(bag)
 	if err != nil {
-		return nil, fmt.Errorf("error serializing labels: %w", err)
+		return nil, fmt.Errorf("error serializing baggage: %w", err)
 	}
-	labelsEnvVar := buildEnvVar(r.LabelsEnvKey, labelsValue)
+	baggageEnvVar := buildEnvVar(r.BaggageEnvKey, baggageValue)
 
 	// Override test description file environment variable to avoid conflicts with the test description environment
 	// variable.
 	descriptionFileEnvVar := buildEnvVar(r.TestDescriptionFileEnvKey, "")
 
-	env = append(env, descriptionEnvVar, testIDEnvVar, labelsEnvVar, descriptionFileEnvVar)
+	env = append(env, descriptionEnvVar, testIDEnvVar, baggageEnvVar, descriptionFileEnvVar)
 	return env, nil
 }
 
@@ -244,28 +239,26 @@ func (r *hostRunner) getTestUID(testID string) string {
 	return strings.TrimPrefix(testID, r.TestIDIgnorePrefix)
 }
 
-// marshalLabels returns the serialized labels.
-func marshalLabels(labels *label.Set) (string, error) {
+// marshalBaggage returns the serialized baggage.
+func marshalBaggage(bag *baggage.Baggage) (string, error) {
 	sb := &strings.Builder{}
-	if err := labels.Write(sb); err != nil {
+	if err := bag.Write(sb); err != nil {
 		return "", err
 	}
+
 	return sb.String(), nil
 }
 
 // delegateToProcess delegates the execution of the test to a process, created and tuned as per test specification.
-func (r *hostRunner) delegateToProcess(ctx context.Context, testID string, testIndex int, testDesc *loader.Test) error {
+func (r *hostRunner) delegateToProcess(ctx context.Context, testID string, testDesc *loader.Test) error {
 	firstProcess := popFirstProcessContext(testDesc.Context)
 	isLastProcess := len(testDesc.Context.Processes) == 0
 
 	// Evaluate process environment variables.
-	labels := r.Labels
-	if labels == nil {
-		labels = &label.Set{TestIndex: testIndex, ProcIndex: 0, IsContainer: false}
-	} else {
-		labels.ProcIndex++
-	}
-	procEnv, err := r.buildEnv(testID, testDesc, firstProcess.Env, isLastProcess, labels)
+	bag := r.Baggage
+	bag.ProcIndex++
+
+	procEnv, err := r.buildEnv(testID, testDesc, firstProcess.Env, isLastProcess, bag)
 	if err != nil {
 		return fmt.Errorf("error building process environment variables set: %w", err)
 	}

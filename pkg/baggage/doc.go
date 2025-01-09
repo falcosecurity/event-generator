@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (C) 2024 The Falco Authors
+// Copyright (C) 2025 The Falco Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,8 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package label provides support for parsing a set of supported labels from a comma-separated list of values in the
-// form <labelX>=<labelXValue>. The Set container is used to store the supported labels. A Set can be serialized (using
-// the pre-defined aforementioned comma-separated format) and written to a generic destination through the Set.Write
-// method.
-package label
+// Package baggage provides support for parsing and serializing a set of supported key-pair pairs. The Baggage type is
+// used to store the pairs. A Baggage can be obtained by calling NewFromString on a stringified representation of the
+// pairs. The stringified (YAML) representation can be obtained by calling Baggage.Write on a generic destination.
+package baggage
