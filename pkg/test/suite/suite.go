@@ -97,67 +97,61 @@ func NewSourceFromReader(name string, r io.Reader) Source {
 type Loader struct {
 	// descLoader is used to load a tests description from a single source.
 	descLoader *loader.Loader
+	// loadedSuites is the list of all loaded test suites.
+	loadedSuites []*Suite
+	// loadedSuiteIndexes takes note of the index, in loadedSuites, of each loaded test suite (used for fast lookup).
+	loadedSuiteIndexes map[string]int
 }
 
 // NewLoader creates a new test suite loader.
 func NewLoader(descLoader *loader.Loader) *Loader {
-	sl := &Loader{descLoader: descLoader}
+	sl := &Loader{descLoader: descLoader, loadedSuiteIndexes: make(map[string]int)}
 	return sl
 }
 
-var errSourcesCannotBeEmpty = fmt.Errorf("source list cannot be empty")
-
-// Load loads the test suites from the provided sources. The test suites are returned in their appearing order among all
-// the provided sources.
-func (l *Loader) Load(sources []Source) ([]*Suite, error) {
-	if len(sources) == 0 {
-		return nil, errSourcesCannotBeEmpty
+// Load loads the test suites from the provided source into the Loader instance. Load can be called multiple times with
+// different sources. Call Get to obtain the list of all loaded test suites. If an error is generated, the Loader
+// instance internal state remains undefined.
+func (l *Loader) Load(source Source) error {
+	// Load all tests from the provided list of sources and group them by rule name.
+	desc, err := l.descLoader.Load(source)
+	if err != nil {
+		return fmt.Errorf("error loading description: %w", err)
 	}
 
-	// Load all tests from the provided list of sources and group them by rule name.
-	var suites []*Suite
-	suiteIndexes := make(map[string]int)
-	for _, source := range sources {
-		sourceName := source.Name()
-		desc, err := l.descLoader.Load(source)
-		if err != nil {
-			return nil, fmt.Errorf("error loading description from source %q: %w", sourceName, err)
+	// Associate each loaded test to the proper test suite based on the specified rule name.
+	for testIndex := range desc.Tests {
+		testDesc := &desc.Tests[testIndex]
+		ruleName := getRuleName(testDesc)
+		var suite *Suite
+		// Verify if we discovered a new test suite or not. If a new test suite is discovered, take note of its
+		// index in the returned slice to easily find the test suite a test belongs to.
+		suiteIndex, ok := l.loadedSuiteIndexes[ruleName]
+		if !ok {
+			// Found new test suite.
+			suite = &Suite{RuleName: ruleName}
+			l.loadedSuites = append(l.loadedSuites, suite)
+			l.loadedSuiteIndexes[ruleName] = len(l.loadedSuites) - 1
+		} else {
+			// Test suite already exists.
+			suite = l.loadedSuites[suiteIndex]
 		}
-
-		// Associate each loaded test to the proper test suite based on the specified rule name.
-		for testIndex := range desc.Tests {
-			testDesc := &desc.Tests[testIndex]
-			ruleName := getRuleName(testDesc)
-			var suite *Suite
-			// Verify if we discovered a new test suite or not. If a new test suite is discovered, take note of its
-			// index in the returned slice to easily find the test suite a test belongs to.
-			suiteIndex, ok := suiteIndexes[ruleName]
-			if !ok {
-				// Found new test suite.
-				suite = &Suite{RuleName: ruleName}
-				suites = append(suites, suite)
-				suiteIndexes[ruleName] = len(suites) - 1
-			} else {
-				// Test suite already exists.
-				suite = suites[suiteIndex]
-			}
-			testInfo := &TestInfo{
-				SourceName: sourceName,
-				Index:      testIndex,
-				Test:       testDesc,
-			}
-			suite.TestsInfo = append(suite.TestsInfo, testInfo)
+		testInfo := &TestInfo{
+			SourceName: source.Name(),
+			Index:      testIndex,
+			Test:       testDesc,
 		}
+		suite.TestsInfo = append(suite.TestsInfo, testInfo)
 	}
 
 	// Validate each test suite.
-	for ruleName, suite := range suites {
+	for ruleName, suite := range l.loadedSuites {
 		if err := suite.validateTestNamesUniqueness(); err != nil {
-			return nil, fmt.Errorf("error validating test suite %q's test names uniqueness: %w", ruleName, err)
+			return fmt.Errorf("error validating test suite %q's test names uniqueness: %w", ruleName, err)
 		}
 	}
 
-	return suites, nil
+	return nil
 }
 
 // NoRuleNamePlaceholder is the value given to the rule name field of a test not specifying any value for it.
@@ -173,4 +167,13 @@ func getRuleName(testDesc *loader.Test) string {
 
 	// The empty string is used to identify
 	return NoRuleNamePlaceholder
+}
+
+// Get returns the list of all loaded test suites. After the call, the internal state of the loaded is re-set to a clean
+// (initial) state.
+func (l *Loader) Get() []*Suite {
+	suites := l.loadedSuites
+	l.loadedSuites = nil
+	l.loadedSuiteIndexes = make(map[string]int)
+	return suites
 }

@@ -27,8 +27,8 @@ import (
 )
 
 const (
-	// DescriptionFileFlagName is the name of the flag allowing to specify the path of the file containing the YAML
-	// tests description.
+	// DescriptionFileFlagName is the name of the flag allowing to specify the pathnames of files containing the YAML
+	// tests descriptions.
 	DescriptionFileFlagName = "description-file"
 	// DescriptionFlagName is the name of the flag allowing to specify the YAML tests description.
 	DescriptionFlagName = "description"
@@ -58,10 +58,10 @@ type Config struct {
 
 	// Flags
 	//
-	// TestsDescriptionFile is the path of the file containing the YAML tests description. If testsDescription is
-	// provided, this is empty.
-	TestsDescriptionFile string
-	// TestsDescription is the YAML tests description. If TestsDescriptionFile is provided, this is empty.
+	// TestsDescriptionFiles is the list of pathnames of files containing the YAML tests descriptions. If
+	// TestsDescription is provided, this is empty.
+	TestsDescriptionFiles []string
+	// TestsDescription is the YAML tests description. If TestsDescriptionFiles is provided, this is empty.
 	TestsDescription string
 	// TestID is the test identifier in the form [testIDIgnorePrefix]<testUID>. It is used to propagate the test UID to
 	// child processes in the process chain. The following invariants hold:
@@ -113,8 +113,10 @@ func (c *Config) InitCommandFlags(cmd *cobra.Command) {
 	flags := cmd.Flags()
 
 	// Miscellaneous flags.
-	flags.StringVarP(&c.TestsDescriptionFile, DescriptionFileFlagName, "f", "",
-		"The tests description YAML file specifying the tests to be run")
+	flags.StringSliceVarP(&c.TestsDescriptionFiles, DescriptionFileFlagName, "f", nil,
+		"The pathnames of tests description YAML files specifying the tests to be run. Multiple pathnames can be "+
+			"specified as a comma-separated list. The flag can be specified multiple times. Pathnames are evaluated "+
+			"in order of appearance")
 	flags.StringVarP(&c.TestsDescription, DescriptionFlagName, "d", "",
 		"The YAML-formatted tests description string specifying the tests to be run")
 	cmd.MarkFlagsMutuallyExclusive(DescriptionFileFlagName, DescriptionFlagName)
