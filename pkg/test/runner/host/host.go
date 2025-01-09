@@ -93,28 +93,15 @@ func New(logger logr.Logger, testBuilder test.Builder, processBuilder process.Bu
 }
 
 func (r *hostRunner) Run(ctx context.Context, testID string, testDesc *loader.Test) error {
+	testLogger := r.logger.WithName("test")
+
 	if testContext := testDesc.Context; testContext != nil {
-		// Delegate to container if the user specified a container context.
-		if testContext.Container != nil {
-			if err := r.delegateToContainer(ctx, testID, testDesc); err != nil {
-				return fmt.Errorf("error delegating to container: %w", err)
-			}
-
-			return nil
-		}
-
-		// Delegate to child process if we are not at the end of the process chain.
-		if len(testDesc.Context.Processes) != 0 {
-			if err := r.delegateToProcess(ctx, testID, testDesc); err != nil {
-				return fmt.Errorf("error delegating to child process: %w", err)
-			}
-
-			return nil
+		if err := r.setUpContext(ctx, testLogger.WithName("context"), testID, testDesc); err != nil {
+			return fmt.Errorf("error setting up the context: %w", err)
 		}
 	}
 
 	// Build test.
-	testLogger := r.logger.WithName("test")
 	testInstance, err := r.testBuilder.Build(testLogger, testDesc)
 	if err != nil {
 		return fmt.Errorf("error building test: %w", err)
@@ -128,8 +115,37 @@ func (r *hostRunner) Run(ctx context.Context, testID string, testDesc *loader.Te
 	return nil
 }
 
+// setUpContext sets up the context specified in the provided test description.
+func (r *hostRunner) setUpContext(ctx context.Context, logger logr.Logger, testID string,
+	testDesc *loader.Test) error {
+	testContext := testDesc.Context
+
+	// Delegate to container if the user specified a container context.
+	if testContext.Container != nil {
+		logger := logger.WithName("container")
+		if err := r.delegateToContainer(ctx, logger, testID, testDesc); err != nil {
+			return fmt.Errorf("error delegating to container: %w", err)
+		}
+
+		return nil
+	}
+
+	// Delegate to child process if we are not at the end of the process chain.
+	if len(testDesc.Context.Processes) != 0 {
+		logger := logger.WithName("process")
+		if err := r.delegateToProcess(ctx, logger, testID, testDesc); err != nil {
+			return fmt.Errorf("error delegating to child process: %w", err)
+		}
+
+		return nil
+	}
+
+	return nil
+}
+
 // delegateToContainer delegates the execution of the test to a container, created and tuned as per test specification.
-func (r *hostRunner) delegateToContainer(ctx context.Context, testID string, testDesc *loader.Test) error {
+func (r *hostRunner) delegateToContainer(ctx context.Context, logger logr.Logger, testID string,
+	testDesc *loader.Test) error {
 	// Initialize baggage for the container's process.
 	bag := r.Baggage
 	bag.IsContainer = true
@@ -140,7 +156,7 @@ func (r *hostRunner) delegateToContainer(ctx context.Context, testID string, tes
 	// Configure the container.
 	containerBuilder := r.containerBuilder
 
-	containerBuilder.SetLogger(r.logger.WithName("container"))
+	containerBuilder.SetLogger(logger)
 
 	if imageName := containerContext.Image; imageName != nil {
 		containerBuilder.SetImageName(*imageName)
@@ -250,7 +266,8 @@ func marshalBaggage(bag *baggage.Baggage) (string, error) {
 }
 
 // delegateToProcess delegates the execution of the test to a process, created and tuned as per test specification.
-func (r *hostRunner) delegateToProcess(ctx context.Context, testID string, testDesc *loader.Test) error {
+func (r *hostRunner) delegateToProcess(ctx context.Context, logger logr.Logger, testID string,
+	testDesc *loader.Test) error {
 	firstProcess := popFirstProcessContext(testDesc.Context)
 	isLastProcess := len(testDesc.Context.Processes) == 0
 
@@ -289,7 +306,6 @@ func (r *hostRunner) delegateToProcess(ctx context.Context, testID string, testD
 		r.processBuilder.SetCapabilities(*capabilities)
 	}
 	r.processBuilder.SetEnv(procEnv)
-	logger := r.logger.WithName("process")
 	proc := r.processBuilder.Build(ctx, logger, currentExePath)
 
 	// Run the child process and wait for it.
