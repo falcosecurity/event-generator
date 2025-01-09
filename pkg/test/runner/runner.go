@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (C) 2024 The Falco Authors
+// Copyright (C) 2025 The Falco Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,14 +20,14 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/falcosecurity/event-generator/pkg/label"
+	"github.com/falcosecurity/event-generator/pkg/baggage"
 	"github.com/falcosecurity/event-generator/pkg/test/loader"
 )
 
 // Runner allows to run a test.
 type Runner interface {
 	// Run runs the provided test.
-	Run(ctx context.Context, testID string, testIndex int, test *loader.Test) error
+	Run(ctx context.Context, testID string, test *loader.Test) error
 }
 
 // Builder allows to build a new test runner.
@@ -51,8 +51,8 @@ type Description struct {
 	TestIDEnvKey string
 	// TestIDIgnorePrefix is the optional testID prefix value.
 	TestIDIgnorePrefix string
-	// LabelsEnvKey is the key identifying the environment variable used to store the labels.
-	LabelsEnvKey string
-	// Labels is the set of process labels.
-	Labels *label.Set
+	// BaggageEnvKey is the key identifying the environment variable used to store the baggage.
+	BaggageEnvKey string
+	// Baggage is the process baggage.
+	Baggage *baggage.Baggage
 }
