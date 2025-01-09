@@ -194,7 +194,7 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 
 	logger = enrichLoggerWithBaggage(logger, baseBag)
 
-	testSuites, err := loadTestSuites(logger, cw.TestsDescriptionFile, cw.TestsDescription)
+	testSuites, err := loadTestSuites(logger, cw.TestsDescriptionFiles, cw.TestsDescription)
 	if err != nil {
 		logger.Error(err, "Error loading test suites")
 		cancelAndExit()
@@ -300,36 +300,54 @@ func enrichLoggerWithBaggage(logger logr.Logger, bag *baggage.Baggage) logr.Logg
 }
 
 // loadTestSuites loads the test suites from a different source, depending on the content of the provided values:
-// - if the provided descriptionFilePath is not empty, the test suites are loaded from the specified file;
+// - if the provided descriptionFilePaths is not empty, the test suites are loaded from the specified files;
 // - if the provided description is not empty, the test suites are loaded from its content;
 // - otherwise, they are loaded from standard input.
-func loadTestSuites(logger logr.Logger, descriptionFilePath, description string) ([]*suite.Suite, error) {
+func loadTestSuites(logger logr.Logger, descriptionFilePaths []string, description string) ([]*suite.Suite, error) {
 	descLoader := loader.New()
 	suiteLoader := suite.NewLoader(descLoader)
 
-	if descriptionFilePath != "" {
-		descriptionFilePath = filepath.Clean(descriptionFilePath)
-		descriptionFile, err := os.Open(descriptionFilePath)
-		if err != nil {
-			return nil, fmt.Errorf("error opening description file %q: %w", descriptionFilePath, err)
-		}
-		defer func() {
-			if err := descriptionFile.Close(); err != nil {
-				logger.Error(err, "Error closing description file", "path", descriptionFilePath)
+	// Load from the specified files.
+	if len(descriptionFilePaths) != 0 {
+		for _, descriptionFilePath := range descriptionFilePaths {
+			if err := loadTestsFromDescriptionFile(logger, suiteLoader, descriptionFilePath); err != nil {
+				return nil, fmt.Errorf("error loading description file %q: %w", descriptionFilePath, err)
 			}
-		}()
-
-		sources := []suite.Source{suite.NewSourceFromFile(descriptionFile)}
-		return suiteLoader.Load(sources)
+		}
+		return suiteLoader.Get(), nil
 	}
 
+	// Load from the provided description string.
 	if description != "" {
-		sources := []suite.Source{suite.NewSourceFromReader("<description flag>", strings.NewReader(description))}
-		return suiteLoader.Load(sources)
+		source := suite.NewSourceFromReader("<description flag>", strings.NewReader(description))
+		if err := suiteLoader.Load(source); err != nil {
+			return nil, fmt.Errorf("error loading from description flag: %w", err)
+		}
+		return suiteLoader.Get(), nil
 	}
 
-	sources := []suite.Source{suite.NewSourceFromReader("<stdin>", os.Stdin)}
-	return suiteLoader.Load(sources)
+	// Load from standard input.
+	source := suite.NewSourceFromReader("<stdin>", os.Stdin)
+	if err := suiteLoader.Load(source); err != nil {
+		return nil, fmt.Errorf("error loading from stdin: %w", err)
+	}
+	return suiteLoader.Get(), nil
+}
+
+// loadTestsFromDescriptionFile loads tests from the file at the provided path into the provided suite loader.
+func loadTestsFromDescriptionFile(logger logr.Logger, suiteLoader *suite.Loader, descriptionFilePath string) error {
+	descriptionFilePath = filepath.Clean(descriptionFilePath)
+	descriptionFile, err := os.Open(descriptionFilePath)
+	if err != nil {
+		return fmt.Errorf("error opening file path %q: %w", descriptionFilePath, err)
+	}
+	defer func() {
+		if err := descriptionFile.Close(); err != nil {
+			logger.Error(err, "Error closing description file", "path", descriptionFilePath)
+		}
+	}()
+
+	return suiteLoader.Load(descriptionFile)
 }
 
 // createRunnerBuilder creates a new runner builder.
