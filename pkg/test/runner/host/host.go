@@ -100,8 +100,13 @@ func (r *hostRunner) Run(ctx context.Context, testID string, testDesc *loader.Te
 	testLogger := r.logger.WithName("test")
 
 	if testContext := testDesc.Context; testContext != nil {
-		if err := r.setUpContext(ctx, testLogger.WithName("context"), testID, testDesc); err != nil {
+		delegated, err := r.setUpContext(ctx, testLogger.WithName("context"), testID, testDesc)
+		if err != nil {
 			return fmt.Errorf("error setting up the context: %w", err)
+		}
+
+		if delegated {
+			return nil
 		}
 	}
 
@@ -119,32 +124,33 @@ func (r *hostRunner) Run(ctx context.Context, testID string, testDesc *loader.Te
 	return nil
 }
 
-// setUpContext sets up the context specified in the provided test description.
+// setUpContext sets up the context specified in the provided test description. The function returns a boolean
+// indicating if the test execution was delegated to a container/child process.
 func (r *hostRunner) setUpContext(ctx context.Context, logger logr.Logger, testID string,
-	testDesc *loader.Test) error {
+	testDesc *loader.Test) (delegated bool, err error) {
 	testContext := testDesc.Context
 
 	// Delegate to container if the user specified a container context.
 	if testContext.Container != nil {
 		logger := logger.WithName("container")
 		if err := r.delegateToContainer(ctx, logger, testID, testDesc); err != nil {
-			return fmt.Errorf("error delegating to container: %w", err)
+			return false, fmt.Errorf("error delegating to container: %w", err)
 		}
 
-		return nil
+		return true, nil
 	}
 
 	// Delegate to child process if we are not at the end of the process chain.
 	if len(testDesc.Context.Processes) != 0 {
 		logger := logger.WithName("process")
 		if err := r.delegateToProcess(ctx, logger, testID, testDesc); err != nil {
-			return fmt.Errorf("error delegating to child process: %w", err)
+			return false, fmt.Errorf("error delegating to child process: %w", err)
 		}
 
-		return nil
+		return true, nil
 	}
 
-	return nil
+	return false, nil
 }
 
 // delegateToContainer delegates the execution of the test to a container, created and tuned as per test specification.
