@@ -58,6 +58,14 @@
     },
     "expectedOutcome": {
       "$ref": "expectedOutcome.schema.json"
+    },
+    "cases": {
+      "description": "The list of test case specifications. All test case specifications must specifies the same set of value keys",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "case.schema.json"
+      }
     }
   },
   "required": [

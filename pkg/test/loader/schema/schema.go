@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (C) 2024 The Falco Authors
+// Copyright (C) 2025 The Falco Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -99,6 +99,12 @@ var (
 	writeSyscallStepSchema string
 	//go:embed jsonschemas/expectedOutcome.schema.json
 	expectedOutcomeSchema string
+	//go:embed jsonschemas/case.schema.json
+	caseSchema string
+	//go:embed jsonschemas/cases/vector.schema.json
+	vectorCaseSchema string
+	//go:embed jsonschemas/cases/matrix.schema.json
+	matrixCaseSchema string
 )
 
 var (
@@ -147,6 +153,9 @@ var schemas = map[string]string{
 	"steps.syscall.symLinkAt.schema.json":   symlinkatSyscallStepSchema,
 	"steps.syscall.write.schema.json":       writeSyscallStepSchema,
 	"expectedOutcome.schema.json":           expectedOutcomeSchema,
+	"case.schema.json":                      caseSchema,
+	"cases.vector.schema.json":              vectorCaseSchema,
+	"cases.matrix.schema.json":              matrixCaseSchema,
 }
 
 // load loads the schema.

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cases.matrix.schema.json",
+  "title": "Matrix test case specification",
+  "description": "The matrix test case specification",
+  "type": "object",
+  "properties": {
+    "values": {
+      "description": "The test case specification values. Each key must be associated with a list of values. Combinations of all lists values are used to generate a number of test cases equal to the product of the cardinalities of all lists",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "description": "The key-specific list of values",
+        "type": "array",
+        "minItems": 1
+      }
+    }
+  },
+  "required": [
+    "values"
+  ]
+}

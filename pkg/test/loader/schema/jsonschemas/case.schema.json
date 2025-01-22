@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "case.schema.json",
+  "title": "Test case specification",
+  "description": "The test case specification is used to generate one or more test cases. Test cases are used to generate tests description by filling the test template parameters. The number of tests description generated from a single test case specification is equal to the number of generated test cases. Test template parameters can be specified, using the syntax ${item.<keyName>}, in any place of a test description. A test case value matches a template parameter if its key matches <keyName>",
+  "type": "object",
+  "properties": {
+    "strategy": {
+      "description": "The test case specification strategy",
+      "type": "string",
+      "enum": [
+        "vector",
+        "matrix"
+      ],
+      "examples": [
+        "vector"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "strategy": {
+            "const": "vector"
+          }
+        }
+      },
+      "then": {
+        "$ref": "cases.vector.schema.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "strategy": {
+            "const": "matrix"
+          }
+        }
+      },
+      "then": {
+        "$ref": "cases.matrix.schema.json"
+      }
+    }
+  ],
+  "required": [
+    "strategy"
+  ]
+}
