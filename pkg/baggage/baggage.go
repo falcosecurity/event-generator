@@ -24,10 +24,11 @@ import (
 
 // Baggage stores values for the supported key-value pairs.
 type Baggage struct {
-	TestSuiteName   string `yaml:"testSuiteName"`
-	TestName        string `yaml:"testName"`
-	TestSourceName  string `yaml:"testSourceName"`
-	TestSourceIndex int    `yaml:"testSourceIndex"`
+	TestSuiteName   string         `yaml:"testSuiteName"`
+	TestName        string         `yaml:"testName"`
+	TestSourceName  string         `yaml:"testSourceName"`
+	TestSourceIndex int            `yaml:"testSourceIndex"`
+	TestCase        map[string]any `yaml:"testCase,omitempty"`
 	// ProcIndex is set to -1 for the root process.
 	ProcIndex          int    `yaml:"procIndex"`
 	IsContainer        bool   `yaml:"isContainer,omitempty"`
@@ -47,6 +48,7 @@ func (b *Baggage) Clone() *Baggage {
 		TestName:           b.TestName,
 		TestSourceName:     b.TestSourceName,
 		TestSourceIndex:    b.TestSourceIndex,
+		TestCase:           b.TestCase, // We use an assignment because we don't expect it to be modified.
 		ProcIndex:          b.ProcIndex,
 		IsContainer:        b.IsContainer,
 		ContainerImageName: b.ContainerImageName,
