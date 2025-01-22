@@ -368,11 +368,6 @@ func extractNode(schema *jsonschema.Schema, name string, required bool,
 
 // newNode creates a new node from the data extracted from given schema.
 func newNode(schema *jsonschema.Schema, name string, required bool) *Node {
-	var descriptions []string
-	if description := schema.Description; description != "" {
-		descriptions = []string{description}
-	}
-
 	var types []string
 	if schema.Types != nil {
 		types = schema.Types.ToStrings()
@@ -385,7 +380,7 @@ func newNode(schema *jsonschema.Schema, name string, required bool) *Node {
 
 	return &Node{
 		Name:          name,
-		Descriptions:  descriptions,
+		Descriptions:  getDescriptions(schema),
 		JSONTypes:     types,
 		Required:      required,
 		Minimum:       rationalToFloat64(schema.Minimum),
@@ -399,15 +394,23 @@ func newNode(schema *jsonschema.Schema, name string, required bool) *Node {
 	}
 }
 
-// getPattern converts a jsonschema.Regexp into a string and returns its pointer. It returns nil if the provided pattern
-// is nil.
-func getPattern(pattern jsonschema.Regexp) *string {
-	if pattern == nil {
-		return nil
+// getDescriptions returns the merged nested and non-nested lists of descriptions. This includes the description
+// directly available under the provided schema, or the descriptions accessible from "ref", "items" and "items.ref"
+// schemas.
+func getDescriptions(schema *jsonschema.Schema) []string {
+	var descriptions []string
+	if description := schema.Description; description != "" {
+		descriptions = []string{description}
 	}
-
-	p := pattern.String()
-	return &p
+	if ref := schema.Ref; ref != nil {
+		if description := ref.Description; description != "" {
+			descriptions = append(descriptions, description)
+		}
+	}
+	if items2020 := schema.Items2020; items2020 != nil {
+		descriptions = append(descriptions, getDescriptions(items2020)...)
+	}
+	return descriptions
 }
 
 // rationalToFloat64 converts a big.Rat value into the nearest float64 value and returns its pointer.
@@ -418,6 +421,17 @@ func rationalToFloat64(rat *big.Rat) *float64 {
 
 	f, _ := rat.Float64()
 	return &f
+}
+
+// getPattern converts a jsonschema.Regexp into a string and returns its pointer. It returns nil if the provided pattern
+// is nil.
+func getPattern(pattern jsonschema.Regexp) *string {
+	if pattern == nil {
+		return nil
+	}
+
+	p := pattern.String()
+	return &p
 }
 
 // evaluateNewEnumRequirements returns the first applicable enum requirement (the first one with an enum path just
