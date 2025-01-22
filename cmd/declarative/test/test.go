@@ -229,7 +229,7 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 				logger := logger.WithValues("testSuite", testSuite.RuleName)
 				for _, testInfo := range testSuite.TestsInfo {
 					logger := logger.WithValues("testFile", testInfo.SourceName, "testName", testInfo.Test.Name,
-						"testIndex", testInfo.Index)
+						"testSourceIndex", testInfo.Test.SourceIndex)
 					logger.Error(errRuleNameNotDefined, "Error verifying test rule name presence")
 				}
 				cancelAndExit()
@@ -284,6 +284,9 @@ func enrichLoggerWithBaggage(logger logr.Logger, bag *baggage.Baggage) logr.Logg
 
 	logger = logger.WithValues("testSuiteName", bag.TestSuiteName, "testName", bag.TestName, "testSourceName",
 		bag.TestSourceName, "testSourceIndex", bag.TestSourceIndex)
+	if bag.TestCase != nil {
+		logger = logger.WithValues("testCase", formatTestCase(bag.TestCase))
+	}
 	if bag.ProcIndex != -1 {
 		logger = logger.WithValues("procIndex", bag.ProcIndex)
 	}
@@ -297,6 +300,18 @@ func enrichLoggerWithBaggage(logger logr.Logger, bag *baggage.Baggage) logr.Logg
 		}
 	}
 	return logger
+}
+
+// formatTestCase returns a formatted version of the provided test case.
+func formatTestCase(testCase map[string]any) string {
+	var s string
+	for k, v := range testCase {
+		s += fmt.Sprintf("%s=%v,", k, v)
+	}
+	if s != "" {
+		s = s[:len(s)-1]
+	}
+	return s
 }
 
 // loadTestSuites loads the test suites from a different source, depending on the content of the provided values:
@@ -485,7 +500,8 @@ func (cw *CommandWrapper) runTestSuite(ctx context.Context, baseLogger logr.Logg
 		}
 		logger := baseLogger
 
-		testSourceName, testSourceIndex, testDesc := testInfo.SourceName, testInfo.Index, testInfo.Test
+		testSourceName, testDesc := testInfo.SourceName, testInfo.Test
+		testSourceIndex, testCase := testDesc.SourceIndex, testDesc.OriginatingTestCase
 
 		testID := cw.TestID
 		var testUID uuid.UUID
@@ -496,6 +512,7 @@ func (cw *CommandWrapper) runTestSuite(ctx context.Context, baseLogger logr.Logg
 				TestName:        testDesc.Name,
 				TestSourceName:  testSourceName,
 				TestSourceIndex: testSourceIndex,
+				TestCase:        testCase,
 				// ProcIndex is set to -1 on the root process.
 				ProcIndex: -1,
 			}
