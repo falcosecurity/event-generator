@@ -231,7 +231,7 @@ func decodeTestStep(fromType, toType reflect.Type, from any) (any, error) {
 	return testStep, nil
 }
 
-var fieldBindingRegex = regexp.MustCompile(`^\${(.+?)\.(.+)}$`)
+var fieldBindingRegex = regexp.MustCompile(`^\s*\${\s*(\S+?)\.(\S+)\s*}\s*$`)
 
 // getFieldBindings returns the field bindings found in the provided arguments.
 func getFieldBindings(containingArgName string, args map[string]any) []*TestStepFieldBinding {
