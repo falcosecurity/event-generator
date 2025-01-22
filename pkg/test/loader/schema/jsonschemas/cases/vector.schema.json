@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cases.vector.schema.json",
+  "title": "Vector test case specification",
+  "description": "The vector test case specification",
+  "type": "object",
+  "properties": {
+    "values": {
+      "description": "Test case specification values. Each key is associated with a single value",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "description": "The key-specific value"
+      }
+    }
+  },
+  "required": [
+    "values"
+  ]
+}
