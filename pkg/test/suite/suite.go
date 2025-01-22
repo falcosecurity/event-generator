@@ -28,14 +28,20 @@ import (
 type TestInfo struct {
 	// SourceName is the name of the source the test belongs.
 	SourceName string
-	// Index is the index of the test within the source.
-	Index int
 	// Test is the wrapped test.
 	Test *loader.Test
 }
 
 func (t *TestInfo) string() string {
-	return fmt.Sprintf("test (source: %s, index: %d)", t.SourceName, t.Index)
+	var testCase string
+	if len(t.Test.OriginatingTestCase) > 0 {
+		testCase = ", testCase: \""
+		for k, v := range t.Test.OriginatingTestCase {
+			testCase += fmt.Sprintf("%s=%v,", k, v)
+		}
+		testCase = testCase[:len(testCase)-1] + "\""
+	}
+	return fmt.Sprintf("test (source: %s, index: %d%s)", t.SourceName, t.Test.SourceIndex, testCase)
 }
 
 // Suite represents a test suite for a specific rule.
@@ -138,16 +144,15 @@ func (l *Loader) Load(source Source) error {
 		}
 		testInfo := &TestInfo{
 			SourceName: source.Name(),
-			Index:      testIndex,
 			Test:       testDesc,
 		}
 		suite.TestsInfo = append(suite.TestsInfo, testInfo)
 	}
 
 	// Validate each test suite.
-	for ruleName, suite := range l.loadedSuites {
+	for _, suite := range l.loadedSuites {
 		if err := suite.validateTestNamesUniqueness(); err != nil {
-			return fmt.Errorf("error validating test suite %q's test names uniqueness: %w", ruleName, err)
+			return fmt.Errorf("error validating test suite %q's test names uniqueness: %w", suite.RuleName, err)
 		}
 	}
 
