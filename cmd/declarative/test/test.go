@@ -560,7 +560,7 @@ func (cw *CommandWrapper) runTestSuite(ctx context.Context, baseLogger logr.Logg
 		logInfoIf(logger, isRootProcess, "Test execution completed")
 
 		if testr != nil {
-			produceReport(globalWaitGroup, testerWaitGroup, testr, &testUID, testDesc, cw.reportFormat)
+			produceReport(ctx, globalWaitGroup, testerWaitGroup, testr, &testUID, testDesc, cw.reportFormat)
 		}
 	}
 
@@ -614,34 +614,42 @@ func logRunnerError(logger logr.Logger, err error) {
 }
 
 // produceReport produces a report for the given test by using the provided tester.
-func produceReport(globalWaitGroup, testerWaitGroup *sync.WaitGroup, testr tester.Tester, testUID *uuid.UUID,
-	testDesc *loader.Test, reportFmt reportFormat) {
+func produceReport(ctx context.Context, globalWaitGroup, testerWaitGroup *sync.WaitGroup, testr tester.Tester,
+	testUID *uuid.UUID, testDesc *loader.Test, reportFmt reportFormat) {
 	globalWaitGroup.Add(1)
 	testerWaitGroup.Add(1)
 	go func() {
 		defer globalWaitGroup.Done()
 		defer testerWaitGroup.Done()
-		testName, ruleName := testDesc.Name, *testDesc.Rule
-		report := getReport(testr, testUID, ruleName, testDesc.ExpectedOutcome)
-		report.TestName, report.RuleName = testName, ruleName
-		printReport(report, reportFmt)
-	}()
-}
+		t := time.NewTimer(0)
+		defer t.Stop()
+		testName, ruleName, expectedOutcome := testDesc.Name, *testDesc.Rule, testDesc.ExpectedOutcome
+		remainingAttempts := 4
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				report := testr.Report(testUID, ruleName, expectedOutcome)
+				if !report.Empty() {
+					report.TestName, report.RuleName = testName, ruleName
+					printReport(report, reportFmt)
+					return
+				}
 
-// getReport retrieves a report for the provided test and rule by leveraging the provided tester.
-func getReport(testr tester.Tester, uid *uuid.UUID, rule string,
-	expectedOutcome *loader.TestExpectedOutcome) *tester.Report {
-	time.Sleep(1 * time.Second)
-	for i := 0; i < 3; i++ {
-		report := testr.Report(uid, rule, expectedOutcome)
-		if !report.Empty() {
-			return report
+				remainingAttempts--
+				if remainingAttempts == 0 {
+					report.TestName, report.RuleName = testName, ruleName
+					printReport(report, reportFmt)
+					return
+				}
+
+				if ctx.Err() == nil {
+					t.Reset((4 / (1 << (3 - remainingAttempts))) * time.Second)
+				}
+			}
 		}
-
-		time.Sleep((4 / (1 << i)) * time.Second)
-	}
-
-	return testr.Report(uid, rule, expectedOutcome)
+	}()
 }
 
 // printReport prints the provided report using the provided format.
