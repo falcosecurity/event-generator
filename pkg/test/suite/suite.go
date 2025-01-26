@@ -103,6 +103,8 @@ func NewSourceFromReader(name string, r io.Reader) Source {
 type Loader struct {
 	// descLoader is used to load a tests description from a single source.
 	descLoader *loader.Loader
+	// canLoadTestsWithNoRuleName indicates if tests with absent or empty rule name are allowed to be loaded.
+	canLoadTestsWithNoRuleName bool
 	// loadedSuites is the list of all loaded test suites.
 	loadedSuites []*Suite
 	// loadedSuiteIndexes takes note of the index, in loadedSuites, of each loaded test suite (used for fast lookup).
@@ -110,9 +112,27 @@ type Loader struct {
 }
 
 // NewLoader creates a new test suite loader.
-func NewLoader(descLoader *loader.Loader) *Loader {
-	sl := &Loader{descLoader: descLoader, loadedSuiteIndexes: make(map[string]int)}
-	return sl
+func NewLoader(descLoader *loader.Loader, canLoadTestsWithNoRuleName bool) *Loader {
+	l := &Loader{
+		descLoader:                 descLoader,
+		canLoadTestsWithNoRuleName: canLoadTestsWithNoRuleName,
+		loadedSuiteIndexes:         make(map[string]int),
+	}
+	return l
+}
+
+// NoRuleNameError represents an error occurring when is not allowed to load tests with absent or empty rule name and a
+// test doesn't specify it.
+type NoRuleNameError struct {
+	TestName        string
+	TestSourceName  string
+	TestSourceIndex int
+}
+
+func (e *NoRuleNameError) Error() string {
+	// Does not include source name as this error type is meant to be used while loading a single source through
+	// Loader.Load.
+	return fmt.Sprintf("error loading test %q at index %d: absent or empty rule name", e.TestName, e.TestSourceIndex)
 }
 
 // Load loads the test suites from the provided source into the Loader instance. Load can be called multiple times with
@@ -126,9 +146,20 @@ func (l *Loader) Load(source Source) error {
 	}
 
 	// Associate each loaded test to the proper test suite based on the specified rule name.
+	sourceName := source.Name()
 	for testIndex := range desc.Tests {
 		testDesc := &desc.Tests[testIndex]
 		ruleName := getRuleName(testDesc)
+		// Return an error if it is not allowed to load tests with absent/empty rule name and the test is not compliant
+		// with it.
+		if !l.canLoadTestsWithNoRuleName && ruleName == NoRuleNamePlaceholder {
+			return &NoRuleNameError{
+				TestName:        testDesc.Name,
+				TestSourceName:  sourceName,
+				TestSourceIndex: testDesc.SourceIndex,
+			}
+		}
+
 		var suite *Suite
 		// Verify if we discovered a new test suite or not. If a new test suite is discovered, take note of its
 		// index in the returned slice to easily find the test suite a test belongs to.
@@ -142,10 +173,7 @@ func (l *Loader) Load(source Source) error {
 			// Test suite already exists.
 			suite = l.loadedSuites[suiteIndex]
 		}
-		testInfo := &TestInfo{
-			SourceName: source.Name(),
-			Test:       testDesc,
-		}
+		testInfo := &TestInfo{SourceName: sourceName, Test: testDesc}
 		suite.TestsInfo = append(suite.TestsInfo, testInfo)
 	}
 
@@ -165,12 +193,10 @@ const NoRuleNamePlaceholder = ""
 
 // getRuleName returns the name of the rule associated with the provided test description.
 func getRuleName(testDesc *loader.Test) string {
-	ruleName := testDesc.Rule
-	if ruleName != nil {
+	if ruleName := testDesc.Rule; ruleName != nil && *ruleName != "" {
 		return *ruleName
 	}
 
-	// The empty string is used to identify
 	return NoRuleNamePlaceholder
 }
 

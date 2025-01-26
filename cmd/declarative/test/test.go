@@ -167,8 +167,6 @@ func envKeyFromFlagName(envKeysPrefix, flagName string) string {
 	return strings.ReplaceAll(s, "-", "_")
 }
 
-var errRuleNameNotDefined = fmt.Errorf("rule name not defined")
-
 // run runs the provided command with the provided arguments.
 func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	ctx := cmd.Context()
@@ -194,8 +192,17 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 
 	logger = enrichLoggerWithBaggage(logger, baseBag)
 
-	testSuites, err := loadTestSuites(logger, cw.TestsDescriptionFiles, cw.TestsDescriptionDirs, cw.TestsDescription)
+	// The test ID absence is used to uniquely identify the root process in the process chain.
+	isRootProcess := cw.TestID == ""
+	verifyExpectedOutcome := isRootProcess && !cw.skipOutcomeVerification
+
+	testSuites, err := loadTestSuites(logger, !verifyExpectedOutcome, cw.TestsDescriptionFiles, cw.TestsDescriptionDirs,
+		cw.TestsDescription)
 	if err != nil {
+		if noRuleNameErr := (*suite.NoRuleNameError)(nil); errors.As(err, &noRuleNameErr) {
+			logger = logger.WithValues("testName", noRuleNameErr.TestName, "testSourceName",
+				noRuleNameErr.TestSourceName, "testSourceIndex", noRuleNameErr.TestSourceIndex)
+		}
 		logger.Error(err, "Error loading test suites")
 		cancelAndExit()
 	}
@@ -206,9 +213,6 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		cancelAndExit()
 	}
 
-	// The test ID absence is used to uniquely identify the root process in the process chain.
-	isRootProcess := cw.TestID == ""
-
 	// globalWaitGroup accounts for all spawned goroutines, while testerWaitGroup accounts for all goroutines producing
 	// reports.
 	var globalWaitGroup, testerWaitGroup sync.WaitGroup
@@ -218,24 +222,8 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 		os.Exit(1)
 	}
 
-	// Verify and initialize everything related to tests outcome verification.
 	var testr tester.Tester
-	if verifyExpectedOutcome := isRootProcess && !cw.skipOutcomeVerification; verifyExpectedOutcome {
-		// Ensure each test is associated with a rule.
-		for _, testSuite := range testSuites {
-			// Notice: there cannot be more than a test suite specifying no rule name, as rule names are guaranteed to
-			// be distinct among test suites. For this reason, it is ok to just stop on the first invalid test suite.
-			if testSuite.RuleName == suite.NoRuleNamePlaceholder {
-				logger := logger.WithValues("testSuite", testSuite.RuleName)
-				for _, testInfo := range testSuite.TestsInfo {
-					logger := logger.WithValues("testFile", testInfo.SourceName, "testName", testInfo.Test.Name,
-						"testSourceIndex", testInfo.Test.SourceIndex)
-					logger.Error(errRuleNameNotDefined, "Error verifying test rule name presence")
-				}
-				cancelAndExit()
-			}
-		}
-
+	if verifyExpectedOutcome {
 		// Initialize tester and Falco alerts collection.
 		if testr, err = cw.createTester(logger); err != nil {
 			logger.Error(err, "Error creating tester")
@@ -319,10 +307,12 @@ func formatTestCase(testCase map[string]any) string {
 //     the specified files (if any) and from the YAML files (if any) in the specified directories (if any);
 //   - if the provided description is not empty, the test suites are loaded from its content;
 //   - otherwise, they are loaded from standard input.
-func loadTestSuites(logger logr.Logger, descriptionFilePaths, descriptionDirPaths []string,
-	description string) ([]*suite.Suite, error) {
+//
+// The parameter canLoadTestsWithNoRuleName is used to allow/disallow loading of tests with absent or empty rule names.
+func loadTestSuites(logger logr.Logger, canLoadTestsWithNoRuleName bool, descriptionFilePaths,
+	descriptionDirPaths []string, description string) ([]*suite.Suite, error) {
 	descLoader := loader.New()
-	suiteLoader := suite.NewLoader(descLoader)
+	suiteLoader := suite.NewLoader(descLoader, canLoadTestsWithNoRuleName)
 
 	// Load from the specified files or directories.
 	if len(descriptionFilePaths) > 0 || len(descriptionDirPaths) > 0 {
