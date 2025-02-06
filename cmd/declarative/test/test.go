@@ -46,11 +46,11 @@ import (
 	sysbuilder "github.com/falcosecurity/event-generator/pkg/test/step/syscall/builder"
 	"github.com/falcosecurity/event-generator/pkg/test/suite"
 	suiteloader "github.com/falcosecurity/event-generator/pkg/test/suite/loader"
+	"github.com/falcosecurity/event-generator/pkg/test/suite/reportencoder/jsonencoder"
+	"github.com/falcosecurity/event-generator/pkg/test/suite/reportencoder/textencoder"
+	"github.com/falcosecurity/event-generator/pkg/test/suite/reportencoder/yamlencoder"
 	suitesource "github.com/falcosecurity/event-generator/pkg/test/suite/source"
 	"github.com/falcosecurity/event-generator/pkg/test/tester"
-	"github.com/falcosecurity/event-generator/pkg/test/tester/reportencoder/jsonencoder"
-	"github.com/falcosecurity/event-generator/pkg/test/tester/reportencoder/textencoder"
-	"github.com/falcosecurity/event-generator/pkg/test/tester/reportencoder/yamlencoder"
 	testerimpl "github.com/falcosecurity/event-generator/pkg/test/tester/tester"
 )
 
@@ -77,15 +77,15 @@ var (
 	longDescription = fmt.Sprintf("%s\n\n%s", longDescriptionPreface, warningMessage)
 )
 
-// reportFormat defines the types of format used for outputting a tester report.
+// reportFormat defines the types of format used for outputting a suite report.
 type reportFormat int
 
 const (
-	// reportFormatText specifies to format a tester report using a formatted text encoding.
+	// reportFormatText specifies to format a suite report using a formatted text encoding.
 	reportFormatText reportFormat = iota
-	// reportFormatJSON specifies to format a tester report using a JSON encoding.
+	// reportFormatJSON specifies to format a suite report using a JSON encoding.
 	reportFormatJSON
-	// reportFormatYAML specifies to format a tester report using a YAML encoding.
+	// reportFormatYAML specifies to format a suite report using a YAML encoding.
 	reportFormatYAML
 )
 
@@ -159,7 +159,7 @@ func (cw *CommandWrapper) initFlags(c *cobra.Command) {
 		"The frequency of the watch operation on the gRPC Falco Outputs API stream")
 	flags.Var(
 		enumflag.New(&cw.reportFormat, "report-format", reportFormats, enumflag.EnumCaseInsensitive),
-		"report-format", "The format of the test report; can be 'text', 'json' or 'yaml'")
+		"report-format", "The format of the test suites report; can be 'text', 'json' or 'yaml'")
 }
 
 // envKeyFromFlagName converts the provided flag name into the corresponding environment variable key.
@@ -181,7 +181,7 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 
 	ctx, cancel := context.WithTimeout(ctx, cw.TestsTimeout)
 	defer cancel()
-	cancelAndExit := func() {
+	abort := func() {
 		cancel()
 		os.Exit(1)
 	}
@@ -189,7 +189,7 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	baseBag, err := baggage.NewFromString(cw.Baggage)
 	if err != nil {
 		logger.Error(err, "Error parsing baggage")
-		cancelAndExit()
+		abort()
 	}
 
 	logger = enrichLoggerWithBaggage(logger, baseBag)
@@ -206,81 +206,125 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 				noRuleNameErr.TestSourceName, "testSourceIndex", noRuleNameErr.TestSourceIndex)
 		}
 		logger.Error(err, "Error loading test suites")
-		cancelAndExit()
+		abort()
 	}
 
 	runnerBuilder, err := cw.createRunnerBuilder()
 	if err != nil {
 		logger.Error(err, "Error creating runner builder")
-		cancelAndExit()
+		abort()
 	}
 
-	// globalWaitGroup accounts for all spawned goroutines, while testerWaitGroup accounts for all goroutines producing
-	// reports.
-	var globalWaitGroup, testerWaitGroup sync.WaitGroup
-	waitAndExit := func() {
-		cancel()
-		globalWaitGroup.Wait()
-		os.Exit(1)
-	}
+	// The following variables and functions are set/initialized with meaningful values only in the context of the root
+	// process if the user requested to verify the test outcomes.
 
+	// Tester for collecting Falco alerts and generating reports.
 	var testr tester.Tester
+	// Wait group for accounting all goroutines collecting or processing reports.
+	var waitGroup sync.WaitGroup
+	// Channel where test reports are produced.
+	reportCh := make(chan *tester.Report)
+	// Channel that is closed when all reports have been collected.
+	reportCollectionCompletedCh := make(chan struct{})
+	// Function ensuring an empty report is sent whenever a panic or failure condition occur
+	sendEmptyTestReportIfPanicOrFailure := func(_ /*testSuiteName*/, _ /*testName*/ string, _ /*failCond*/ *bool) {} // noop
+	// Function for scheduling report production
+	scheduleReportProduction := func(_ /*testUID*/ *uuid.UUID, _ /*testDesc*/ *loader.Test) {} // noop
+
 	if verifyExpectedOutcome {
-		// Initialize tester and Falco alerts collection.
+		// Initialize tester.
 		if testr, err = cw.createTester(logger); err != nil {
 			logger.Error(err, "Error creating tester")
-			cancelAndExit()
+			abort()
 		}
 
-		globalWaitGroup.Add(1)
+		// Schedule tester Falco alerts collection.
+		waitGroup.Add(1)
 		go func() {
-			defer globalWaitGroup.Done()
+			defer waitGroup.Done()
 			defer cancel()
 			if err := testr.StartAlertsCollection(ctx); err != nil {
 				logger.Error(err, "Error starting tester execution")
 			}
 		}()
+
+		// Schedule test suites reports collection and printing.
+		waitGroup.Add(1)
+		go func() {
+			defer waitGroup.Done()
+			defer close(reportCollectionCompletedCh)
+			defer close(reportCh)
+			expectedReportsNum := getTestsNum(testSuites)
+			testSuitesReports, err := collectTestSuitesReports(ctx, expectedReportsNum, reportCh)
+			if err != nil {
+				return
+			}
+			cw.printTestSuitesReports(testSuitesReports)
+		}()
+
+		sendEmptyTestReportIfPanicOrFailure = func(testSuiteName, testName string, failCond *bool) {
+			if ctx.Err() != nil {
+				return
+			}
+			if v := recover(); v != nil || *failCond {
+				logger.Error(fmt.Errorf("%v", v), "Sent empty report due to unexpected error or failure",
+					"testSuiteName", testSuiteName, "testName", testName)
+				emptyReport := &tester.Report{RuleName: testSuiteName, TestName: testName}
+				sendTestReport(ctx, reportCh, emptyReport)
+			}
+		}
+
+		scheduleReportProduction = func(testUID *uuid.UUID, testDesc *loader.Test) {
+			waitGroup.Add(1)
+			go func() {
+				defer waitGroup.Done()
+				notFailed := false
+				defer sendEmptyTestReportIfPanicOrFailure(*testDesc.Rule, testDesc.Name, &notFailed)
+				produceTestReport(ctx, testr, testUID, testDesc, reportCh)
+			}()
+		}
+	} else {
+		// These channels are not used in this case, so close them.
+		close(reportCollectionCompletedCh)
+		close(reportCh)
 	}
 
 	// Prepare parameters shared by all runners.
 	runnerEnviron := cw.buildRunnerEnviron(cmd)
 
-	scheduleReportRetrievalAndPrinting := func(testUID *uuid.UUID, testDesc *loader.Test) {
-		if testr == nil {
-			return
-		}
-		globalWaitGroup.Add(1)
-		testerWaitGroup.Add(1)
-		go func() {
-			defer globalWaitGroup.Done()
-			defer testerWaitGroup.Done()
-			report, err := produceReport(ctx, testr, testUID, testDesc)
-			if err != nil {
-				// An error is returned only case the provided context is canceled, so just return.
-				return
-			}
-			printReport(report, cw.reportFormat)
-		}()
-	}
-
 	// Run test suites.
 	baseLogger := logger
 	for _, testSuite := range testSuites {
-		logger := baseLogger.WithValues("testSuiteName", testSuite.RuleName)
+		testSuiteName := testSuite.RuleName
+		logger := baseLogger.WithValues("testSuiteName", testSuiteName)
 		logInfoIf(logger, isRootProcess, "Starting test suite execution...")
-		success := cw.runTestSuite(ctx, baseLogger, testSuite, runnerBuilder, runnerEnviron, baseBag, isRootProcess,
-			scheduleReportRetrievalAndPrinting)
-		if !success {
-			logInfoIf(logger, isRootProcess, "Test suite execution failed")
-			waitAndExit()
-		}
+		// Run all tests in the test suite.
+		for _, testInfo := range testSuite.TestsInfo {
+			// Wrap execution in a function to allow deferring sendEmptyTestReportIfPanicOrFailure.
+			func() {
+				testExecutionFailed := false
+				defer sendEmptyTestReportIfPanicOrFailure(testSuiteName, testInfo.Test.Name, &testExecutionFailed)
 
+				// Run the test.
+				if testExecutionFailed = cw.runTest(ctx, baseLogger, testSuiteName, testInfo, runnerBuilder,
+					runnerEnviron, baseBag, isRootProcess, scheduleReportProduction); !testExecutionFailed {
+					return
+				}
+
+				// Test execution failed. Abort execution if this is not the root process of the context was canceled.
+				if !isRootProcess || ctx.Err() != nil {
+					cancel()
+					waitGroup.Wait()
+					os.Exit(1)
+				}
+			}()
+		}
 		logInfoIf(logger, isRootProcess, "Test suite execution completed")
 	}
 
-	testerWaitGroup.Wait()
+	<-reportCollectionCompletedCh
 	cancel()
-	globalWaitGroup.Wait()
+	waitGroup.Wait()
 }
 
 // enrichLoggerWithBaggage creates a new logger, starting from the provided one, with the information extracted from the
@@ -332,45 +376,45 @@ func formatTestCase(testCase map[string]any) string {
 func loadTestSuites(logger logr.Logger, canLoadTestsWithNoRuleName bool, descriptionFilePaths,
 	descriptionDirPaths []string, description string) ([]*suite.Suite, error) {
 	descLoader := loader.New()
-	suiteLoader := suiteloader.New(descLoader, canLoadTestsWithNoRuleName)
+	testSuiteLoader := suiteloader.New(descLoader, canLoadTestsWithNoRuleName)
 
 	// Load from the specified files or directories.
 	if len(descriptionFilePaths) > 0 || len(descriptionDirPaths) > 0 {
 		for _, descriptionDirPath := range descriptionDirPaths {
-			if err := loadTestsFromDescriptionDir(logger, suiteLoader, descriptionDirPath); err != nil {
+			if err := loadTestsFromDescriptionDir(logger, testSuiteLoader, descriptionDirPath); err != nil {
 				return nil, fmt.Errorf("error loading description directory %q: %w", descriptionDirPath, err)
 			}
 		}
 
 		for _, descriptionFilePath := range descriptionFilePaths {
-			if err := loadTestsFromDescriptionFile(logger, suiteLoader, descriptionFilePath); err != nil {
+			if err := loadTestsFromDescriptionFile(logger, testSuiteLoader, descriptionFilePath); err != nil {
 				return nil, fmt.Errorf("error loading description file %q: %w", descriptionFilePath, err)
 			}
 		}
 
-		return suiteLoader.Get(), nil
+		return testSuiteLoader.Get(), nil
 	}
 
 	// Load from the provided description string.
 	if description != "" {
 		source := suitesource.New("<description flag>", strings.NewReader(description))
-		if err := suiteLoader.Load(source); err != nil {
+		if err := testSuiteLoader.Load(source); err != nil {
 			return nil, fmt.Errorf("error loading from description flag: %w", err)
 		}
-		return suiteLoader.Get(), nil
+		return testSuiteLoader.Get(), nil
 	}
 
 	// Load from standard input.
 	source := suitesource.New("<stdin>", os.Stdin)
-	if err := suiteLoader.Load(source); err != nil {
+	if err := testSuiteLoader.Load(source); err != nil {
 		return nil, fmt.Errorf("error loading from stdin: %w", err)
 	}
-	return suiteLoader.Get(), nil
+	return testSuiteLoader.Get(), nil
 }
 
 // loadTestsFromDescriptionDir loads tests, from YAML files inside the directory at the provided path, into the provided
 // suite loader.
-func loadTestsFromDescriptionDir(logger logr.Logger, suiteLoader suite.Loader, descriptionDirPath string) error {
+func loadTestsFromDescriptionDir(logger logr.Logger, testSuiteLoader suite.Loader, descriptionDirPath string) error {
 	descriptionDirPath = filepath.Clean(descriptionDirPath)
 	dirEntries, err := os.ReadDir(descriptionDirPath)
 	if err != nil {
@@ -388,7 +432,7 @@ func loadTestsFromDescriptionDir(logger logr.Logger, suiteLoader suite.Loader, d
 		}
 
 		descriptionFilePath := filepath.Join(descriptionDirPath, name)
-		if err := loadTestsFromDescriptionFile(logger, suiteLoader, descriptionFilePath); err != nil {
+		if err := loadTestsFromDescriptionFile(logger, testSuiteLoader, descriptionFilePath); err != nil {
 			return fmt.Errorf("error loading description file %q: %w", name, err)
 		}
 	}
@@ -397,7 +441,7 @@ func loadTestsFromDescriptionDir(logger logr.Logger, suiteLoader suite.Loader, d
 }
 
 // loadTestsFromDescriptionFile loads tests from the file at the provided path into the provided suite loader.
-func loadTestsFromDescriptionFile(logger logr.Logger, suiteLoader suite.Loader, descriptionFilePath string) error {
+func loadTestsFromDescriptionFile(logger logr.Logger, testSuiteLoader suite.Loader, descriptionFilePath string) error {
 	descriptionFilePath = filepath.Clean(descriptionFilePath)
 	descriptionFile, err := os.Open(descriptionFilePath)
 	if err != nil {
@@ -409,7 +453,7 @@ func loadTestsFromDescriptionFile(logger logr.Logger, suiteLoader suite.Loader, 
 		}
 	}()
 
-	return suiteLoader.Load(descriptionFile)
+	return testSuiteLoader.Load(descriptionFile)
 }
 
 // createRunnerBuilder creates a new runner builder.
@@ -466,6 +510,75 @@ func (cw *CommandWrapper) createTester(logger logr.Logger) (tester.Tester, error
 	return t, nil
 }
 
+// getTestsNum returns the total number of tests contained in the provided test suites.
+func getTestsNum(testSuites []*suite.Suite) int {
+	count := 0
+	for _, testSuite := range testSuites {
+		count += len(testSuite.TestsInfo)
+	}
+	return count
+}
+
+// collectTestSuitesReports collects test reports for all test suites from the provided report channel and returns a
+// map associating to each test suite name the list of test reports. The collection ends after expectedReportsNum are
+// received or the context is canceled.
+// Notice: the assumption here is that we expect to receive exactly one report for each test.
+func collectTestSuitesReports(ctx context.Context, expectedReportsNum int,
+	reportCh <-chan *tester.Report) (map[string][]*tester.Report, error) {
+	testSuitesReports := make(map[string][]*tester.Report)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case report := <-reportCh:
+			testSuiteName := report.RuleName
+			testSuitesReports[testSuiteName] = append(testSuitesReports[testSuiteName], report)
+			expectedReportsNum--
+			if expectedReportsNum == 0 {
+				return testSuitesReports, nil
+			}
+		}
+	}
+}
+
+// printTestSuitesReports prints tests reports for the provided tests suites.
+func (cw *CommandWrapper) printTestSuitesReports(testSuitesReports map[string][]*tester.Report) {
+	suiteReportEncoder := newTestSuiteReportEncoder(cw.reportFormat)
+	for testSuiteName, testSuiteReports := range testSuitesReports {
+		testSuiteReport := &suite.Report{
+			TestSuiteName: testSuiteName,
+			TestReports:   testSuiteReports,
+		}
+		// TODO: perform error checking
+		_ = suiteReportEncoder.Encode(testSuiteReport)
+	}
+}
+
+// newTestSuiteReportEncoder creates a new test suite report encoder corresponding to the provided format.
+func newTestSuiteReportEncoder(reportFmt reportFormat) suite.ReportEncoder {
+	var encoder suite.ReportEncoder
+	switch reportFmt {
+	case reportFormatText:
+		encoder = textencoder.New(os.Stdout)
+	case reportFormatJSON:
+		encoder = jsonencoder.New(os.Stdout)
+	case reportFormatYAML:
+		encoder = yamlencoder.New(os.Stdout)
+	default:
+		panic(fmt.Sprintf("unsupported report format %v", reportFmt))
+	}
+	return encoder
+}
+
+// sendTestReport sends the provided report to the provided channel or cancel the operation if the provided context is
+// canceled before the aforementioned operation succeeds.
+func sendTestReport(ctx context.Context, reportCh chan<- *tester.Report, report *tester.Report) {
+	select {
+	case <-ctx.Done():
+	case reportCh <- report:
+	}
+}
+
 // buildRunnerEnviron creates a list of strings representing the environment, by adding to the current process
 // environment all the provided command flags and all the required environment variable needed to enable the runner to
 // rerun the current executable with the proper environment configuration.
@@ -496,83 +609,78 @@ func logInfoIf(logger logr.Logger, cond bool, msg string) {
 	}
 }
 
-// runTestSuite runs the provided test suite.
+// runTest runs the provided test and returns a boolean indicating if the test execution failed or not.
 // TODO: simplify the following function signature once the termination logic is relaxed.
-func (cw *CommandWrapper) runTestSuite(ctx context.Context, baseLogger logr.Logger, testSuite *suite.Suite,
-	runnerBuilder runner.Builder, runnerEnviron []string, baseBag *baggage.Baggage, isRootProcess bool,
-	scheduleReportRetrievalAndPrinting func(testUID *uuid.UUID, testDesc *loader.Test)) bool {
-	// Build and run the tests.
-	for _, testInfo := range testSuite.TestsInfo {
-		// Init baggage and logger for the current test.
-		var bag *baggage.Baggage
-		if baseBag != nil {
-			bag = baseBag.Clone()
-		}
-		logger := baseLogger
-
-		testSourceName, testDesc := testInfo.SourceName, testInfo.Test
-		testSourceIndex, testCase := testDesc.SourceIndex, testDesc.OriginatingTestCase
-
-		testID := cw.TestID
-		var testUID uuid.UUID
-		if isRootProcess {
-			// The root process must initialize the baggage.
-			bag = &baggage.Baggage{
-				TestSuiteName:   testSuite.RuleName,
-				TestName:        testDesc.Name,
-				TestSourceName:  testSourceName,
-				TestSourceIndex: testSourceIndex,
-				TestCase:        testCase,
-				// ProcIndex is set to -1 on the root process.
-				ProcIndex: -1,
-			}
-			logger = enrichLoggerWithBaggage(logger, bag)
-
-			// Generate a new UID for the test.
-			testUID = uuid.New()
-			testID = newTestID(&testUID)
-			ensureProcessChainLeaf(testDesc)
-		} else {
-			// Extract UID from test ID.
-			var err error
-			testUID, err = extractTestUID(testID)
-			if err != nil {
-				logger.Error(err, "Error extracting test UID from test ID", "testId", testID)
-				return false
-			}
-		}
-
-		logger = logger.WithValues("testUid", testUID)
-
-		runnerLogger := logger.WithName("runner")
-		runnerDescription := &runner.Description{
-			Environ:                   runnerEnviron,
-			TestDescriptionEnvKey:     cw.DescriptionEnvKey,
-			TestDescriptionFileEnvKey: cw.DescriptionFileEnvKey,
-			TestDescriptionDirEnvKey:  cw.DescriptionDirEnvKey,
-			TestIDEnvKey:              cw.TestIDEnvKey,
-			TestIDIgnorePrefix:        testIDIgnorePrefix,
-			BaggageEnvKey:             cw.BaggageEnvKey,
-			Baggage:                   bag,
-		}
-		runnerInstance, err := runnerBuilder.Build(testDesc.Runner, runnerLogger, runnerDescription)
-		if err != nil {
-			logger.Error(err, "Error creating runner")
-			return false
-		}
-
-		logInfoIf(logger, isRootProcess, "Starting test execution...")
-		if err := runnerInstance.Run(ctx, testID, testDesc); err != nil {
-			logRunnerError(logger, err)
-			return false
-		}
-
-		logInfoIf(logger, isRootProcess, "Test execution completed")
-
-		scheduleReportRetrievalAndPrinting(&testUID, testDesc)
+func (cw *CommandWrapper) runTest(ctx context.Context, logger logr.Logger, testSuiteName string,
+	testInfo *suite.TestInfo, runnerBuilder runner.Builder, runnerEnviron []string, baseBag *baggage.Baggage,
+	isRootProcess bool, scheduleReportProduction func(testUID *uuid.UUID, testDesc *loader.Test)) bool {
+	// Init baggage and logger for the current test.
+	var bag *baggage.Baggage
+	if baseBag != nil {
+		bag = baseBag.Clone()
 	}
 
-	return true
+	testSourceName, testDesc := testInfo.SourceName, testInfo.Test
+	testSourceIndex, testCase := testDesc.SourceIndex, testDesc.OriginatingTestCase
+
+	testID := cw.TestID
+	var testUID uuid.UUID
+	if isRootProcess {
+		// The root process must initialize the baggage.
+		bag = &baggage.Baggage{
+			TestSuiteName:   testSuiteName,
+			TestName:        testDesc.Name,
+			TestSourceName:  testSourceName,
+			TestSourceIndex: testSourceIndex,
+			TestCase:        testCase,
+			// ProcIndex is set to -1 on the root process.
+			ProcIndex: -1,
+		}
+		logger = enrichLoggerWithBaggage(logger, bag)
+
+		// Generate a new UID for the test.
+		testUID = uuid.New()
+		testID = newTestID(&testUID)
+		ensureProcessChainLeaf(testDesc)
+	} else {
+		// Extract UID from test ID.
+		var err error
+		testUID, err = extractTestUID(testID)
+		if err != nil {
+			logger.Error(err, "Error extracting test UID from test ID", "testId", testID)
+			return true
+		}
+	}
+
+	logger = logger.WithValues("testUid", testUID)
+
+	runnerLogger := logger.WithName("runner")
+	runnerDescription := &runner.Description{
+		Environ:                   runnerEnviron,
+		TestDescriptionEnvKey:     cw.DescriptionEnvKey,
+		TestDescriptionFileEnvKey: cw.DescriptionFileEnvKey,
+		TestDescriptionDirEnvKey:  cw.DescriptionDirEnvKey,
+		TestIDEnvKey:              cw.TestIDEnvKey,
+		TestIDIgnorePrefix:        testIDIgnorePrefix,
+		BaggageEnvKey:             cw.BaggageEnvKey,
+		Baggage:                   bag,
+	}
+	runnerInstance, err := runnerBuilder.Build(testDesc.Runner, runnerLogger, runnerDescription)
+	if err != nil {
+		logger.Error(err, "Error creating runner")
+		return true
+	}
+
+	logInfoIf(logger, isRootProcess, "Starting test execution...")
+	if err := runnerInstance.Run(ctx, testID, testDesc); err != nil {
+		logRunnerError(logger, err)
+		return true
+	}
+
+	logInfoIf(logger, isRootProcess, "Test execution completed")
+
+	scheduleReportProduction(&testUID, testDesc)
+	return false
 }
 
 // newTestID creates a new test ID from the provided test UID.
@@ -621,11 +729,11 @@ func logRunnerError(logger logr.Logger, err error) {
 	}
 }
 
-// produceReport tries, for a fixed maximum number of attempts, to produce a non-empty report for the given test by
-// using the provided tester. It returns the obtained non-empty report or an empty one (in the case the maximum number
-// of attempts is reached).
-func produceReport(ctx context.Context, testr tester.Tester, testUID *uuid.UUID,
-	testDesc *loader.Test) (*tester.Report, error) {
+// produceTestReport tries, for a fixed maximum number of attempts, to produce a non-empty report for the given test by
+// using the provided tester. The obtained non-empty report or an empty one (in the case the maximum number of attempts
+// is reached), is produced in the provided report channel.
+func produceTestReport(ctx context.Context, testr tester.Tester, testUID *uuid.UUID, testDesc *loader.Test,
+	reportCh chan<- *tester.Report) {
 	t := time.NewTimer(0)
 	defer t.Stop()
 	testName, ruleName, expectedOutcome := testDesc.Name, *testDesc.Rule, testDesc.ExpectedOutcome
@@ -634,13 +742,14 @@ func produceReport(ctx context.Context, testr tester.Tester, testUID *uuid.UUID,
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return
 		case <-t.C:
 			report := testr.Report(testUID, ruleName, expectedOutcome)
 			remainingAttempts--
 			if !report.Empty() || remainingAttempts == 0 {
 				report.TestName, report.RuleName = testName, ruleName
-				return report, nil
+				sendTestReport(ctx, reportCh, report)
+				return
 			}
 
 			if ctx.Err() == nil {
@@ -648,22 +757,4 @@ func produceReport(ctx context.Context, testr tester.Tester, testUID *uuid.UUID,
 			}
 		}
 	}
-}
-
-// printReport prints the provided report using the provided format.
-func printReport(report *tester.Report, reportFmt reportFormat) {
-	var encoder tester.ReportEncoder
-	switch reportFmt {
-	case reportFormatText:
-		encoder = textencoder.New(os.Stdout)
-	case reportFormatJSON:
-		encoder = jsonencoder.New(os.Stdout)
-	case reportFormatYAML:
-		encoder = yamlencoder.New(os.Stdout)
-	default:
-		panic(fmt.Sprintf("unsupported report format %v", report))
-	}
-
-	// TODO: perform error checking
-	_ = encoder.Encode(report)
 }

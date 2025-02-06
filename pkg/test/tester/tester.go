@@ -37,7 +37,7 @@ type Tester interface {
 // rule.
 type Report struct {
 	TestName          string          `json:"test" yaml:"test"`
-	RuleName          string          `json:"rule" yaml:"rule"`
+	RuleName          string          `json:"-" yaml:"-"`
 	SuccessfulMatches int             `json:"successfulMatches" yaml:"successfulMatches"`
 	GeneratedWarnings []ReportWarning `json:"generatedWarnings,omitempty" yaml:"generatedWarnings,omitempty"`
 }
@@ -59,10 +59,4 @@ type ReportFieldWarning struct {
 	Field    string `json:"field" yaml:"field"`
 	Expected any    `json:"expected" yaml:"expected"`
 	Got      any    `json:"got" yaml:"got"`
-}
-
-// ReportEncoder allows to encode a report.
-type ReportEncoder interface {
-	// Encode encodes the provided report with a specific format and write it to the underlying destination.
-	Encode(report *Report) error
 }
