@@ -14,11 +14,10 @@
 // limitations under the License.
 
 // Package suite provides the definition of a test suite as well as a mechanism to load multiple test suites from
-// multiple sources.
+// multiple sources through the Loader interface.
 // A Suite is uniquely associated with a rule: each loaded test is associated with a specific Suite, depending on the
 // rule name it specifies on its description. If the user didn't specify any rule name in the test description, the test
 // is associated with the test suite corresponding to NoRuleNamePlaceholder.
 // The Loader can be used to load multiple test suites from multiple sources. Loader.Load accepts Source objects; a
-// Source is a named io.Reader, and can be created from files or from readers using the function NewSourceFromFile or
-// NewSourceFromReader, respectively.
+// Source is a named io.Reader.
 package suite
