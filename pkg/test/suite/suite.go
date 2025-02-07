@@ -20,6 +20,7 @@ import (
 	"io"
 
 	"github.com/falcosecurity/event-generator/pkg/test/loader"
+	"github.com/falcosecurity/event-generator/pkg/test/tester"
 )
 
 // Source represents a test suite source. It is an io.Reader owning a name.
@@ -74,3 +75,15 @@ func (e *NoRuleNameError) Error() string {
 // NoRuleNamePlaceholder is the value given to the rule name field of a test not specifying any value for it.
 // Notice: whe choose the empty string as it is not a valid rule name.
 const NoRuleNamePlaceholder = ""
+
+// A Report contains test reports for all tests belonging to a test suite.
+type Report struct {
+	TestSuiteName string           `json:"suite" yaml:"suite"`
+	TestReports   []*tester.Report `json:"testReports" yaml:"testReports"`
+}
+
+// ReportEncoder allows to encode a report.
+type ReportEncoder interface {
+	// Encode encodes the provided report with a specific format and write it to the underlying destination.
+	Encode(report *Report) error
+}
