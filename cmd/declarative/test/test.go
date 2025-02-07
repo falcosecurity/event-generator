@@ -45,6 +45,8 @@ import (
 	stepbuilder "github.com/falcosecurity/event-generator/pkg/test/step/builder"
 	sysbuilder "github.com/falcosecurity/event-generator/pkg/test/step/syscall/builder"
 	"github.com/falcosecurity/event-generator/pkg/test/suite"
+	suiteloader "github.com/falcosecurity/event-generator/pkg/test/suite/loader"
+	suitesource "github.com/falcosecurity/event-generator/pkg/test/suite/source"
 	"github.com/falcosecurity/event-generator/pkg/test/tester"
 	"github.com/falcosecurity/event-generator/pkg/test/tester/reportencoder/jsonencoder"
 	"github.com/falcosecurity/event-generator/pkg/test/tester/reportencoder/textencoder"
@@ -312,7 +314,7 @@ func formatTestCase(testCase map[string]any) string {
 func loadTestSuites(logger logr.Logger, canLoadTestsWithNoRuleName bool, descriptionFilePaths,
 	descriptionDirPaths []string, description string) ([]*suite.Suite, error) {
 	descLoader := loader.New()
-	suiteLoader := suite.NewLoader(descLoader, canLoadTestsWithNoRuleName)
+	suiteLoader := suiteloader.New(descLoader, canLoadTestsWithNoRuleName)
 
 	// Load from the specified files or directories.
 	if len(descriptionFilePaths) > 0 || len(descriptionDirPaths) > 0 {
@@ -333,7 +335,7 @@ func loadTestSuites(logger logr.Logger, canLoadTestsWithNoRuleName bool, descrip
 
 	// Load from the provided description string.
 	if description != "" {
-		source := suite.NewSourceFromReader("<description flag>", strings.NewReader(description))
+		source := suitesource.New("<description flag>", strings.NewReader(description))
 		if err := suiteLoader.Load(source); err != nil {
 			return nil, fmt.Errorf("error loading from description flag: %w", err)
 		}
@@ -341,7 +343,7 @@ func loadTestSuites(logger logr.Logger, canLoadTestsWithNoRuleName bool, descrip
 	}
 
 	// Load from standard input.
-	source := suite.NewSourceFromReader("<stdin>", os.Stdin)
+	source := suitesource.New("<stdin>", os.Stdin)
 	if err := suiteLoader.Load(source); err != nil {
 		return nil, fmt.Errorf("error loading from stdin: %w", err)
 	}
@@ -350,7 +352,7 @@ func loadTestSuites(logger logr.Logger, canLoadTestsWithNoRuleName bool, descrip
 
 // loadTestsFromDescriptionDir loads tests, from YAML files inside the directory at the provided path, into the provided
 // suite loader.
-func loadTestsFromDescriptionDir(logger logr.Logger, suiteLoader *suite.Loader, descriptionDirPath string) error {
+func loadTestsFromDescriptionDir(logger logr.Logger, suiteLoader suite.Loader, descriptionDirPath string) error {
 	descriptionDirPath = filepath.Clean(descriptionDirPath)
 	dirEntries, err := os.ReadDir(descriptionDirPath)
 	if err != nil {
@@ -377,7 +379,7 @@ func loadTestsFromDescriptionDir(logger logr.Logger, suiteLoader *suite.Loader, 
 }
 
 // loadTestsFromDescriptionFile loads tests from the file at the provided path into the provided suite loader.
-func loadTestsFromDescriptionFile(logger logr.Logger, suiteLoader *suite.Loader, descriptionFilePath string) error {
+func loadTestsFromDescriptionFile(logger logr.Logger, suiteLoader suite.Loader, descriptionFilePath string) error {
 	descriptionFilePath = filepath.Clean(descriptionFilePath)
 	descriptionFile, err := os.Open(descriptionFilePath)
 	if err != nil {
