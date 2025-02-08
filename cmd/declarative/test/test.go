@@ -245,13 +245,31 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	// Prepare parameters shared by all runners.
 	runnerEnviron := cw.buildRunnerEnviron(cmd)
 
+	scheduleReportRetrievalAndPrinting := func(testUID *uuid.UUID, testDesc *loader.Test) {
+		if testr == nil {
+			return
+		}
+		globalWaitGroup.Add(1)
+		testerWaitGroup.Add(1)
+		go func() {
+			defer globalWaitGroup.Done()
+			defer testerWaitGroup.Done()
+			report, err := produceReport(ctx, testr, testUID, testDesc)
+			if err != nil {
+				// An error is returned only case the provided context is canceled, so just return.
+				return
+			}
+			printReport(report, cw.reportFormat)
+		}()
+	}
+
 	// Run test suites.
 	baseLogger := logger
 	for _, testSuite := range testSuites {
 		logger := baseLogger.WithValues("testSuiteName", testSuite.RuleName)
 		logInfoIf(logger, isRootProcess, "Starting test suite execution...")
-		success := cw.runTestSuite(ctx, baseLogger, testSuite, runnerBuilder, runnerEnviron, baseBag, testr,
-			&globalWaitGroup, &testerWaitGroup, isRootProcess)
+		success := cw.runTestSuite(ctx, baseLogger, testSuite, runnerBuilder, runnerEnviron, baseBag, isRootProcess,
+			scheduleReportRetrievalAndPrinting)
 		if !success {
 			logInfoIf(logger, isRootProcess, "Test suite execution failed")
 			waitAndExit()
@@ -481,8 +499,8 @@ func logInfoIf(logger logr.Logger, cond bool, msg string) {
 // runTestSuite runs the provided test suite.
 // TODO: simplify the following function signature once the termination logic is relaxed.
 func (cw *CommandWrapper) runTestSuite(ctx context.Context, baseLogger logr.Logger, testSuite *suite.Suite,
-	runnerBuilder runner.Builder, runnerEnviron []string, baseBag *baggage.Baggage, testr tester.Tester,
-	globalWaitGroup, testerWaitGroup *sync.WaitGroup, isRootProcess bool) bool {
+	runnerBuilder runner.Builder, runnerEnviron []string, baseBag *baggage.Baggage, isRootProcess bool,
+	scheduleReportRetrievalAndPrinting func(testUID *uuid.UUID, testDesc *loader.Test)) bool {
 	// Build and run the tests.
 	for _, testInfo := range testSuite.TestsInfo {
 		// Init baggage and logger for the current test.
@@ -551,9 +569,7 @@ func (cw *CommandWrapper) runTestSuite(ctx context.Context, baseLogger logr.Logg
 
 		logInfoIf(logger, isRootProcess, "Test execution completed")
 
-		if testr != nil {
-			produceReport(ctx, globalWaitGroup, testerWaitGroup, testr, &testUID, testDesc, cw.reportFormat)
-		}
+		scheduleReportRetrievalAndPrinting(&testUID, testDesc)
 	}
 
 	return true
@@ -605,43 +621,33 @@ func logRunnerError(logger logr.Logger, err error) {
 	}
 }
 
-// produceReport produces a report for the given test by using the provided tester.
-func produceReport(ctx context.Context, globalWaitGroup, testerWaitGroup *sync.WaitGroup, testr tester.Tester,
-	testUID *uuid.UUID, testDesc *loader.Test, reportFmt reportFormat) {
-	globalWaitGroup.Add(1)
-	testerWaitGroup.Add(1)
-	go func() {
-		defer globalWaitGroup.Done()
-		defer testerWaitGroup.Done()
-		t := time.NewTimer(0)
-		defer t.Stop()
-		testName, ruleName, expectedOutcome := testDesc.Name, *testDesc.Rule, testDesc.ExpectedOutcome
-		remainingAttempts := 4
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-t.C:
-				report := testr.Report(testUID, ruleName, expectedOutcome)
-				if !report.Empty() {
-					report.TestName, report.RuleName = testName, ruleName
-					printReport(report, reportFmt)
-					return
-				}
+// produceReport tries, for a fixed maximum number of attempts, to produce a non-empty report for the given test by
+// using the provided tester. It returns the obtained non-empty report or an empty one (in the case the maximum number
+// of attempts is reached).
+func produceReport(ctx context.Context, testr tester.Tester, testUID *uuid.UUID,
+	testDesc *loader.Test) (*tester.Report, error) {
+	t := time.NewTimer(0)
+	defer t.Stop()
+	testName, ruleName, expectedOutcome := testDesc.Name, *testDesc.Rule, testDesc.ExpectedOutcome
+	const maxAttempts = 4
+	remainingAttempts := maxAttempts
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-t.C:
+			report := testr.Report(testUID, ruleName, expectedOutcome)
+			remainingAttempts--
+			if !report.Empty() || remainingAttempts == 0 {
+				report.TestName, report.RuleName = testName, ruleName
+				return report, nil
+			}
 
-				remainingAttempts--
-				if remainingAttempts == 0 {
-					report.TestName, report.RuleName = testName, ruleName
-					printReport(report, reportFmt)
-					return
-				}
-
-				if ctx.Err() == nil {
-					t.Reset((4 / (1 << (3 - remainingAttempts))) * time.Second)
-				}
+			if ctx.Err() == nil {
+				t.Reset((1 << (maxAttempts - 1 - remainingAttempts)) * time.Second)
 			}
 		}
-	}()
+	}
 }
 
 // printReport prints the provided report using the provided format.
