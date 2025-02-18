@@ -33,7 +33,7 @@ require (
 	k8s.io/cli-runtime v0.31.1
 	k8s.io/client-go v0.31.1
 	k8s.io/kubectl v0.31.1
-	kernel.org/pub/linux/libs/security/libcap/cap v1.2.72
+	kernel.org/pub/linux/libs/security/libcap/cap v1.2.74-rc4
 )
 
 // avoid indirect dependency mergo error:
@@ -162,7 +162,7 @@ require (
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240903163716-9e1beecbcb38 // indirect
 	k8s.io/utils v0.0.0-20240902221715-702e33fdd3c3 // indirect
-	kernel.org/pub/linux/libs/security/libcap/psx v1.2.72 // indirect
+	kernel.org/pub/linux/libs/security/libcap/psx v1.2.73 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.17.3 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.17.2 // indirect
