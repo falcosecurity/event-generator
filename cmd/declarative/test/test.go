@@ -501,7 +501,7 @@ func (cw *CommandWrapper) createTester(logger logr.Logger) (tester.Tester, error
 		grpcretriever.WithCARootFile(cw.caRootFile),
 		grpcretriever.WithPollingTimeout(cw.pollingTimeout),
 	}
-	grpcRetriever, err := grpcretriever.New(logger, gRPCRetrieverOptions...)
+	grpcRetriever, err := grpcretriever.New(logger.WithName("alert-retriever"), gRPCRetrieverOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("error creating gRPC retriever: %w", err)
 	}
