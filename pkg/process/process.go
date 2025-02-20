@@ -24,7 +24,9 @@ import (
 // Builder allows to build a new process.
 type Builder interface {
 	// SetSimExePath sets the "simulated" executable path. This sets the executable path accessible through
-	// `readlink -f /proc/<pid/exepath` for the started process. If unset or empty, it is randomly generated.
+	// `readlink -f /proc/<pid/exepath` for the started process. The underlying implementation ensures the existence of
+	// each segment of the provided path, by possibly creating some of them. Path segments contextually created are
+	// automatically removed after the process resources are released. If unset or empty, it is randomly generated.
 	SetSimExePath(simExePath string)
 	// SetName is the process name. If unset or empty, it defaults to filepath.Base(SimExePath).
 	SetName(name string)
@@ -44,8 +46,10 @@ type Builder interface {
 	// SetCapabilities sets the capabilities that must be set on the process executable file. The syntax follows the
 	// conventions specified by cap_from_text(3). If unset or empty, it defaults to 'all=iep'.
 	SetCapabilities(capabilities string)
-	// Build builds the process. After calling Build, the Builder process-related configuration is cleared and the
-	// Builder can be reused to build another process.
+	// Build builds the process, setting the logger managing its lifecycle and the command that it is going to run.
+	// The provided context can be used at any time to cancel the process execution after it is started.
+	// After calling Build, the Builder process-related configuration is cleared and the Builder can be reused to build
+	// another process.
 	Build(ctx context.Context, logger logr.Logger, command string) Process
 }
 
