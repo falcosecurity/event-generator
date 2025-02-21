@@ -24,6 +24,7 @@ import (
 	"github.com/go-logr/logr"
 	"golang.org/x/sys/unix"
 
+	"github.com/falcosecurity/event-generator/pkg/osutil"
 	"github.com/falcosecurity/event-generator/pkg/test/field"
 	"github.com/falcosecurity/event-generator/pkg/test/resource"
 )
@@ -33,11 +34,12 @@ type directoryFD struct {
 	logger logr.Logger
 	// resourceName is the fd resource name.
 	resourceName string
-	// filePath is the path of the directory to open/create.
+	// dirPath is the path of the directory to open/create.
 	dirPath string
-	// created is valid after a successful call to Create and becomes invalid after a call to Destroy. It is true if
-	// Create created a new file, whereas is false if the directory exists and Create simply opened it.
-	created bool
+	// firstCreatedDirPath is valid after a successful call to Create and becomes invalid after a call to Destroy. It
+	// contains the path of the first created directory in the directory hierarchy leading to dirPath. If no new
+	// directories have been created, it is empty.
+	firstCreatedDirPath string
 	// fields defines the information exposed by directoryFD for binding.
 	fields struct {
 		// FD is the directory file descriptor. If the resource has not been Create'd yet, or it has been Destroy'ed, FD
@@ -70,47 +72,29 @@ func (d *directoryFD) Create(_ context.Context) error {
 		return fmt.Errorf("directory %q is already open", d.dirPath)
 	}
 
-	created, fd, err := d.openOrCreateDir(d.dirPath)
+	dirPath := d.dirPath
+
+	// Ensure the directory exists.
+	firstCreatedDirPath, err := osutil.MkdirAll(dirPath)
 	if err != nil {
-		return fmt.Errorf("error opening/creating directory %q: %w", d.dirPath, err)
+		return fmt.Errorf("error creating directory hierarchy %q: %w", dirPath, err)
 	}
 
-	d.created = created
-	d.fields.FD = fd
-	return nil
-}
-
-// openOrCreateFile opens or creates a directory at the provided path. It returns a boolean value indicating if the
-// directory has been created and the file descriptor of the opened directory.
-func (d *directoryFD) openOrCreateDir(dirPath string) (created bool, dirFD int, err error) {
-	// Check for path existence. If it doesn't exist, creates the directory. If it exists, verify it is a directory.
-	stat, err := os.Stat(dirPath)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return false, 0, fmt.Errorf("error verifying path existence: %w", err)
-		}
-
-		if err := unix.Mkdir(dirPath, unix.S_IRUSR|unix.S_IWUSR); err != nil {
-			return false, 0, fmt.Errorf("error creating directory: %w", err)
-		}
-
-		created = true
-	} else if !stat.IsDir() {
-		return false, 0, fmt.Errorf("path exists and is not a directory")
-	}
-
-	// Open the directory
+	// Open the directory.
 	fd, err := unix.Open(dirPath, unix.O_RDONLY|unix.O_DIRECTORY, 0)
 	if err != nil {
-		if created {
-			if err := unix.Rmdir(dirPath); err != nil {
-				d.logger.Error(err, "error deleting directory", "path", dirPath)
+		if firstCreatedDirPath != "" {
+			if err := os.RemoveAll(firstCreatedDirPath); err != nil {
+				d.logger.Error(err, "Error removing created directory hierarchy", "dirHierarchyRootPath",
+					firstCreatedDirPath)
 			}
 		}
-		return false, 0, fmt.Errorf("error opening directory: %w", err)
+		return fmt.Errorf("error opening directory: %w", err)
 	}
 
-	return created, fd, nil
+	d.firstCreatedDirPath = firstCreatedDirPath
+	d.fields.FD = fd
+	return nil
 }
 
 // Destroy closes the exposed file descriptor and deletes the underlying directory (if it was created by Create).
@@ -122,7 +106,7 @@ func (d *directoryFD) Destroy(_ context.Context) error {
 	}
 
 	defer func() {
-		d.created = false
+		d.firstCreatedDirPath = ""
 		d.fields.FD = -1
 	}()
 
@@ -133,13 +117,14 @@ func (d *directoryFD) Destroy(_ context.Context) error {
 		logger.Error(err, "Error closing directory")
 	}
 
-	if !d.created {
+	firstCreatedDirPath := d.firstCreatedDirPath
+	if firstCreatedDirPath == "" {
 		return nil
 	}
 
-	// Delete the directory.
-	if err := unix.Rmdir(dirPath); err != nil {
-		logger.Error(err, "Error removing created directory")
+	// Delete the directory as well as any created parent directory.
+	if err := os.RemoveAll(firstCreatedDirPath); err != nil {
+		logger.Error(err, "Error removing created directory hierarchy", "dirHierarchyRootPath", firstCreatedDirPath)
 	}
 
 	return nil
