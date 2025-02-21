@@ -284,7 +284,7 @@ func (p *osProcess) Start() (err error) {
 			}
 		}
 
-		if err := p.setFileCapabilities(simExePath, capabilities); err != nil {
+		if err := capability.SetFile(simExePath, capabilities); err != nil {
 			return fmt.Errorf("error setting process executable file capabilities to %q: %w", capabilities, err)
 		}
 
@@ -300,7 +300,7 @@ func (p *osProcess) Start() (err error) {
 		defer p.removeFileIfErr(simExePath, &err)
 		p.logger.V(1).Info("Created process executable", "path", simExePath)
 
-		if err := p.setFileCapabilities(simExePath, capabilities); err != nil {
+		if err := capability.SetFile(simExePath, capabilities); err != nil {
 			return fmt.Errorf("error setting process executable file capabilities to %q: %w", capabilities, err)
 		}
 	}
@@ -531,27 +531,6 @@ func (p *osProcess) removeFileIfErr(filePath string, err *error) { //nolint:gocr
 	}
 }
 
-// setFileCapabilities sets the capability state of the file at the provided file path to the value obtained parsing
-// the provided capability string.
-func (p *osProcess) setFileCapabilities(filePath, capabilities string) error {
-	caps, err := capability.Parse(capabilities)
-	if err != nil {
-		return fmt.Errorf("error parsing capabilities: %w", err)
-	}
-
-	file, err := os.Open(filePath) //nolint:gosec // Disable G304
-	if err != nil {
-		return fmt.Errorf("error opening file: %w", err)
-	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			p.logger.Error(err, "Error closing executable after setting capabilities")
-		}
-	}()
-
-	return caps.SetFd(file)
-}
-
 func (p *osProcess) Wait() error {
 	if !p.started {
 		return errProcessNotStarted
@@ -635,7 +614,6 @@ func (p *osProcess) releaseResources() {
 			logger.V(1).Info("Deleted directory hierarchy containing process executable")
 		}
 	}
-
 }
 
 func (p *osProcess) PID() int {
