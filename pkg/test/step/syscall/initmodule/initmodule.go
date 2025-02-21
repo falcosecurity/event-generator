@@ -27,6 +27,7 @@ import (
 )
 
 type initModuleSyscall struct {
+	*base.Syscall
 	// args represents arguments that can be provided by value or by binding.
 	args struct {
 		ModuleImage []byte `field_type:"buffer"`
@@ -45,10 +46,19 @@ func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding
 	bindOnlyArgsContainer := reflect.ValueOf(&i.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(i).Elem()
 	defaultedArgs := []string{"paramvalues"}
-	return base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, defaultedArgs,
-		i.run, nil)
+	var err error
+	i.Syscall, err = base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer,
+		defaultedArgs)
+	if err != nil {
+		return nil, err
+	}
+	return i, nil
 }
 
-func (i *initModuleSyscall) run(_ context.Context) error {
+func (i *initModuleSyscall) Run(_ context.Context) error {
+	if err := i.CheckUnboundArgField(); err != nil {
+		return err
+	}
+
 	return unix.InitModule(i.args.ModuleImage, i.args.ParamValues)
 }

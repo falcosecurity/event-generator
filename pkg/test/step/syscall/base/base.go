@@ -22,11 +22,10 @@ import (
 
 	"github.com/falcosecurity/event-generator/pkg/test/field"
 	"github.com/falcosecurity/event-generator/pkg/test/step"
-	"github.com/falcosecurity/event-generator/pkg/test/step/syscall"
 )
 
-// baseSyscall represents a generic system call test step.
-type baseSyscall struct {
+// Syscall provides a common implementation layer for system call test steps.
+type Syscall struct {
 	// stepName is the syscall step name.
 	stepName string
 
@@ -47,28 +46,15 @@ type baseSyscall struct {
 
 	// fieldBindings is the list of field binding required to run the current system call step.
 	fieldBindings []*step.FieldBinding
-
-	// runFunc is the underlying implementation of the current step.
-	runFunc func(ctx context.Context) error
-	// cleanupFunc is the underlying implementation of the current step cleanup procedure.
-	cleanupFunc func(ctx context.Context) error
 }
-
-// Verify that baseSyscall implements syscall.Syscall interface.
-var _ syscall.Syscall = (*baseSyscall)(nil)
 
 var errOpenModeMustBePositive = fmt.Errorf("open mode must be a positive integer")
 
-// New creates a new generic system call test step.
+// New creates a new system call test step common implementation layer.
 func New(stepName string, rawArgs map[string]any, fieldBindings []*step.FieldBinding, argsContainer,
-	bindOnlyArgsContainer, retValueContainer reflect.Value, defaultedArgs []string,
-	runFunc, cleanupFunc func(ctx context.Context) error) (syscall.Syscall, error) {
+	bindOnlyArgsContainer, retValueContainer reflect.Value, defaultedArgs []string) (*Syscall, error) {
 	if err := checkContainersInvariants(argsContainer, bindOnlyArgsContainer, retValueContainer); err != nil {
 		return nil, err
-	}
-
-	if runFunc == nil {
-		return nil, fmt.Errorf("run function must not be nil")
 	}
 
 	unboundArgs := field.Paths(argsContainer.Type())
@@ -88,7 +74,7 @@ func New(stepName string, rawArgs map[string]any, fieldBindings []*step.FieldBin
 		delete(unboundBindOnlyArgs, arg)
 	}
 
-	s := &baseSyscall{
+	s := &Syscall{
 		stepName:              stepName,
 		argsContainer:         argsContainer,
 		bindOnlyArgsContainer: bindOnlyArgsContainer,
@@ -96,8 +82,6 @@ func New(stepName string, rawArgs map[string]any, fieldBindings []*step.FieldBin
 		unboundArgs:           unboundArgs,
 		unboundBindOnlyArgs:   unboundBindOnlyArgs,
 		fieldBindings:         fieldBindings,
-		runFunc:               runFunc,
-		cleanupFunc:           cleanupFunc,
 	}
 	return s, nil
 }
@@ -296,26 +280,28 @@ func setSubArgFieldValues(argField *field.Field, value any) ([]string, error) {
 	return boundArgs, nil
 }
 
-func (s *baseSyscall) Name() string {
+// Name implements step.Step.Name method.
+func (s *Syscall) Name() string {
 	return s.stepName
 }
 
-func (s *baseSyscall) Run(ctx context.Context) error {
-	if s.unboundArgFieldsNum() > 0 {
-		unboundArgFields := s.unboundArgFieldNames()
-		return fmt.Errorf("the following argument fields are not bound yet: %v", unboundArgFields)
+// CheckUnboundArgField verifies that all argument fields are bound and returns an error in case of any unbound one.
+func (s *Syscall) CheckUnboundArgField() error {
+	if s.unboundArgFieldsNum() == 0 {
+		return nil
 	}
 
-	return s.runFunc(ctx)
+	unboundArgFields := s.unboundArgFieldNames()
+	return fmt.Errorf("the following argument fields are not bound yet: %v", unboundArgFields)
 }
 
 // unboundArgFieldsNum returns the number of unbound argument fields.
-func (s *baseSyscall) unboundArgFieldsNum() int {
+func (s *Syscall) unboundArgFieldsNum() int {
 	return len(s.unboundArgs) + len(s.unboundBindOnlyArgs)
 }
 
 // unboundArgFieldNames returns the names of the unbound argument fields.
-func (s *baseSyscall) unboundArgFieldNames() []string {
+func (s *Syscall) unboundArgFieldNames() []string {
 	unboundArgFieldNames := make([]string, len(s.unboundArgs)+len(s.unboundBindOnlyArgs))
 	i := 0
 	for unboundArgFieldName := range s.unboundArgs {
@@ -329,29 +315,30 @@ func (s *baseSyscall) unboundArgFieldNames() []string {
 	return unboundArgFieldNames
 }
 
-func (s *baseSyscall) Cleanup(ctx context.Context) error {
-	if s.cleanupFunc != nil {
-		return s.cleanupFunc(ctx)
-	}
-
+// Cleanup implements step.Step.Cleanup method.
+func (s *Syscall) Cleanup(_ context.Context) error {
+	// No-op default implementation for syscall not needing a cleanup step.
 	return nil
 }
 
-func (s *baseSyscall) Field(name string) (*field.Field, error) {
+// Field implements step.Step.Field method.
+func (s *Syscall) Field(name string) (*field.Field, error) {
 	argFieldContainers := []reflect.Value{s.retValueContainer, s.argsContainer, s.bindOnlyArgsContainer}
 	return field.ByName(name, argFieldContainers...)
 }
 
-func (s *baseSyscall) Bind(bindings []*step.Binding) error {
+// Bind implements step.Step.Bind method.
+func (s *Syscall) Bind(bindings []*step.Binding) error {
 	argFieldContainers := []reflect.Value{s.argsContainer, s.bindOnlyArgsContainer}
 	return s.bindMultiple(bindings, argFieldContainers)
 }
 
-func (s *baseSyscall) FieldBindings() []*step.FieldBinding {
+// FieldBindings implements step.Step.FieldBindings method.
+func (s *Syscall) FieldBindings() []*step.FieldBinding {
 	return s.fieldBindings
 }
 
-func (s *baseSyscall) bindMultiple(bindings []*step.Binding, argFieldContainers []reflect.Value) error {
+func (s *Syscall) bindMultiple(bindings []*step.Binding, argFieldContainers []reflect.Value) error {
 	for _, binding := range bindings {
 		if err := bindSingle(binding, argFieldContainers); err != nil {
 			return err

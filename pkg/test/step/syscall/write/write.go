@@ -27,6 +27,7 @@ import (
 )
 
 type writeSyscall struct {
+	*base.Syscall
 	// args represents arguments that can be provided by value or by binding.
 	args struct {
 		FD     int    `field_type:"fd"`
@@ -46,11 +47,20 @@ func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding
 	bindOnlyArgsContainer := reflect.ValueOf(&w.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(w).Elem()
 	defaultedArgs := []string{"len"}
-	return base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, defaultedArgs,
-		w.run, nil)
+	var err error
+	w.Syscall, err = base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer,
+		defaultedArgs)
+	if err != nil {
+		return nil, err
+	}
+	return w, nil
 }
 
-func (w *writeSyscall) run(_ context.Context) error {
+func (w *writeSyscall) Run(_ context.Context) error {
+	if err := w.CheckUnboundArgField(); err != nil {
+		return err
+	}
+
 	length := w.args.Len
 	if length == 0 {
 		length = len(w.args.Buffer)
