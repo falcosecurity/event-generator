@@ -29,6 +29,7 @@ import (
 )
 
 type linkAtSyscall struct {
+	*base.Syscall
 	// args represents arguments that can be provided by value or by binding.
 	args struct {
 		OldPath []byte `field_type:"file_path"`
@@ -54,11 +55,20 @@ func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding
 	bindOnlyArgsContainer := reflect.ValueOf(&l.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(l).Elem()
 	defaultedArgs := []string{"olddirfd", "newdirfd", "flags"}
-	return base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, defaultedArgs,
-		l.run, l.cleanup)
+	var err error
+	l.Syscall, err = base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer,
+		defaultedArgs)
+	if err != nil {
+		return nil, err
+	}
+	return l, nil
 }
 
-func (l *linkAtSyscall) run(_ context.Context) error {
+func (l *linkAtSyscall) Run(_ context.Context) error {
+	if err := l.CheckUnboundArgField(); err != nil {
+		return err
+	}
+
 	if l.savedNewPath != nil {
 		return fmt.Errorf("cannot re-run the step without performing cleanup first")
 	}
@@ -76,7 +86,7 @@ func (l *linkAtSyscall) run(_ context.Context) error {
 	return nil
 }
 
-func (l *linkAtSyscall) cleanup(_ context.Context) error {
+func (l *linkAtSyscall) Cleanup(_ context.Context) error {
 	if l.savedNewPath == nil {
 		return nil
 	}

@@ -27,6 +27,7 @@ import (
 )
 
 type socketSyscall struct {
+	*base.Syscall
 	// args represents arguments that can be provided by value or by binding.
 	args struct {
 		Domain   int `field_type:"socket_domain"`
@@ -44,11 +45,19 @@ func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding
 	argsContainer := reflect.ValueOf(&s.args).Elem()
 	bindOnlyArgsContainer := reflect.ValueOf(&s.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(s).Elem()
-	return base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, nil, s.run,
-		nil)
+	var err error
+	s.Syscall, err = base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, nil)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
-func (s *socketSyscall) run(_ context.Context) error {
+func (s *socketSyscall) Run(_ context.Context) error {
+	if err := s.CheckUnboundArgField(); err != nil {
+		return err
+	}
+
 	fd, err := unix.Socket(s.args.Domain, s.args.Type, s.args.Protocol)
 	if err != nil {
 		return err

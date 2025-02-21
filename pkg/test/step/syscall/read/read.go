@@ -27,6 +27,7 @@ import (
 )
 
 type readSyscall struct {
+	*base.Syscall
 	// args represents arguments that can be provided by value or by binding.
 	args struct {
 		FD     int    `field_type:"fd"`
@@ -44,11 +45,19 @@ func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding
 	argsContainer := reflect.ValueOf(&r.args).Elem()
 	bindOnlyArgsContainer := reflect.ValueOf(&r.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(r).Elem()
-	return base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, nil, r.run,
-		nil)
+	var err error
+	r.Syscall, err = base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, nil)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
-func (r *readSyscall) run(_ context.Context) error {
+func (r *readSyscall) Run(_ context.Context) error {
+	if err := r.CheckUnboundArgField(); err != nil {
+		return err
+	}
+
 	length := r.args.Len
 	buffer := r.args.Buffer
 	if length != 0 && len(buffer) == 0 {

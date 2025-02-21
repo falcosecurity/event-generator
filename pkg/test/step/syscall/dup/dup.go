@@ -27,6 +27,7 @@ import (
 )
 
 type dupSyscall struct {
+	*base.Syscall
 	// args represents arguments that can be provided by value or by binding.
 	args struct {
 		OldFD int `field_type:"fd"`
@@ -42,11 +43,19 @@ func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding
 	argsContainer := reflect.ValueOf(&d.args).Elem()
 	bindOnlyArgsContainer := reflect.ValueOf(&d.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(d).Elem()
-	return base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, nil, d.run,
-		nil)
+	var err error
+	d.Syscall, err = base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, nil)
+	if err != nil {
+		return nil, err
+	}
+	return d, nil
 }
 
-func (d *dupSyscall) run(_ context.Context) error {
+func (d *dupSyscall) Run(_ context.Context) error {
+	if err := d.CheckUnboundArgField(); err != nil {
+		return err
+	}
+
 	fd, err := unix.Dup(d.args.OldFD)
 	if err != nil {
 		return err

@@ -30,6 +30,7 @@ import (
 )
 
 type openSyscall struct {
+	*base.Syscall
 	// args represents arguments that can be provided by value or by binding.
 	args struct {
 		Pathname []byte `field_type:"file_path"`
@@ -49,11 +50,20 @@ func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding
 	bindOnlyArgsContainer := reflect.ValueOf(&o.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(o).Elem()
 	defaultedArgs := []string{"mode"}
-	return base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, defaultedArgs,
-		o.run, nil)
+	var err error
+	o.Syscall, err = base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer,
+		defaultedArgs)
+	if err != nil {
+		return nil, err
+	}
+	return o, nil
 }
 
-func (o *openSyscall) run(_ context.Context) error {
+func (o *openSyscall) Run(_ context.Context) error {
+	if err := o.CheckUnboundArgField(); err != nil {
+		return err
+	}
+
 	//nolint:gosec // System call invocation requires access to the raw pointer.
 	pathnamePtr := unsafe.Pointer(&o.args.Pathname[0])
 	fd, _, err := unix.Syscall(unix.SYS_OPEN, uintptr(pathnamePtr), uintptr(o.args.Flags), uintptr(o.args.Mode))

@@ -27,6 +27,7 @@ import (
 )
 
 type killSyscall struct {
+	*base.Syscall
 	// args represents arguments that can be provided by value or by binding.
 	args struct {
 		Sig unix.Signal `field_type:"signal"`
@@ -44,10 +45,18 @@ func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding
 	argsContainer := reflect.ValueOf(&k.args).Elem()
 	bindOnlyArgsContainer := reflect.ValueOf(&k.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(k).Elem()
-	return base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, nil, k.run,
-		nil)
+	var err error
+	k.Syscall, err = base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, nil)
+	if err != nil {
+		return nil, err
+	}
+	return k, nil
 }
 
-func (k *killSyscall) run(_ context.Context) error {
+func (k *killSyscall) Run(_ context.Context) error {
+	if err := k.CheckUnboundArgField(); err != nil {
+		return err
+	}
+
 	return unix.Kill(k.bindOnlyArgs.PID, k.args.Sig)
 }
