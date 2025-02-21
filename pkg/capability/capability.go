@@ -18,16 +18,36 @@ package capability
 import (
 	"errors"
 	"fmt"
+	"os"
 	"runtime"
 
 	"golang.org/x/sys/unix"
 	"kernel.org/pub/linux/libs/security/libcap/cap"
 )
 
-// Parse the provided capabilities string and returns the parsed capability state. The provided capabilities must be
-// encoded using the syntax specified in cap_from_text(3).
-func Parse(capabilities string) (*cap.Set, error) {
-	return cap.FromText(capabilities)
+// SetFile sets the provided capabilities on the file at the provided path. The provided capabilities must be  encoded
+// using the syntax specified in cap_from_text(3).
+func SetFile(filePath, capabilities string) (err error) {
+	caps, err := cap.FromText(capabilities)
+	if err != nil {
+		return fmt.Errorf("error parsing capabilities: %w", err)
+	}
+
+	file, err := os.Open(filePath) //nolint:gosec // Disable G304
+	if err != nil {
+		return fmt.Errorf("error opening file: %w", err)
+	}
+	defer func() {
+		if e := file.Close(); e != nil {
+			if err == nil {
+				err = fmt.Errorf("error closing file after setting capabilities: %w", e)
+			} else {
+				err = fmt.Errorf("%w; error closing file: %w", err, e)
+			}
+		}
+	}()
+
+	return caps.SetFd(file)
 }
 
 // RunWithSecBitNoRootEnabled runs the provided function with the thread secure bit SECBIT_NOROOT enabled.
