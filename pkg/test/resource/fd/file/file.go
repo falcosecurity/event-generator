@@ -19,11 +19,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 
 	"github.com/go-logr/logr"
 	"golang.org/x/sys/unix"
 
+	"github.com/falcosecurity/event-generator/pkg/osutil"
 	"github.com/falcosecurity/event-generator/pkg/test/field"
 	"github.com/falcosecurity/event-generator/pkg/test/resource"
 )
@@ -35,9 +37,13 @@ type regularFD struct {
 	resourceName string
 	// filePath is the path of the file to open/create.
 	filePath string
-	// created is valid after a successful call to Create and becomes invalid after a call to Destroy. It is true if
+	// firstCreatedDirPath is valid after a successful call to Create and becomes invalid after a call to Destroy. It
+	// contains the path of the first created directory in the directory hierarchy leading to filePath. If no new
+	// directories have been created, it is empty.
+	firstCreatedDirPath string
+	// fileCreated is valid after a successful call to Create and becomes invalid after a call to Destroy. It is true if
 	// Create created a new file, whereas is false if the file exists and Create simply opened it.
-	created bool
+	fileCreated bool
 	// fields defines the information exposed by regularFD for binding.
 	fields struct {
 		// FD is the regular file descriptor. If the resource has not been Create'd yet, or it has been Destroy'ed, FD
@@ -70,27 +76,27 @@ func (r *regularFD) Create(_ context.Context) error {
 		return fmt.Errorf("file %q is already open", r.filePath)
 	}
 
-	created, fd, err := openOrCreateFile(r.filePath)
+	mustCreate := false
+	filePath := r.filePath
+	dirPath := filepath.Dir(filePath)
+
+	// Ensure the directory containing the file exists.
+	firstCreatedDirPath, err := osutil.MkdirAll(dirPath)
 	if err != nil {
-		return fmt.Errorf("error opening/creating file %q: %w", r.filePath, err)
+		return fmt.Errorf("error creating directory hierarchy %q: %w", dirPath, err)
 	}
 
-	r.created = created
-	r.fields.FD = fd
-	return nil
-}
+	mustCreate = firstCreatedDirPath != ""
 
-// openOrCreateFile opens or creates a regular file at the provided path.
-func openOrCreateFile(path string) (created bool, fileFD int, err error) {
-	mustCreate := false
+	if !mustCreate {
+		// Check for file existence.
+		if _, err := os.Stat(filePath); err != nil {
+			if !os.IsNotExist(err) {
+				return fmt.Errorf("error verifying file %q existence: %w", filePath, err)
+			}
 
-	// Check for file existence.
-	if _, err := os.Stat(path); err != nil {
-		if !os.IsNotExist(err) {
-			return false, 0, fmt.Errorf("error verifying file existence: %w", err)
+			mustCreate = true
 		}
-
-		mustCreate = true
 	}
 
 	// Open/Create the file.
@@ -98,12 +104,21 @@ func openOrCreateFile(path string) (created bool, fileFD int, err error) {
 	if mustCreate {
 		flags |= unix.O_CREAT
 	}
-	fd, err := unix.Open(path, flags, 0)
+	fd, err := unix.Open(filePath, flags, 0)
 	if err != nil {
-		return false, 0, fmt.Errorf("error opening the file: %w", err)
+		if firstCreatedDirPath != "" {
+			if err := os.RemoveAll(firstCreatedDirPath); err != nil {
+				r.logger.Error(err, "Error removing created directory hierarchy", "dirHierarchyRootPath",
+					firstCreatedDirPath)
+			}
+		}
+		return fmt.Errorf("error opening file %q: %w", filePath, err)
 	}
 
-	return mustCreate, fd, nil
+	r.firstCreatedDirPath = firstCreatedDirPath
+	r.fileCreated = mustCreate
+	r.fields.FD = fd
+	return nil
 }
 
 // Destroy closes the exposed file descriptor and deletes the underlying file (if it was created by Create).
@@ -116,7 +131,8 @@ func (r *regularFD) Destroy(_ context.Context) error {
 
 	defer func() {
 		r.fields.FD = -1
-		r.created = false
+		r.firstCreatedDirPath = ""
+		r.fileCreated = false
 	}()
 
 	logger := r.logger.WithValues("filePath", filePath)
@@ -126,8 +142,20 @@ func (r *regularFD) Destroy(_ context.Context) error {
 		logger.Error(err, "Error closing file")
 	}
 
-	if !r.created {
+	if !r.fileCreated {
+		// If the file has not been created, then the directory hierarchy has not been created as well, so no need to
+		// delete anything.
 		return nil
+	}
+
+	if firstCreatedDirPath := r.firstCreatedDirPath; firstCreatedDirPath != "" {
+		// Delete the directory as well as any created parent directory.
+		if err := os.RemoveAll(firstCreatedDirPath); err != nil {
+			r.logger.Error(err, "Error removing created directory hierarchy", "dirHierarchyRootPath",
+				firstCreatedDirPath)
+		} else {
+			return nil
+		}
 	}
 
 	// Delete the file.
