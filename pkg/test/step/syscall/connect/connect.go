@@ -27,6 +27,7 @@ import (
 )
 
 type connectSyscall struct {
+	*base.Syscall
 	// args represents arguments that can be provided by value or by binding.
 	args struct {
 		FD      int           `field_type:"fd"`
@@ -43,11 +44,19 @@ func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding
 	argsContainer := reflect.ValueOf(&c.args).Elem()
 	bindOnlyArgsContainer := reflect.ValueOf(&c.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(c).Elem()
-	return base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, nil, c.run,
-		nil)
+	var err error
+	c.Syscall, err = base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, nil)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
-func (c *connectSyscall) run(_ context.Context) error {
+func (c *connectSyscall) Run(_ context.Context) error {
+	if err := c.CheckUnboundArgField(); err != nil {
+		return err
+	}
+
 	if err := unix.Connect(c.args.FD, c.args.Address); err != nil {
 		return err
 	}

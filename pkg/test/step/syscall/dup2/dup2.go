@@ -30,6 +30,7 @@ import (
 )
 
 type dup2Syscall struct {
+	*base.Syscall
 	// args represents arguments that can be provided by value or by binding.
 	args struct {
 		OldFD int `field_type:"fd"`
@@ -47,11 +48,19 @@ func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding
 	argsContainer := reflect.ValueOf(&d.args).Elem()
 	bindOnlyArgsContainer := reflect.ValueOf(&d.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(d).Elem()
-	return base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, nil, d.run,
-		d.cleanup)
+	var err error
+	d.Syscall, err = base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, nil)
+	if err != nil {
+		return nil, err
+	}
+	return d, nil
 }
 
-func (d *dup2Syscall) run(_ context.Context) error {
+func (d *dup2Syscall) Run(_ context.Context) error {
+	if err := d.CheckUnboundArgField(); err != nil {
+		return err
+	}
+
 	if d.savedFD != -1 {
 		return fmt.Errorf("cannot re-run the step without performing cleanup first")
 	}
@@ -74,7 +83,7 @@ func (d *dup2Syscall) run(_ context.Context) error {
 	return nil
 }
 
-func (d *dup2Syscall) cleanup(_ context.Context) error {
+func (d *dup2Syscall) Cleanup(_ context.Context) error {
 	if d.savedFD == -1 {
 		return nil
 	}

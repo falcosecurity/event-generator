@@ -27,6 +27,7 @@ import (
 )
 
 type finitModuleSyscall struct {
+	*base.Syscall
 	// args represents arguments that can be provided by value or by binding.
 	args struct {
 		ParamValues string `field_type:"module_params"`
@@ -48,10 +49,19 @@ func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding
 	bindOnlyArgsContainer := reflect.ValueOf(&f.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(f).Elem()
 	defaultedArgs := []string{"paramvalues", "flags"}
-	return base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, defaultedArgs,
-		f.run, nil)
+	var err error
+	f.Syscall, err = base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer,
+		defaultedArgs)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
 }
 
-func (f *finitModuleSyscall) run(_ context.Context) error {
+func (f *finitModuleSyscall) Run(_ context.Context) error {
+	if err := f.CheckUnboundArgField(); err != nil {
+		return err
+	}
+
 	return unix.FinitModule(f.bindOnlyArgs.FD, f.args.ParamValues, f.args.Flags)
 }

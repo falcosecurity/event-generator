@@ -27,6 +27,7 @@ import (
 )
 
 type sendToSyscall struct {
+	*base.Syscall
 	// args represents arguments that can be provided by value or by binding.
 	args struct {
 		Buf      []byte        `field_type:"buffer"`
@@ -52,11 +53,20 @@ func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding
 	bindOnlyArgsContainer := reflect.ValueOf(&s.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(s).Elem()
 	defaultedArgs := []string{"len"}
-	return base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, defaultedArgs,
-		s.run, nil)
+	var err error
+	s.Syscall, err = base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer,
+		defaultedArgs)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
-func (s *sendToSyscall) run(_ context.Context) error {
+func (s *sendToSyscall) Run(_ context.Context) error {
+	if err := s.CheckUnboundArgField(); err != nil {
+		return err
+	}
+
 	length := s.args.Len
 	if length == 0 {
 		length = len(s.args.Buf)
