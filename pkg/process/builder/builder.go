@@ -31,6 +31,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/falcosecurity/event-generator/pkg/capability"
+	"github.com/falcosecurity/event-generator/pkg/osutil"
 	"github.com/falcosecurity/event-generator/pkg/process"
 	"github.com/falcosecurity/event-generator/pkg/random"
 )
@@ -201,10 +202,10 @@ type osProcess struct {
 	started bool
 	// userCreated is true if the user has been created; false otherwise.
 	userCreated bool
-	// simExePathNonExistingDirSubPath stores the path of the first directory, in the directory path towards the
+	// firstCreatedSimExePathDir stores the path of the first directory, in the directory path leading to the
 	// simulated executable path, that has been created. If no directories have been created, it is empty. If non-empty,
-	// this is the directory that must be deleted upon process resource release.
-	simExePathNonExistingDirSubPath string
+	// this is the directory that must be deleted upon process resources release.
+	firstCreatedSimExePathDir string
 }
 
 // Verify that osProcess implements process.Process interface.
@@ -255,15 +256,16 @@ func (p *osProcess) Start() (err error) {
 
 	// Ensure the directory hierarchy containing the simulated executable file exists.
 	simExePathDir := filepath.Dir(simExePath)
-	simExePathNonExistingDirSubPath, err := mkdirAll(simExePathDir)
+	firstCreatedSimExePathDir, err := osutil.MkdirAll(simExePathDir)
 	if err != nil {
-		return fmt.Errorf("error creating non-existing directories on process executable path %q: %w", simExePath, err)
+		return fmt.Errorf("error creating non-existing directories on process executable directory path %q: %w",
+			simExePathDir, err)
 	}
-	if simExePathNonExistingDirSubPath != "" {
-		p.logger.V(1).Info("Created directory hierarchy aiming to contain process executable", "dirHierarchyRootPath",
-			simExePathNonExistingDirSubPath)
+	if firstCreatedSimExePathDir != "" {
+		p.logger.V(1).Info("Created directory hierarchy leading to process executable", "dirHierarchyRootPath",
+			firstCreatedSimExePathDir)
 	}
-	defer p.removeDirHierarchyIfErr(simExePathNonExistingDirSubPath, &err)
+	defer p.removeDirHierarchyIfErr(firstCreatedSimExePathDir, &err)
 
 	capabilities := p.capabilities
 	changeCapabilities := capabilities != defaultCapabilities
@@ -326,7 +328,7 @@ func (p *osProcess) Start() (err error) {
 
 	p.started = true
 	p.userCreated = userCreated
-	p.simExePathNonExistingDirSubPath = simExePathNonExistingDirSubPath
+	p.firstCreatedSimExePathDir = firstCreatedSimExePathDir
 	return nil
 }
 
@@ -396,81 +398,6 @@ func (p *osProcess) deleteUserIfErr(username string, err *error) { //nolint:gocr
 			p.logger.Error(err, "Error deleting user", "user", username)
 		}
 	}
-}
-
-// mkdirAll creates a directory at the provided path, along with any necessary parents, and returns the first created
-// non-existing directory.
-func mkdirAll(dirPath string) (string, error) {
-	// Optimization: if there is a directory at the specified path, skip all the following operations.
-	exist, err := dirExists(dirPath)
-	if err != nil {
-		return "", fmt.Errorf("error verifying path %q existence: %w", dirPath, err)
-	}
-
-	if exist {
-		return "", nil
-	}
-
-	nonExistingDirSubPath, err := findShortestNonExistingDirSubPath(dirPath)
-	if err != nil {
-		return "", fmt.Errorf("error retrieving non-existing directories on directory path %q: %w", dirPath, err)
-	}
-
-	if err := os.MkdirAll(dirPath, 0o750); err != nil {
-		return "", err
-	}
-
-	return nonExistingDirSubPath, nil
-}
-
-var errNotADir = errors.New("not a directory")
-
-// dirExists returns true if the provided path exists and is a directory path.
-func dirExists(dirPath string) (bool, error) {
-	stat, err := os.Stat(dirPath)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return false, err
-		}
-
-		return false, nil
-	}
-
-	if !stat.IsDir() {
-		return false, errNotADir
-	}
-
-	return true, nil
-}
-
-// findShortestNonExistingDirSubPath returns the shortest non-existing directory sub-path of the provided directory
-// path.
-func findShortestNonExistingDirSubPath(dirPath string) (string, error) {
-	pathSegments := splitPathSegments(dirPath)
-	path := ""
-	for _, pathSegment := range pathSegments {
-		path = filepath.Join(path, pathSegment)
-		exist, err := dirExists(path)
-		if err != nil {
-			return "", fmt.Errorf("error veryfing directory path %q existence: %w", path, err)
-		}
-		if !exist {
-			return path, nil
-		}
-	}
-	return "", nil
-}
-
-// splitPathSegments splits the provided path into multiple segments.
-func splitPathSegments(path string) []string {
-	dir, last := filepath.Split(path)
-	if dir == "" {
-		return []string{last}
-	}
-	if last == "" {
-		return []string{dir}
-	}
-	return append(splitPathSegments(filepath.Clean(dir)), last)
 }
 
 // removeDirHierarchyIfErr removes the directory hierarchy starting at the provided directory path if the provided error
@@ -606,7 +533,7 @@ func (p *osProcess) releaseResources() {
 		}
 	}
 
-	if dirPath := p.simExePathNonExistingDirSubPath; dirPath != "" {
+	if dirPath := p.firstCreatedSimExePathDir; dirPath != "" {
 		logger := p.logger.WithValues("dirHierarchyRootPath", dirPath)
 		if err := os.RemoveAll(dirPath); err != nil {
 			logger.Error(err, "Error deleting directory hierarchy containing process executable")
