@@ -28,8 +28,8 @@ import (
 func New(suiteEnvKey, envKeysPrefix string) *cobra.Command {
 	c := &cobra.Command{
 		Use:               "suite",
-		Short:             "Manage everything related to test suites",
-		Long:              "Manage everything related to test suites",
+		Short:             "Manage test suites described via YAML files",
+		Long:              "Provide sub-commands to work with test suites described via YAML files",
 		DisableAutoGenTag: true,
 	}
 
