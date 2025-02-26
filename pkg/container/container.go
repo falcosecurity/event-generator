@@ -25,8 +25,6 @@ import (
 type Builder interface {
 	// SetLogger sets the container interface logger.
 	SetLogger(logger logr.Logger)
-	// SetNamespaceName sets the container namespace.
-	SetNamespaceName(name string)
 	// SetImageName sets the name used to tag the base image. The new tagged image is the one used to spawn the
 	// container in place of the base one.
 	SetImageName(name string)

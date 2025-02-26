@@ -80,8 +80,8 @@ type Config struct {
 	// TestsTimeout is the maximal duration of the tests. If running tests lasts more than TestsTimeout, the execution
 	// of all pending tasks is canceled.
 	TestsTimeout time.Duration
-	// ContainerRuntimeUnixSocketPath is the unix socket path of the local container runtime.
-	ContainerRuntimeUnixSocketPath string
+	// ContainerRuntimeUnixSocketURL is the unix socket URL of the local container runtime.
+	ContainerRuntimeUnixSocketURL string
 	// ContainerBaseImageName is the event-generator base image to generate new containers.
 	ContainerBaseImageName string
 	// ContainerImagePullPolicy is container image pull policy.
@@ -141,8 +141,8 @@ func (c *Config) InitCommandFlags(cmd *cobra.Command) {
 			"all pending tasks is canceled")
 
 	// Container runtime flags.
-	flags.StringVar(&c.ContainerRuntimeUnixSocketPath, "container-runtime-unix-socket",
-		"/run/containerd/containerd.sock", "The unix socket path of the local container runtime")
+	flags.StringVar(&c.ContainerRuntimeUnixSocketURL, "container-runtime-unix-socket",
+		"unix:///run/docker.sock", "The unix socket path of the local container runtime")
 	flags.StringVar(&c.ContainerBaseImageName, "container-base-image",
 		"docker.io/falcosecurity/event-generator:latest", "The event-generator base image to generate new containers")
 	flags.Var(enumflag.New(&c.ContainerImagePullPolicy, "container-image-pull-policy", containerImagePullPolicies,

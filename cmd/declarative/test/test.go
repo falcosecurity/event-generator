@@ -478,7 +478,7 @@ func (cw *CommandWrapper) createRunnerBuilder() (runner.Builder, error) {
 	runnerProcessBuilder := processbuilder.New()
 
 	runnerContainerBuilderOptions := []containerbuilder.Option{
-		containerbuilder.WithUnixSocketPath(cw.ContainerRuntimeUnixSocketPath),
+		containerbuilder.WithUnixSocketURL(cw.ContainerRuntimeUnixSocketURL),
 		containerbuilder.WithBaseImageName(cw.ContainerBaseImageName),
 		containerbuilder.WithBaseImagePullPolicy(cw.ContainerImagePullPolicy),
 	}

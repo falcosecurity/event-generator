@@ -17,14 +17,17 @@ package builder
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 
-	"github.com/containerd/containerd"
-	"github.com/containerd/containerd/cio"
-	"github.com/containerd/containerd/errdefs"
-	"github.com/containerd/containerd/images"
-	"github.com/containerd/containerd/namespaces"
-	"github.com/containerd/containerd/oci"
+	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
+	dockerimage "github.com/docker/docker/api/types/image"
+	dockerclient "github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/go-logr/logr"
 
 	"github.com/falcosecurity/event-generator/pkg/container"
@@ -32,7 +35,7 @@ import (
 
 // config stores the container builder underlying configuration.
 type config struct {
-	unixSocketPath      string
+	unixSocketURL       string
 	baseImageName       string
 	baseImagePullPolicy ImagePullPolicy
 }
@@ -68,10 +71,11 @@ func newFuncOption(f func(*config) error) *funcOption {
 	return &funcOption{f: f}
 }
 
-// WithUnixSocketPath allows to specify the unix socket path of the local container runtime server.
-func WithUnixSocketPath(unixSocketPath string) Option {
+// WithUnixSocketURL allows to specify the unix socket URL of the local container runtime server.
+// E.g.: unix:///run/docker.sock.
+func WithUnixSocketURL(unixSocketURL string) Option {
 	return newFuncOption(func(c *config) error {
-		c.unixSocketPath = unixSocketPath
+		c.unixSocketURL = unixSocketURL
 		return nil
 	})
 }
@@ -93,12 +97,12 @@ func WithBaseImagePullPolicy(policy ImagePullPolicy) Option {
 }
 
 var defaultConfig = &config{
-	unixSocketPath:      "/run/containerd/containerd.sock",
+	unixSocketURL:       "unix:///run/docker.sock",
 	baseImageName:       "docker.io/falcosecurity/event-generator:latest",
 	baseImagePullPolicy: ImagePullPolicyAlways,
 }
 
-// builder is an implementation of container.Builder leveraging containerd.
+// builder is an implementation of container.Builder leveraging docker.
 type builder struct {
 	config
 	logger        logr.Logger
@@ -112,7 +116,7 @@ type builder struct {
 // Verify that builder implements container.Builder interface.
 var _ container.Builder = (*builder)(nil)
 
-// New creates a new containerd container builder.
+// New creates a new docker container builder.
 func New(options ...Option) (container.Builder, error) {
 	b := &builder{config: *defaultConfig}
 	for _, opt := range options {
@@ -125,10 +129,6 @@ func New(options ...Option) (container.Builder, error) {
 
 func (b *builder) SetLogger(logger logr.Logger) {
 	b.logger = logger
-}
-
-func (b *builder) SetNamespaceName(name string) {
-	b.namespaceName = name
 }
 
 func (b *builder) SetImageName(name string) {
@@ -148,7 +148,6 @@ func (b *builder) SetEntrypoint(entrypoint []string) {
 }
 
 const (
-	defaultNamespaceName = "event-generator"
 	defaultContainerName = "event-generator"
 )
 
@@ -157,14 +156,6 @@ var (
 )
 
 func (b *builder) Build() container.Container {
-	// If the namespace is not provided, default it.
-	var namespaceName string
-	if b.namespaceName != "" {
-		namespaceName = b.namespaceName
-	} else {
-		namespaceName = defaultNamespaceName
-	}
-
 	baseImageName := b.baseImageName
 
 	// If the image name is not provided, default it to the base image name.
@@ -191,10 +182,9 @@ func (b *builder) Build() container.Container {
 		entrypoint = defaultEntrypoint
 	}
 
-	cont := &containerdContainer{
+	cont := &dockerContainer{
 		logger:              b.logger,
-		unixSocketPath:      b.unixSocketPath,
-		namespaceName:       namespaceName,
+		unixSocketURL:       b.unixSocketURL,
 		baseImageName:       baseImageName,
 		baseImagePullPolicy: b.baseImagePullPolicy,
 		imageName:           imageName,
@@ -205,11 +195,10 @@ func (b *builder) Build() container.Container {
 	return cont
 }
 
-// containerdContainer is an implementation of a containerd container.Container.
-type containerdContainer struct {
+// dockerContainer is an implementation of a docker container.Container.
+type dockerContainer struct {
 	logger              logr.Logger
-	unixSocketPath      string
-	namespaceName       string
+	unixSocketURL       string
 	baseImageName       string
 	baseImagePullPolicy ImagePullPolicy
 	imageName           string
@@ -219,15 +208,19 @@ type containerdContainer struct {
 
 	// started is true if the container has been started; false otherwise.
 	started bool
-	// client is the client used to interact with the containerd runtime.
-	client *containerd.Client
-	// createdImage is the image created if imageName is different from baseImageName. If they are equal, createdImage
-	// is nil.
-	createdImage containerd.Image
-	// container is the containerd container.
-	container containerd.Container
-	// task is the task associated with the container.
-	task containerd.Task
+	// client is the client used to interact with the docker runtime.
+	client *dockerclient.Client
+	// containerID is the ID of the created docker container.
+	containerID string
+	// baseImageTagged is true if the base image has been tagged with the value specified in imageName; false otherwise.
+	baseImageTagged bool
+	// containerAttachOpHijackedResponse is the response obtained while performing the container attach operation. This
+	// operation is needed in order to perform hijacking stdout/stderr container streams, which in turn are supposed to
+	// be copied to the current process corresponding streams.
+	containerAttachOpHijackedResponse *types.HijackedResponse
+	// streamsCopyFinishedCh is a channel that is closed when the corresponding goroutine finishes to copy the container
+	// stdout/stderr streams to the current process corresponding streams.
+	streamsCopyFinishedCh chan struct{}
 }
 
 var (
@@ -235,102 +228,103 @@ var (
 	errContainerNotStarted     = fmt.Errorf("container not started")
 )
 
-func (c *containerdContainer) Start(ctx context.Context) (err error) {
+func (c *dockerContainer) Start(ctx context.Context) (err error) {
 	if c.started {
 		return errContainerAlreadyStarted
 	}
 
 	defer func() {
 		if err != nil {
-			c.teardown(ctx)
+			c.teardown(ctx, true)
 		}
 	}()
 
 	logger := c.logger
-	namespace := c.namespaceName
 
-	// Create containerd client.
-	client, err := containerd.New(c.unixSocketPath, containerd.WithDefaultNamespace(namespace))
+	// Create docker client.
+	client, err := dockerclient.NewClientWithOpts(dockerclient.WithHost(c.unixSocketURL),
+		dockerclient.WithAPIVersionNegotiation())
 	if err != nil {
-		return fmt.Errorf("error client containerd client: %w", err)
+		return fmt.Errorf("error client docker client: %w", err)
 	}
 	c.client = client
 
-	// Set namespace into context to default it into subsequent requests to client.
-	ctx = namespaces.WithNamespace(ctx, namespace)
-
 	// Retrieve base image.
 	baseImageName := c.baseImageName
-	image, err := getImage(ctx, client, baseImageName, c.baseImagePullPolicy)
-	if err != nil {
-		return fmt.Errorf("error getting image %q: %w", baseImageName, err)
+	if err := pullImage(ctx, client, baseImageName, c.baseImagePullPolicy); err != nil {
+		return fmt.Errorf("error pulling base image %q: %w", baseImageName, err)
 	}
-	logger.V(1).Info("Retrieved base image", "imageName", baseImageName)
+	logger.V(1).Info("Pulled base image", "imageName", baseImageName)
 
 	imageName := c.imageName
-	// If the base image name is different from the required name for the image that is going to be used for the
-	// container, create a new image with the required name from the base image.
+	// If the base image name is different from the required image name, tag the base image using the new name.
 	if imageName != baseImageName {
-		metadata := image.Metadata()
-		metadata.Name = imageName
-		imageService := client.ImageService()
-		var createdImage images.Image
-		createdImage, err = imageService.Create(ctx, metadata)
-		if err != nil {
+		if err := client.ImageTag(ctx, baseImageName, imageName); err != nil {
 			return fmt.Errorf("error tagging image %q as %q: %w", baseImageName, imageName, err)
 		}
+		c.baseImageTagged = true
 		logger.V(1).Info("Tagged image", "baseImageName", baseImageName, "imageName", imageName)
-
-		// Set image to the new created image.
-		image = containerd.NewImage(client, createdImage)
-		c.createdImage = image
 	}
 
 	// Create the container.
-	cont, err := c.createContainer(ctx, client, image)
+	containerID, err := c.createContainer(ctx, client, imageName)
 	if err != nil {
 		return fmt.Errorf("error creating container: %w", err)
 	}
-	c.container = cont
-	logger.V(1).Info("Created container", "containerName", c.containerName)
+	c.containerID = containerID
+	logger = logger.WithValues("containerID", containerID, "containerName", c.containerName)
+	logger.V(1).Info("Created container")
 
-	// Create a new task for the container.
-	task, err := cont.NewTask(ctx, cio.NewCreator(cio.WithStdio), containerd.WithRuntimePath("io.containerd.runc.v1"))
+	// Set up container attach options
+	attachOptions := dockercontainer.AttachOptions{Stream: true, Stdout: true, Stderr: true}
+	hijackedResponse, err := client.ContainerAttach(ctx, containerID, attachOptions)
 	if err != nil {
-		return fmt.Errorf("error creating new task: %w", err)
+		return fmt.Errorf("error attaching to container: %w", err)
 	}
-	c.task = task
-	logger.V(1).Info("Created task")
+	c.containerAttachOpHijackedResponse = &hijackedResponse
+	logger.V(1).Info("Attached container to read stdout/stderr streams")
 
-	if err := task.Start(ctx); err != nil {
-		return fmt.Errorf("error starting task: %w", err)
+	// Start the container.
+	if err := client.ContainerStart(ctx, containerID, dockercontainer.StartOptions{}); err != nil {
+		hijackedResponse.Close()
+		return fmt.Errorf("error starting container: %w", err)
 	}
+	logger.V(1).Info("Started container")
+
+	c.streamsCopyFinishedCh = make(chan struct{})
+	go func(logger logr.Logger, hijackedResponse *types.HijackedResponse) {
+		defer close(c.streamsCopyFinishedCh)
+		if _, err := stdcopy.StdCopy(os.Stdout, os.Stderr, hijackedResponse.Reader); err != nil {
+			logger.Error(err, "Error copying container stdout/stderr streams")
+		}
+	}(logger, &hijackedResponse)
 
 	c.started = true
 	return nil
 }
 
-// createContainer creates the container using the provided image and containerd client, configuring it as specified in
-// the underlying configuration.
-func (c *containerdContainer) createContainer(ctx context.Context, client *containerd.Client,
-	image containerd.Image) (containerd.Container, error) {
-	specOpts := []oci.SpecOpts{
-		oci.WithPrivileged,
-		oci.WithEnv(c.env),
+// createContainer creates the container using the image associated with the provided name and the provided docker
+// client, configuring it as specified in the underlying configuration. It returns the ID of the created container.
+func (c *dockerContainer) createContainer(ctx context.Context, client *dockerclient.Client, imageName string) (string,
+	error) {
+	containerConfig := &dockercontainer.Config{
+		AttachStdout: true,
+		AttachStderr: true,
+		Env:          c.env,
+		Image:        imageName,
+		Entrypoint:   c.entrypoint,
 	}
-	if entrypoint := c.entrypoint; entrypoint != nil {
-		specOpts = append(specOpts, oci.WithProcessArgs(entrypoint...))
+	hostConfig := &dockercontainer.HostConfig{AutoRemove: true, Privileged: true}
+	response, err := client.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, c.containerName)
+	if err != nil {
+		return "", err
 	}
-	containerOptions := []containerd.NewContainerOpts{
-		containerd.WithImage(image),
-		containerd.WithNewSnapshot(fmt.Sprintf("%s-rootfs", image.Name()), image),
-		containerd.WithNewSpec(specOpts...),
-	}
-	return client.NewContainer(ctx, c.containerName, containerOptions...)
+
+	return response.ID, nil
 }
 
 // teardown reverts all operations performed during Start execution.
-func (c *containerdContainer) teardown(ctx context.Context) {
+func (c *dockerContainer) teardown(ctx context.Context, mustStopContainer bool) {
 	defer func() {
 		c.started = false
 	}()
@@ -343,86 +337,155 @@ func (c *containerdContainer) teardown(ctx context.Context) {
 
 	logger := c.logger
 
-	if task := c.task; task != nil {
-		if _, err := task.Delete(ctx); err != nil {
-			logger.Error(err, "Error deleting container task")
-		} else {
-			logger.V(1).Info("Deleted container task")
-		}
-		c.task = nil
+	// Close the response hijacking stdout/stderr container streams which were supposed to be copied to the current
+	// process corresponding streams.
+	if hijackedResponse := c.containerAttachOpHijackedResponse; hijackedResponse != nil {
+		hijackedResponse.Close()
+		hijackedResponse = nil
 	}
 
-	if cont := c.container; cont != nil {
-		logger := logger.WithValues("containerName", cont.ID())
-		if err := cont.Delete(ctx, containerd.WithSnapshotCleanup); err != nil {
-			logger.Error(err, "Error deleting container")
-		} else {
-			logger.V(1).Info("Deleted container")
-		}
-		c.container = nil
+	// Ensure goroutine finished to copy stdout/stderr container streams.
+	if c.streamsCopyFinishedCh != nil {
+		<-c.streamsCopyFinishedCh
+		c.streamsCopyFinishedCh = nil
 	}
 
-	if createdImage := c.createdImage; createdImage != nil {
-		imageService := client.ImageService()
-		imageName := createdImage.Name()
-		logger := logger.WithValues("imageName", imageName)
-		if err := imageService.Delete(ctx, imageName); err != nil {
-			logger.Error(err, "Error deleting image")
+	if containerID := c.containerID; containerID != "" && mustStopContainer {
+		logger := logger.WithValues("containerID", containerID, "containerName", c.containerName)
+		if err := client.ContainerStop(ctx, containerID, dockercontainer.StopOptions{}); err != nil {
+			logger.Error(err, "Error stopping container")
 		} else {
-			logger.V(1).Info("Deleted image")
+			logger.V(1).Info("Stopped container")
 		}
-		c.createdImage = nil
+		c.containerID = ""
+	}
+
+	// Notice: no need to remove container as docker automatically removes it when it exists.
+
+	if c.baseImageTagged {
+		imageTag := c.imageName
+		logger := logger.WithValues("imageTag", imageTag)
+		if _, err := client.ImageRemove(ctx, imageTag, dockerimage.RemoveOptions{}); err != nil {
+			logger.Error(err, "Error removing base image tag")
+		} else {
+			logger.V(1).Info("Removed base image tag")
+		}
+		c.baseImageTagged = false
 	}
 
 	if err := client.Close(); err != nil {
-		logger.Error(err, "Error closing containerd client")
+		logger.Error(err, "Error closing docker client")
 	} else {
-		logger.V(1).Info("Closed containerd client")
+		logger.V(1).Info("Closed docker client")
 	}
 	c.client = nil
 }
 
-// getImage returns the image with the provided image name, leveraging the provided containerd client and using the
-// provided image pull policy.
-func getImage(ctx context.Context, client *containerd.Client, imageName string,
-	policy ImagePullPolicy) (containerd.Image, error) {
+var errImageNotFoundLocally = fmt.Errorf("image not found locally")
+
+// pullImage pulls the image with the provided image name, leveraging the provided docker client and using the provided
+// image pull policy.
+func pullImage(ctx context.Context, client *dockerclient.Client, imageName string, policy ImagePullPolicy) error {
 	switch policy {
 	case ImagePullPolicyAlways:
-		return client.Pull(ctx, imageName)
-	case ImagePullPolicyNever:
-		return client.GetImage(ctx, imageName)
-	case ImagePullPolicyIfNotPresent:
-		image, err := client.GetImage(ctx, imageName)
-		if errdefs.IsNotFound(err) {
-			return client.Pull(ctx, imageName)
+		if err := pullRemoteImage(ctx, client, imageName); err != nil {
+			return fmt.Errorf("error pulling from remote: %w", err)
 		}
-		return image, err
+		return nil
+	case ImagePullPolicyNever:
+		// First try locally.
+		isAvailable, err := isImageLocallyAvailable(ctx, client, imageName)
+		if err != nil {
+			return fmt.Errorf("error verifying if the image is available locally: %w", err)
+		}
+		if !isAvailable {
+			return errImageNotFoundLocally
+		}
+		return nil
+	case ImagePullPolicyIfNotPresent:
+		// First try locally.
+		isAvailable, err := isImageLocallyAvailable(ctx, client, imageName)
+		if err != nil {
+			return fmt.Errorf("error verifying if the image is available locally: %w", err)
+		}
+
+		if isAvailable {
+			return nil
+		}
+
+		// Otherwise, try to pull it from remote.
+		if err := pullRemoteImage(ctx, client, imageName); err != nil {
+			return fmt.Errorf("error pulling from remote: %w", err)
+		}
+		return nil
 	default:
 		panic(fmt.Sprintf("unknown image pull policy %q", policy))
 	}
 }
 
-func (c *containerdContainer) Wait(ctx context.Context) error {
+// pullRemoteImage requests docker to pull the image with the provided image name from the remote registry, leveraging
+// the provided docker client.
+func pullRemoteImage(ctx context.Context, client *dockerclient.Client, imageName string) error {
+	reader, err := client.ImagePull(ctx, imageName, dockerimage.PullOptions{})
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	// Parse the response to ensure it doesn't contain any error.
+	decoder := json.NewDecoder(reader)
+	for {
+		var message map[string]any
+		if err := decoder.Decode(&message); err == io.EOF {
+			return nil
+		} else if err != nil {
+			return fmt.Errorf("error decoding image pull response: %w", err)
+		}
+
+		if errMsg, ok := message["error"]; ok {
+			return fmt.Errorf("error in image pull response: %s", errMsg)
+		}
+	}
+}
+
+// isImageLocallyAvailable returns, leveraging the provided docker client, a boolean indicating if an image with the
+// provided name is locally available.
+func isImageLocallyAvailable(ctx context.Context, client *dockerclient.Client, imageName string) (bool, error) {
+	filterArgs := filters.NewArgs()
+	filterArgs.Add("reference", imageName)
+	images, err := client.ImageList(ctx, dockerimage.ListOptions{Filters: filterArgs})
+	if err != nil {
+		return false, fmt.Errorf("error retrieving image list: %w", err)
+	}
+
+	return len(images) != 0, nil
+}
+
+func (c *dockerContainer) Wait(ctx context.Context) error {
 	if !c.started {
 		return errContainerNotStarted
 	}
 
-	defer c.teardown(ctx)
+	defer c.teardown(ctx, false)
 
-	// Wait for the task to exit and get the exit status.
-	exitStatusCh, err := c.task.Wait(ctx)
-	if err != nil {
-		return fmt.Errorf("error waiting for task: %w", err)
+	// Wait for the container to exit and get the exit status.
+	responseCh, errCh := c.client.ContainerWait(ctx, c.containerID, dockercontainer.WaitConditionNotRunning)
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-errCh: // The returned error is always different from nil
+		return fmt.Errorf("error waiting for container: %w", err)
+	case response := <-responseCh:
+		if exitErr := response.Error; exitErr != nil {
+			return fmt.Errorf("error waiting for process: %s", exitErr.Message)
+		}
+
+		// The container is automatically removed by docker: just let the user know it.
+		defer c.logger.V(1).Info("Removed container", "containerID", c.containerID)
+		if exitCode := response.StatusCode; exitCode != 0 {
+			return fmt.Errorf("container exited with non-zero exit code (%d)", exitCode)
+		}
+
+		return nil
 	}
-
-	exitStatus := <-exitStatusCh
-	if err := exitStatus.Error(); err != nil {
-		return fmt.Errorf("error waiting for process: %w", err)
-	}
-
-	if exitCode := exitStatus.ExitCode(); exitCode != 0 {
-		return fmt.Errorf("container exited with non-zero exit code (%d)", exitCode)
-	}
-
-	return nil
 }
