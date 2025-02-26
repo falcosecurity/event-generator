@@ -20,8 +20,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/falcosecurity/event-generator/cmd/declarative/config"
-	"github.com/falcosecurity/event-generator/cmd/declarative/test"
+	"github.com/falcosecurity/event-generator/cmd/suite/config"
+	"github.com/falcosecurity/event-generator/cmd/suite/test"
 )
 
 const (

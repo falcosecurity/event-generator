@@ -43,11 +43,11 @@ const (
 	TimeoutFlagName = "timeout"
 )
 
-// Config represents the configuration shared among declarative commands. Among other shared settings, it also stores
-// the values of the shared flags.
+// Config represents the configuration shared among `suite` commands. Among other shared settings, it also stores the
+// values of the shared flags.
 type Config struct {
-	EnvKeysPrefix     string
-	DeclarativeEnvKey string
+	EnvKeysPrefix string
+	SuiteEnvKey   string
 	// DescriptionFileEnvKey is the environment variable key corresponding to DescriptionFileFlagName.
 	DescriptionFileEnvKey string
 	// DescriptionDirEnvKey is the environment variable key corresponding to DescriptionDirFlagName.
@@ -103,9 +103,9 @@ var containerImagePullPolicies = map[builder.ImagePullPolicy][]string{
 }
 
 // New creates a new config.
-func New(declarativeEnvKey, envKeysPrefix string) *Config {
+func New(suiteEnvKey, envKeysPrefix string) *Config {
 	commonConf := &Config{
-		DeclarativeEnvKey:     declarativeEnvKey,
+		SuiteEnvKey:           suiteEnvKey,
 		EnvKeysPrefix:         envKeysPrefix,
 		DescriptionFileEnvKey: envKeyFromFlagName(envKeysPrefix, DescriptionFileFlagName),
 		DescriptionDirEnvKey:  envKeyFromFlagName(envKeysPrefix, DescriptionDirFlagName),

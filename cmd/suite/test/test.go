@@ -31,7 +31,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/thediveo/enumflag"
 
-	"github.com/falcosecurity/event-generator/cmd/declarative/config"
+	"github.com/falcosecurity/event-generator/cmd/suite/config"
 	"github.com/falcosecurity/event-generator/pkg/alert/retriever/grpcretriever"
 	"github.com/falcosecurity/event-generator/pkg/baggage"
 	containerbuilder "github.com/falcosecurity/event-generator/pkg/container/builder"
@@ -585,7 +585,7 @@ func sendTestReport(ctx context.Context, reportCh chan<- *tester.Report, report 
 func (cw *CommandWrapper) buildRunnerEnviron(cmd *cobra.Command) []string {
 	environ := os.Environ()
 	environ = cw.appendFlags(environ, cmd.PersistentFlags(), cmd.Flags())
-	environ = append(environ, fmt.Sprintf("%s=1", cw.DeclarativeEnvKey))
+	environ = append(environ, fmt.Sprintf("%s=1", cw.SuiteEnvKey))
 	return environ
 }
 

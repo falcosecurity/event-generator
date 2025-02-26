@@ -13,5 +13,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package declarative provides the implementation of the "declarative" command.
-package declarative
+// Package suite provides the implementation of the "suite" command.
+package suite

@@ -41,9 +41,9 @@ documentation for properties enabled only by the presence of that value.
 Enum requirements are evaluated in their appearing order, so order matters.
 The following examples demonstrate how to specify property path expressions:
 
-event-generator declarative explain tests.context.processes
+event-generator suite explain tests.context.processes
 
-event-generator declarative explain tests.steps{type=syscall}{syscall=openat2}.args.how
+event-generator suite explain tests.steps{type=syscall}{syscall=openat2}.args.how
 
 Enum requirements can be provided also by using the --with flag (see --with flag documentation for the syntax). It is
 not possible to specify enum requirements both with <propertyPathExpr> and the --with flag.`
