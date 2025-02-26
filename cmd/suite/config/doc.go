@@ -13,6 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package config provides the implementation of Config, the configuration shared among declarative commands. Among
-// other shared settings, it also stores the values of the shared flags.
+// Package config provides the implementation of Config, the configuration shared among suite commands. Among other
+// shared settings, it also stores the values of the shared flags.
 package config

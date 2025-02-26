@@ -13,27 +13,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package declarative
+package suite
 
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/falcosecurity/event-generator/cmd/declarative/config"
-	"github.com/falcosecurity/event-generator/cmd/declarative/explain"
-	"github.com/falcosecurity/event-generator/cmd/declarative/run"
-	"github.com/falcosecurity/event-generator/cmd/declarative/test"
+	"github.com/falcosecurity/event-generator/cmd/suite/config"
+	"github.com/falcosecurity/event-generator/cmd/suite/explain"
+	"github.com/falcosecurity/event-generator/cmd/suite/run"
+	"github.com/falcosecurity/event-generator/cmd/suite/test"
 )
 
-// New creates a new declarative command.
-func New(declarativeEnvKey, envKeysPrefix string) *cobra.Command {
+// New creates a new suite command.
+func New(suiteEnvKey, envKeysPrefix string) *cobra.Command {
 	c := &cobra.Command{
-		Use:               "declarative",
-		Short:             "Run test(s) specified via a YAML description",
-		Long:              "Run test(s) specified via a YAML description",
+		Use:               "suite",
+		Short:             "Manage everything related to test suites",
+		Long:              "Manage everything related to test suites",
 		DisableAutoGenTag: true,
 	}
 
-	commonConf := config.New(declarativeEnvKey, envKeysPrefix)
+	commonConf := config.New(suiteEnvKey, envKeysPrefix)
 
 	runCmd := run.New(commonConf)
 	testCmd := test.New(commonConf, false).Command

@@ -31,7 +31,7 @@ import (
 	// Initialize all k8s client auth plugins.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	"github.com/falcosecurity/event-generator/cmd/declarative"
+	"github.com/falcosecurity/event-generator/cmd/suite"
 	// register event collections.
 	_ "github.com/falcosecurity/event-generator/events/k8saudit"
 	_ "github.com/falcosecurity/event-generator/events/syscall"
@@ -49,9 +49,9 @@ func init() {
 const (
 	// envKeysPrefix is used as environment variable prefix configuration for viper.
 	envKeysPrefix = "falco_event_generator"
-	// declarativeEnvKey is used to distinguish between command-line invocation of the "declarative run" subcommand and
-	// the subcommand invoking itself during process chain creation.
-	declarativeEnvKey = "DECLARATIVE"
+	// suiteEnvKey is used to distinguish between command-line invocation of the "suite run" subcommand and the
+	// subcommand invoking itself during process chain creation.
+	suiteEnvKey = "SUITE"
 )
 
 // New instantiates the root command.
@@ -108,7 +108,7 @@ func New(configOptions *ConfigOptions) *cobra.Command {
 	rootCmd.AddCommand(NewBench())
 	rootCmd.AddCommand(NewTest())
 	rootCmd.AddCommand(NewList())
-	rootCmd.AddCommand(declarative.New(declarativeEnvKey, envKeysPrefix))
+	rootCmd.AddCommand(suite.New(suiteEnvKey, envKeysPrefix))
 
 	return rootCmd
 }
@@ -117,9 +117,9 @@ func New(configOptions *ConfigOptions) *cobra.Command {
 func Execute() {
 	ctx := WithSignals(context.Background())
 	rootCmd := New(nil)
-	// declarativeEnvKey is not mapped on viper and cobra on purpose.
-	if v := os.Getenv(declarativeEnvKey); v != "" {
-		rootCmd.SetArgs([]string{"declarative", "run"})
+	// suiteEnvKey is not mapped on viper and cobra on purpose.
+	if v := os.Getenv(suiteEnvKey); v != "" {
+		rootCmd.SetArgs([]string{"suite", "run"})
 	}
 
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
