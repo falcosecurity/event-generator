@@ -70,6 +70,7 @@ func (w *writeSyscall) Run(_ context.Context) error {
 		return err
 	}
 
+	w.args.Len = length
 	w.Ret = writtenBytes
 	return nil
 }

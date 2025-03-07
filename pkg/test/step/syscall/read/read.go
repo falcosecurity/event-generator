@@ -71,6 +71,8 @@ func (r *readSyscall) Run(_ context.Context) error {
 		return err
 	}
 
+	r.args.Len = length
+	r.args.Buffer = buffer
 	r.Ret = readBytes
 	return nil
 }
