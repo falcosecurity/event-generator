@@ -51,7 +51,7 @@ func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding
 	defaultedArgs := []string{"paramvalues", "flags"}
 	var err error
 	f.Syscall, err = base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer,
-		defaultedArgs)
+		base.WithDefaultedArgs(defaultedArgs))
 	if err != nil {
 		return nil, err
 	}

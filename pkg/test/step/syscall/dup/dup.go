@@ -44,7 +44,7 @@ func New(name string, rawArgs map[string]any, fieldBindings []*step.FieldBinding
 	bindOnlyArgsContainer := reflect.ValueOf(&d.bindOnlyArgs).Elem()
 	retValContainer := reflect.ValueOf(d).Elem()
 	var err error
-	d.Syscall, err = base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer, nil)
+	d.Syscall, err = base.New(name, rawArgs, fieldBindings, argsContainer, bindOnlyArgsContainer, retValContainer)
 	if err != nil {
 		return nil, err
 	}

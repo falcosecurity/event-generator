@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 
 	"github.com/falcosecurity/event-generator/pkg/test/field"
 	"github.com/falcosecurity/event-generator/pkg/test/step"
@@ -48,20 +49,76 @@ type Syscall struct {
 	fieldBindings []*step.FieldBinding
 }
 
-var errOpenModeMustBePositive = fmt.Errorf("open mode must be a positive integer")
+type config struct {
+	defaultedArgs       []string
+	exactlyOneArgsLists [][]string
+}
+
+// Option for configuring a Syscall.
+type Option interface {
+	apply(*config) error
+}
+
+// funcOption is an implementation of Option storing a function that implements the requested apply method behavior.
+type funcOption struct {
+	f func(*config) error
+}
+
+func (cfo *funcOption) apply(c *config) error {
+	return cfo.f(c)
+}
+
+// newFuncOption is a helper function to create a new funcOption from a function.
+func newFuncOption(f func(*config) error) *funcOption {
+	return &funcOption{f: f}
+}
+
+// WithDefaultedArgs allows to specify the list of defaulted arguments.
+func WithDefaultedArgs(defaultedArgs []string) Option {
+	return newFuncOption(func(c *config) error {
+		c.defaultedArgs = defaultedArgs
+		return nil
+	})
+}
+
+// WithExactlyOneArgs puts a constraint on the provided arguments, mandating the user to specify a value for exactly one
+// of them. This option can be provided multiple times to enforce exactly-one argument constraints upon different
+// arguments set.
+func WithExactlyOneArgs(exactlyOneArgs []string) Option {
+	return newFuncOption(func(c *config) error {
+		c.exactlyOneArgsLists = append(c.exactlyOneArgsLists, exactlyOneArgs)
+		return nil
+	})
+}
 
 // New creates a new system call test step common implementation layer.
 func New(stepName string, rawArgs map[string]any, fieldBindings []*step.FieldBinding, argsContainer,
-	bindOnlyArgsContainer, retValueContainer reflect.Value, defaultedArgs []string) (*Syscall, error) {
+	bindOnlyArgsContainer, retValueContainer reflect.Value, options ...Option) (*Syscall, error) {
 	if err := checkContainersInvariants(argsContainer, bindOnlyArgsContainer, retValueContainer); err != nil {
 		return nil, err
 	}
 
-	unboundArgs := field.Paths(argsContainer.Type())
+	c := &config{}
+	for _, opt := range options {
+		if err := opt.apply(c); err != nil {
+			return nil, fmt.Errorf("error applying option: %w", err)
+		}
+	}
+
 	boundArgs, err := setArgFieldValues(argsContainer, rawArgs)
 	if err != nil {
 		return nil, fmt.Errorf("error setting argument field values: %w", err)
 	}
+
+	// Check exactly-one-argument constraints.
+	for _, exactlyOneArgs := range c.exactlyOneArgsLists {
+		if err := checkExactlyOneArgConstraint(exactlyOneArgs, boundArgs, fieldBindings); err != nil {
+			return nil, fmt.Errorf("error checking exactly-one-argument constraint for %v: %w", exactlyOneArgs, err)
+		}
+	}
+
+	// Evaluate unbound arguments sets.
+	unboundArgs := field.Paths(argsContainer.Type())
 	for _, boundArg := range boundArgs {
 		delete(unboundArgs, boundArg)
 	}
@@ -69,7 +126,7 @@ func New(stepName string, rawArgs map[string]any, fieldBindings []*step.FieldBin
 	unboundBindOnlyArgs := field.Paths(bindOnlyArgsContainer.Type())
 
 	// Remove defaulted arguments from unbound arguments sets.
-	for _, arg := range defaultedArgs {
+	for _, arg := range c.defaultedArgs {
 		delete(unboundArgs, arg)
 		delete(unboundBindOnlyArgs, arg)
 	}
@@ -124,6 +181,8 @@ func setArgFieldValues(argFieldContainer reflect.Value, rawArgs map[string]any) 
 	}
 	return boundArgs, nil
 }
+
+var errOpenModeMustBePositive = fmt.Errorf("open mode must be a positive integer")
 
 // setArgFieldValue sets the value of the provided field and/or sub-fields to the provided value, parsing it differently
 // depending on the field type.
@@ -278,6 +337,31 @@ func setSubArgFieldValues(argField *field.Field, value any) ([]string, error) {
 		boundArgs[idx] = field.JoinFieldPathSegments(argField.Path, boundArgs[idx])
 	}
 	return boundArgs, nil
+}
+
+// checkExactlyOneArgConstraint verifies that the provided bound arguments and the specified field bindings set/bind to
+// exactly 1 argument among the specified arguments set. It returns an error if the condition is not met.
+func checkExactlyOneArgConstraint(exactlyOneArgs []string, boundArgs []string,
+	fieldBindings []*step.FieldBinding) error {
+	var foundArgs, foundBindings []string
+	for _, boundArg := range boundArgs {
+		if slices.Contains(exactlyOneArgs, boundArg) {
+			foundArgs = append(foundArgs, boundArg)
+		}
+	}
+
+	for _, fieldBinding := range fieldBindings {
+		arg := fieldBinding.LocalField
+		if slices.Contains(exactlyOneArgs, arg) {
+			foundBindings = append(foundBindings, arg)
+		}
+	}
+
+	if len(foundArgs)+len(foundBindings) != 1 {
+		return fmt.Errorf("found %v arguments set and %v field bindings", foundArgs, foundBindings)
+	}
+
+	return nil
 }
 
 // Name implements step.Step.Name method.
