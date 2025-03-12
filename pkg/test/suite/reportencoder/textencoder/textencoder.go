@@ -54,11 +54,11 @@ func (te *textEncoder) Encode(report *suite.Report) error {
 
 func (te *textEncoder) encodeTestReport(sb *strings.Builder, report *tester.Report, basePadding string) {
 	padding := basePadding
-	writeFormatted(sb, "%sTest: %s\n", padding, report.TestName)
+	writeFormatted(sb, "%sTest: %s%s\n", padding, report.TestName, formatTestCase(report.OriginatingTestCase))
 
 	padding += basePadding
 	if report.Empty() {
-		writeFormatted(sb, "%sFailed\n", padding)
+		writeFormatted(sb, "%sFailed\n\n", padding)
 		return
 	}
 
@@ -83,4 +83,17 @@ func (te *textEncoder) encodeTestReport(sb *strings.Builder, report *tester.Repo
 // writeFormatted is a wrapper around fmt.Fprintf ignoring the returned values.
 func writeFormatted(w io.Writer, format string, a ...any) {
 	_, _ = fmt.Fprintf(w, format, a...)
+}
+
+// formatTestCase returns a formatted version of the provided test case.
+func formatTestCase(testCase map[string]any) string {
+	var s string
+	for k, v := range testCase {
+		s += fmt.Sprintf("%s=%q, ", k, v)
+	}
+	if s != "" {
+		s = s[:len(s)-2]
+		s = " (" + s + ")"
+	}
+	return s
 }

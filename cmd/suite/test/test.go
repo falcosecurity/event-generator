@@ -227,7 +227,9 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	// Channel that is closed when all reports have been collected.
 	reportCollectionCompletedCh := make(chan struct{})
 	// Function ensuring an empty report is sent whenever a panic or failure condition occur
-	sendEmptyTestReportIfPanicOrFailure := func(_ /*testSuiteName*/, _ /*testName*/ string, _ /*failCond*/ *bool) {} // noop
+	sendEmptyTestReportIfPanicOrFailure := func(_ /*testSuiteName*/, _ /*testName*/ string,
+		_ /*originatingTestCase*/ loader.TestCase, _ /*failCond*/ *bool) {
+	} // noop
 	// Function for scheduling report production
 	scheduleReportProduction := func(_ /*testUID*/ *uuid.UUID, _ /*testDesc*/ *loader.Test) {} // noop
 
@@ -262,14 +264,20 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 			cw.printTestSuitesReports(testSuitesReports)
 		}()
 
-		sendEmptyTestReportIfPanicOrFailure = func(testSuiteName, testName string, failCond *bool) {
+		sendEmptyTestReportIfPanicOrFailure = func(testSuiteName, testName string, originatingTestCase loader.TestCase,
+			failCond *bool) {
 			if ctx.Err() != nil {
 				return
 			}
 			if v := recover(); v != nil || *failCond {
 				logger.Error(fmt.Errorf("%v", v), "Sent empty report due to unexpected error or failure",
-					"testSuiteName", testSuiteName, "testName", testName)
-				emptyReport := &tester.Report{RuleName: testSuiteName, TestName: testName}
+					"testSuiteName", testSuiteName, "testName", testName, "testCase",
+					formatTestCase(originatingTestCase))
+				emptyReport := &tester.Report{
+					RuleName:            testSuiteName,
+					TestName:            testName,
+					OriginatingTestCase: originatingTestCase,
+				}
 				sendTestReport(ctx, reportCh, emptyReport)
 			}
 		}
@@ -279,7 +287,8 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 			go func() {
 				defer waitGroup.Done()
 				notFailed := false
-				defer sendEmptyTestReportIfPanicOrFailure(*testDesc.Rule, testDesc.Name, &notFailed)
+				defer sendEmptyTestReportIfPanicOrFailure(*testDesc.Rule, testDesc.Name, testDesc.OriginatingTestCase,
+					&notFailed)
 				produceTestReport(ctx, testr, testUID, testDesc, reportCh)
 			}()
 		}
@@ -303,7 +312,8 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 			// Wrap execution in a function to allow deferring sendEmptyTestReportIfPanicOrFailure.
 			func() {
 				testExecutionFailed := false
-				defer sendEmptyTestReportIfPanicOrFailure(testSuiteName, testInfo.Test.Name, &testExecutionFailed)
+				defer sendEmptyTestReportIfPanicOrFailure(testSuiteName, testInfo.Test.Name,
+					testInfo.Test.OriginatingTestCase, &testExecutionFailed)
 
 				// Run the test.
 				if testExecutionFailed = cw.runTest(ctx, baseLogger, testSuiteName, testInfo, runnerBuilder,
@@ -355,7 +365,7 @@ func enrichLoggerWithBaggage(logger logr.Logger, bag *baggage.Baggage) logr.Logg
 }
 
 // formatTestCase returns a formatted version of the provided test case.
-func formatTestCase(testCase map[string]any) string {
+func formatTestCase(testCase loader.TestCase) string {
 	var s string
 	for k, v := range testCase {
 		s += fmt.Sprintf("%s=%v,", k, v)
@@ -736,7 +746,8 @@ func produceTestReport(ctx context.Context, testr tester.Tester, testUID *uuid.U
 	reportCh chan<- *tester.Report) {
 	t := time.NewTimer(0)
 	defer t.Stop()
-	testName, ruleName, expectedOutcome := testDesc.Name, *testDesc.Rule, testDesc.ExpectedOutcome
+	testName, ruleName, originatingTestCase := testDesc.Name, *testDesc.Rule, testDesc.OriginatingTestCase
+	expectedOutcome := testDesc.ExpectedOutcome
 	const maxAttempts = 4
 	remainingAttempts := maxAttempts
 	for {
@@ -747,7 +758,7 @@ func produceTestReport(ctx context.Context, testr tester.Tester, testUID *uuid.U
 			report := testr.Report(testUID, ruleName, expectedOutcome)
 			remainingAttempts--
 			if !report.Empty() || remainingAttempts == 0 {
-				report.TestName, report.RuleName = testName, ruleName
+				report.TestName, report.RuleName, report.OriginatingTestCase = testName, ruleName, originatingTestCase
 				sendTestReport(ctx, reportCh, report)
 				return
 			}

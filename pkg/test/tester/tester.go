@@ -30,16 +30,19 @@ type Tester interface {
 	// Report returns a report containing information regarding the alerts matching or not matching the provided
 	// expected outcome for the provided rule. A nil or empty expected outcome matches any alert corresponding to the
 	// provided rule.
+	// Notice: the Tester doesn't populate the returned Report.TestName, Report.RuleName and Report.OriginatingTestCase
+	// fields, so it is a user duty to fill them if needed.
 	Report(uid *uuid.UUID, rule string, expectedOutcome *loader.TestExpectedOutcome) *Report
 }
 
 // A Report contains information regarding the successful matches and generated warning for given test testing a given
 // rule.
 type Report struct {
-	TestName          string          `json:"test" yaml:"test"`
-	RuleName          string          `json:"-" yaml:"-"`
-	SuccessfulMatches int             `json:"successfulMatches" yaml:"successfulMatches"`
-	GeneratedWarnings []ReportWarning `json:"generatedWarnings,omitempty" yaml:"generatedWarnings,omitempty"`
+	TestName            string          `json:"test" yaml:"test"`
+	RuleName            string          `json:"-" yaml:"-"`
+	OriginatingTestCase map[string]any  `json:"originatingTestCase,omitempty" yaml:"originatingTestCase,omitempty"`
+	SuccessfulMatches   int             `json:"successfulMatches" yaml:"successfulMatches"`
+	GeneratedWarnings   []ReportWarning `json:"generatedWarnings,omitempty" yaml:"generatedWarnings,omitempty"`
 }
 
 // Empty reports if the report specifies no successful matches and no generated warning.
