@@ -28,16 +28,33 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Setup Go
-        uses: actions/setup-go@v3
+      - name: Build and push amd64 image
+        uses: docker/build-push-action@v3
         with:
-          go-version: 1.23.1
+          context: .
+          push: true
+          platforms: linux/amd64
+          tags: falcosecurity/event-generator:main-amd64
+          labels: |
+            org.opencontainers.image.created={{date}}
+            org.opencontainers.image.name=event-generator
+            org.opencontainers.image.revision=${{ github.sha }}
 
-      - name: Run GoReleaser for Main Branch
-        uses: goreleaser/goreleaser-action@v3
+      - name: Build and push arm64 image
+        uses: docker/build-push-action@v3
         with:
-          distribution: goreleaser
-          version: v1.10.3
-          args: release --snapshot --rm-dist --timeout 60m --config .goreleaser.main.yml
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          context: .
+          push: true
+          platforms: linux/arm64/v8
+          tags: falcosecurity/event-generator:main-arm64v8
+          labels: |
+            org.opencontainers.image.created={{date}}
+            org.opencontainers.image.name=event-generator
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Create and push manifest
+        run: |
+          docker manifest create falcosecurity/event-generator:main \
+            falcosecurity/event-generator:main-amd64 \
+            falcosecurity/event-generator:main-arm64v8
+          docker manifest push falcosecurity/event-generator:main
