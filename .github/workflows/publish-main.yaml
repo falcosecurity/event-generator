@@ -41,4 +41,3 @@ jobs:
           args: release --snapshot --rm-dist --timeout 60m --config .goreleaser.main.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GORELEASER_CURRENT_TAG: main
