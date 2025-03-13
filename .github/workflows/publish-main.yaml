@@ -36,7 +36,7 @@ jobs:
           platforms: linux/amd64
           tags: falcosecurity/event-generator:main-amd64
           labels: |
-            org.opencontainers.image.created={{date}}
+            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
             org.opencontainers.image.name=event-generator
             org.opencontainers.image.revision=${{ github.sha }}
 
@@ -48,7 +48,7 @@ jobs:
           platforms: linux/arm64/v8
           tags: falcosecurity/event-generator:main-arm64v8
           labels: |
-            org.opencontainers.image.created={{date}}
+            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
             org.opencontainers.image.name=event-generator
             org.opencontainers.image.revision=${{ github.sha }}
 
