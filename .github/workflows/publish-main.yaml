@@ -28,33 +28,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Build and push amd64 image
+      - name: Build and push multi-platform image
         uses: docker/build-push-action@v3
         with:
           context: .
           push: true
-          platforms: linux/amd64
-          tags: falcosecurity/event-generator:main-amd64
+          platforms: linux/amd64,linux/arm64/v8
+          tags: falcosecurity/event-generator:main
           labels: |
             org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
             org.opencontainers.image.name=event-generator
             org.opencontainers.image.revision=${{ github.sha }}
-
-      - name: Build and push arm64 image
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          push: true
-          platforms: linux/arm64/v8
-          tags: falcosecurity/event-generator:main-arm64v8
-          labels: |
-            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
-            org.opencontainers.image.name=event-generator
-            org.opencontainers.image.revision=${{ github.sha }}
-
-      - name: Create and push manifest
-        run: |
-          docker manifest create falcosecurity/event-generator:main \
-            falcosecurity/event-generator:main-amd64 \
-            falcosecurity/event-generator:main-arm64v8
-          docker manifest push falcosecurity/event-generator:main
