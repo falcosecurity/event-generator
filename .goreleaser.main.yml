@@ -23,6 +23,7 @@ dockers:
     dockerfile: Dockerfile
     image_templates:
       - "falcosecurity/event-generator:main-amd64"
+    skip_push: false
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -45,6 +46,7 @@ dockers:
     dockerfile: Dockerfile
     image_templates:
       - "falcosecurity/event-generator:main-arm64v8"
+    skip_push: false
     build_flag_templates:
       - "--platform=linux/arm64/v8"
       - "--pull"
@@ -71,3 +73,7 @@ docker_manifests:
 # Skip the GitHub release for the main branch workflow
 release:
   disable: true
+
+# Configure snapshot naming
+snapshot:
+  name_template: "main"
