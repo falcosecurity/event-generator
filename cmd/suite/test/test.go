@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (C) 2025 The Falco Authors
+// Copyright (C) 2026 The Falco Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,8 +31,8 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/thediveo/enumflag"
 
+	"github.com/falcosecurity/event-generator/cmd/internal/alertretriever"
 	"github.com/falcosecurity/event-generator/cmd/suite/config"
-	"github.com/falcosecurity/event-generator/pkg/alert/retriever/httpretriever"
 	"github.com/falcosecurity/event-generator/pkg/baggage"
 	containerbuilder "github.com/falcosecurity/event-generator/pkg/container/builder"
 	processbuilder "github.com/falcosecurity/event-generator/pkg/process/builder"
@@ -95,34 +95,12 @@ var reportFormats = map[reportFormat][]string{
 	reportFormatYAML: {"yaml"},
 }
 
-// securityMode defines the types of security mode used by the HTTP alert retriever.
-type securityMode int
-
-const (
-	// securityModeInsecure specifies that the HTTP alert retriever shouldn't use any form of security.
-	securityModeInsecure securityMode = iota
-	// securityModeTLS specifies that the HTTP alert retriever should use TLS.
-	securityModeTLS
-	// securityModeMutualTLS specifies that the HTTP alert retriever should use mTLS.
-	securityModeMutualTLS
-)
-
-var securityModes = map[securityMode][]string{
-	securityModeInsecure:  {"insecure"},
-	securityModeTLS:       {"tls"},
-	securityModeMutualTLS: {"mtls"},
-}
-
 // CommandWrapper is a wrapper around the test command storing the flag values bound to the command at runtime.
 type CommandWrapper struct {
 	*config.Config
 	Command                 *cobra.Command
 	skipOutcomeVerification bool
-	address                 string
-	securityMode            securityMode
-	certFile                string
-	keyFile                 string
-	caRootFile              string
+	AlertRetrieverConfig    alertretriever.Config
 	reportFormat            reportFormat
 }
 
@@ -159,21 +137,7 @@ func (cw *CommandWrapper) initFlags(c *cobra.Command) {
 
 	flags.BoolVar(&cw.skipOutcomeVerification, "skip-outcome-verification", false,
 		"Skip verification of the expected outcome. If this option is enabled, http- flags are ignored")
-	flags.StringVar(&cw.address, "http-server-address", "localhost:8080",
-		"The address the alert retriever HTTP server must be bound to")
-	flags.Var(
-		enumflag.New(&cw.securityMode, "http-server-security-mode", securityModes, enumflag.EnumCaseInsensitive),
-		"http-server-security-mode",
-		"The security mode the alert retriever HTTP server must use; can be 'insecure', 'tls' or 'mtls'")
-	flags.StringVar(&cw.certFile, "http-server-cert", "/etc/falco/certs/server.crt",
-		"the path of the server certificate to be used for TLS against the Falco HTTP client (to be used together with"+
-			"--http-server-security-mode=(tls|mtls))")
-	flags.StringVar(&cw.keyFile, "http-server-key", "/etc/falco/certs/server.key",
-		"The path of the server private key to be used for TLS against the Falco HTTP client (to be used together with"+
-			"--http-server-security-mode=(tls|mtls))")
-	flags.StringVar(&cw.caRootFile, "http-client-ca", "/etc/falco/certs/ca.crt",
-		"The path of the CA root certificate used for Falco HTTP client's certificate validation (to be used together "+
-			"with --http-server-security-mode=mtls)")
+	cw.AlertRetrieverConfig.InitCommandFlags(c)
 	flags.Var(
 		enumflag.New(&cw.reportFormat, "report-format", reportFormats, enumflag.EnumCaseInsensitive),
 		"report-format", "The format of the test suites report; can be 'text', 'json' or 'yaml'")
@@ -519,35 +483,13 @@ func (cw *CommandWrapper) createRunnerBuilder() (runner.Builder, error) {
 
 // createTester creates a new tester.
 func (cw *CommandWrapper) createTester(logger logr.Logger) (tester.Tester, error) {
-	securityMode := decodeHTTPRetrieverSecurityMode(cw.securityMode)
-	httpRetrieverOptions := []httpretriever.Option{
-		httpretriever.WithAddress(cw.address),
-		httpretriever.WithSecurityMode(securityMode),
-		httpretriever.WithCertFile(cw.certFile),
-		httpretriever.WithKeyFile(cw.keyFile),
-		httpretriever.WithCARootFile(cw.caRootFile),
-	}
-	httpRetriever, err := httpretriever.New(logger.WithName("alert-retriever"), httpRetrieverOptions...)
+	httpRetriever, err := cw.AlertRetrieverConfig.Build(logger.WithName("alert-retriever"))
 	if err != nil {
 		return nil, fmt.Errorf("error creating HTTP retriever: %w", err)
 	}
 
 	t := testerimpl.New(httpRetriever, cw.TestIDEnvKey, testIDIgnorePrefix)
 	return t, nil
-}
-
-// decodeHTTPRetrieverSecurityMode decodes the provided security mode into something suitable for the HTTP retriever.
-func decodeHTTPRetrieverSecurityMode(securityMode securityMode) httpretriever.SecurityMode {
-	switch securityMode {
-	case securityModeInsecure:
-		return httpretriever.SecurityModeInsecure
-	case securityModeTLS:
-		return httpretriever.SecurityModeTLS
-	case securityModeMutualTLS:
-		return httpretriever.SecurityModeMutualTLS
-	default:
-		panic(fmt.Sprintf("unsupported security mode %v", securityMode))
-	}
 }
 
 // getTestsNum returns the total number of tests contained in the provided test suites.

@@ -1,31 +1,32 @@
 // SPDX-License-Identifier: Apache-2.0
-/*
-Copyright (C) 2023 The Falco Authors.
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-    http://www.apache.org/licenses/LICENSE-2.0
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright (C) 2026 The Falco Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package counter
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/falcosecurity/client-go/pkg/api/outputs"
-	"github.com/falcosecurity/client-go/pkg/client"
 	"github.com/prometheus/procfs"
 	logger "github.com/sirupsen/logrus"
 
 	"github.com/falcosecurity/event-generator/events"
+	"github.com/falcosecurity/event-generator/pkg/alert"
 )
 
 type stat struct {
@@ -44,8 +45,6 @@ type Counter struct {
 	ticker   *time.Ticker
 	tickD    time.Duration
 	lastT    time.Time
-	outs     outputs.ServiceClient
-	pTimeout time.Duration
 	proc     *procfs.Proc
 	lastS    *procfs.ProcStat
 	actions  []string
@@ -54,18 +53,8 @@ type Counter struct {
 }
 
 // New returns a new Counter instance.
-func New(ctx context.Context, config *client.Config, options ...Option) (*Counter, error) {
-	c, err := client.NewForConfig(ctx, config)
-	if err != nil {
-		return nil, err
-	}
-	outs, err := c.Outputs()
-	if err != nil {
-		return nil, err
-	}
-	cntr := &Counter{
-		outs: outs,
-	}
+func New(ctx context.Context, alertRetriever alert.Retriever, options ...Option) (*Counter, error) {
+	cntr := &Counter{}
 	if err := Options(options).Apply(cntr); err != nil {
 		return nil, err
 	}
@@ -80,12 +69,11 @@ func New(ctx context.Context, config *client.Config, options ...Option) (*Counte
 	}
 
 	if !cntr.dryRun {
-		fcs, err := cntr.outs.Sub(ctx)
+		alertCh, err := alertRetriever.AlertStream(ctx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error creating alert stream: %w", err)
 		}
-
-		go cntr.watcher(ctx, fcs)
+		go cntr.watcher(ctx, alertCh)
 	}
 
 	if cntr.tickD > 0 {
@@ -95,19 +83,23 @@ func New(ctx context.Context, config *client.Config, options ...Option) (*Counte
 	return cntr, nil
 }
 
-func (c *Counter) watcher(ctx context.Context, fcs outputs.Service_SubClient) {
-	err := client.OutputsWatch(ctx, fcs, func(res *outputs.Response) error {
-		for n := range c.list {
-			if events.MatchRule(n, res.Rule) {
-				s := c.list[n]
-				atomic.AddUint64(&s.actual, 1)
-				break
+func (c *Counter) watcher(ctx context.Context, alertCh <-chan *alert.Alert) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case alrt, ok := <-alertCh:
+			if !ok {
+				return
+			}
+			for n := range c.list {
+				if events.MatchRule(n, alrt.Rule) {
+					s := c.list[n]
+					atomic.AddUint64(&s.actual, 1)
+					break
+				}
 			}
 		}
-		return nil
-	}, c.pTimeout)
-	if err != nil {
-		c.log.WithError(err).Error("gRPC error")
 	}
 }
 
@@ -238,13 +230,6 @@ func WithSleep(sleep time.Duration) Option {
 func WithRoundDuration(duration time.Duration) Option {
 	return func(c *Counter) error {
 		c.tickD = duration
-		return nil
-	}
-}
-
-func WithPollingTimeout(timeout time.Duration) Option {
-	return func(c *Counter) error {
-		c.pTimeout = timeout
 		return nil
 	}
 }

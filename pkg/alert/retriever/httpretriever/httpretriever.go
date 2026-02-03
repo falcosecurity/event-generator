@@ -211,12 +211,12 @@ func (r *httpRetriever) setupServeMux(ctx context.Context, alertCh chan<- *alert
 
 		logger := r.logger.WithValues("rule", alrt.Rule, "source", alrt.Source, "priority", alrt.Priority, "hostname",
 			alrt.Hostname)
-		logger.V(1).Info("Received alert")
+		logger.V(2).Info("Received alert")
 		select {
 		case <-ctx.Done():
 			return
 		case alertCh <- alrt:
-			logger.V(1).Info("Sent alert downstream")
+			logger.V(2).Info("Sent alert downstream")
 		}
 	})
 	return mux
