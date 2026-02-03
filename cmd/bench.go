@@ -104,7 +104,12 @@ One commmon way to use this command is as following:
 
 		alertRetriever, err := alertRetrieverConfig.Build(mainLogger)
 		if err != nil {
-			return fmt.Errorf("failed to build alert retriever: %w", err)
+			return fmt.Errorf("error building alert retriever: %w", err)
+		}
+
+		alertCh, err := alertRetriever.AlertStream(ctx)
+		if err != nil {
+			return fmt.Errorf("error creating alert stream: %w", err)
 		}
 
 		opts := append([]counter.Option(nil),
@@ -119,7 +124,7 @@ One commmon way to use this command is as following:
 		if pid != 0 {
 			opts = append(opts, counter.WithPid(pid))
 		}
-		p, err := counter.New(c.Context(), alertRetriever, opts...)
+		p, err := counter.New(ctx, alertCh, opts...)
 		if err != nil {
 			return err
 		}

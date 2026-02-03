@@ -17,7 +17,6 @@ package counter
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -53,7 +52,7 @@ type Counter struct {
 }
 
 // New returns a new Counter instance.
-func New(ctx context.Context, alertRetriever alert.Retriever, options ...Option) (*Counter, error) {
+func New(ctx context.Context, alertCh <-chan *alert.Alert, options ...Option) (*Counter, error) {
 	cntr := &Counter{}
 	if err := Options(options).Apply(cntr); err != nil {
 		return nil, err
@@ -69,10 +68,6 @@ func New(ctx context.Context, alertRetriever alert.Retriever, options ...Option)
 	}
 
 	if !cntr.dryRun {
-		alertCh, err := alertRetriever.AlertStream(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("error creating alert stream: %w", err)
-		}
 		go cntr.watcher(ctx, alertCh)
 	}
 

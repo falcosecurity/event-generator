@@ -126,7 +126,7 @@ func (t *testerImpl) findUID(alrt *alert.Alert) *uuid.UUID {
 		return nil
 	}
 
-	// Remote the environment variable name and verify if the result has the ignore prefix.
+	// Strip the environment variable name and verify if the result has the ignore prefix.
 	procEnv = procEnv[index+t.testIDEnvVarPrefixLen:]
 	if strings.HasPrefix(procEnv, t.testIDIgnorePrefix) {
 		return nil
@@ -148,7 +148,7 @@ func (t *testerImpl) startAlertsCaching(alertInfoCh <-chan *alertInfo) {
 	}
 }
 
-// cacheAlert insert the provided cache into the underlying cache.
+// cacheAlert inserts the provided alert into the underlying cache.
 func (t *testerImpl) cacheAlert(uid *uuid.UUID, alrt *alert.Alert) {
 	t.Lock()
 	defer t.Unlock()

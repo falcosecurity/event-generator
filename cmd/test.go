@@ -57,10 +57,15 @@ Without arguments it tests all actions, otherwise only those actions matching th
 
 		alertRetriever, err := alertRetrieverConfig.Build(mainLogger)
 		if err != nil {
-			return fmt.Errorf("failed to build alert retriever: %w", err)
+			return fmt.Errorf("error building alert retriever: %w", err)
 		}
 
-		t, err := tester.New(alertRetriever, tester.WithTestTimeout(testTimeout))
+		alertCh, err := alertRetriever.AlertStream(ctx)
+		if err != nil {
+			return fmt.Errorf("error creating alert stream: %w", err)
+		}
+
+		t, err := tester.New(alertCh, tester.WithTestTimeout(testTimeout))
 		if err != nil {
 			return err
 		}

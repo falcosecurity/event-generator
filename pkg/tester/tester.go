@@ -18,8 +18,8 @@ package tester
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	logger "github.com/sirupsen/logrus"
@@ -35,27 +35,51 @@ const DefaultTestTimeout = time.Minute
 
 // Tester is a plugin that tests the action outcome in a running Falco instance via the HTTP Output.
 type Tester struct {
-	timeout        time.Duration
-	alertRetriever alert.Retriever
+	timeout time.Duration
+
+	sync.Mutex
+	alertsCache []*alert.Alert
 }
 
 // New returns a new Tester instance.
-func New(alertRetriever alert.Retriever, options ...Option) (*Tester, error) {
-	t := &Tester{
-		timeout:        DefaultTestTimeout,
-		alertRetriever: alertRetriever,
-	}
+func New(alertCh <-chan *alert.Alert, options ...Option) (*Tester, error) {
+	t := &Tester{timeout: DefaultTestTimeout}
 	if err := Options(options).Apply(t); err != nil {
 		return nil, err
 	}
+
+	go t.startAlertsCaching(alertCh)
 	return t, nil
 }
 
-func (t *Tester) PreRun(ctx context.Context, log *logger.Entry, n string, f events.Action) (err error) {
+// startAlertsCaching starts caching the alertsCache received through the provided channel.
+func (t *Tester) startAlertsCaching(alertCh <-chan *alert.Alert) {
+	for alrt := range alertCh {
+		t.cacheAlert(alrt)
+	}
+}
+
+// cacheAlert inserts the provided alert into the underlying cache.
+func (t *Tester) cacheAlert(alrt *alert.Alert) {
+	t.Lock()
+	defer t.Unlock()
+	t.alertsCache = append(t.alertsCache, alrt)
+}
+
+// PreRun should run before action execution.
+func (t *Tester) PreRun(context.Context, *logger.Entry, string, events.Action) (err error) {
+	t.emptyAlertsCache()
 	return nil
 }
 
-func (t *Tester) PostRun(ctx context.Context, log *logger.Entry, n string, f events.Action, actErr error) error {
+func (t *Tester) emptyAlertsCache() {
+	t.Lock()
+	defer t.Unlock()
+	t.alertsCache = []*alert.Alert{}
+}
+
+// PostRun should run after action execution.
+func (t *Tester) PostRun(ctx context.Context, log *logger.Entry, n string, _ events.Action, actErr error) error {
 	if strings.HasPrefix(n, "helper.") {
 		log.Info("test skipped for helpers")
 		return nil
@@ -69,33 +93,42 @@ func (t *Tester) PostRun(ctx context.Context, log *logger.Entry, n string, f eve
 		return ErrFailed
 	}
 
-	alertCh, err := t.alertRetriever.AlertStream(ctx)
-	if err != nil {
-		return fmt.Errorf("error creating alert stream: %w", err)
-	}
-
-	ctxWithTimeout, cancelTimeout := context.WithTimeout(ctx, t.timeout)
-	defer cancelTimeout()
-
-	testCtx, testCtxCancel := context.WithCancel(ctxWithTimeout)
-	defer testCtxCancel()
+	innerCtx, cancel := context.WithTimeout(ctx, t.timeout)
+	defer cancel()
 
 	for {
-		select {
-		case <-testCtx.Done():
-			return testCtx.Err()
-		case alrt, ok := <-alertCh:
-			if !ok {
-				return fmt.Errorf("alert channel closed before getting any alert")
-			}
-			if events.MatchRule(n, alrt.Rule) {
-				logger.WithField("rule", alrt.Rule).WithField("source", alrt.Source).Info("test passed")
-				return nil
-			} else {
-				logger.WithField("rule", alrt.Rule).WithField("source", alrt.Source).Debug("event skipped")
-			}
+		if err := innerCtx.Err(); err != nil {
+			return err
 		}
+
+		if t.checkMatchingAlertPresenceAndDoEmptyCache(n) {
+			return nil
+		}
+
+		// Wait some time before checking again.
+		time.Sleep(50 * time.Millisecond)
 	}
+}
+
+// checkMatchingAlertPresenceAndDoEmptyCache checks that an alert matching actionName is present in the alerts cache and
+// returns a boolean indicating its presence. Whatever is the results, it empties the alerts cache.
+func (t *Tester) checkMatchingAlertPresenceAndDoEmptyCache(actionName string) bool {
+	t.Lock()
+	defer t.Unlock()
+
+	alertFound := false
+
+	for _, alrt := range t.alertsCache {
+		if events.MatchRule(actionName, alrt.Rule) {
+			logger.WithField("rule", alrt.Rule).WithField("source", alrt.Source).Info("test passed")
+			alertFound = true
+			break
+		}
+		logger.WithField("rule", alrt.Rule).WithField("source", alrt.Source).Debug("event skipped")
+	}
+
+	t.alertsCache = []*alert.Alert{}
+	return alertFound
 }
 
 func WithTestTimeout(timeout time.Duration) Option {

@@ -64,11 +64,11 @@ func (c *Config) InitCommandFlags(cmd *cobra.Command) {
 		"http-server-security-mode",
 		"The security mode the alert retriever HTTP server must use; can be 'insecure', 'tls' or 'mtls'")
 	flags.StringVar(&c.certFile, "http-server-cert", "/etc/falco/certs/server.crt",
-		"the path of the server certificate to be used for TLS against the Falco HTTP client (to be used together with"+
-			"--http-server-security-mode=(tls|mtls))")
+		"The path of the server certificate to be used for TLS against the Falco HTTP client (to be used together "+
+			"with --http-server-security-mode=(tls|mtls))")
 	flags.StringVar(&c.keyFile, "http-server-key", "/etc/falco/certs/server.key",
-		"The path of the server private key to be used for TLS against the Falco HTTP client (to be used together with"+
-			"--http-server-security-mode=(tls|mtls))")
+		"The path of the server private key to be used for TLS against the Falco HTTP client (to be used together "+
+			"with --http-server-security-mode=(tls|mtls))")
 	flags.StringVar(&c.caRootFile, "http-client-ca", "/etc/falco/certs/ca.crt",
 		"The path of the CA root certificate used for Falco HTTP client's certificate validation (to be used together "+
 			"with --http-server-security-mode=mtls)")
