@@ -19,6 +19,7 @@ import (
 	"cmp"
 	"fmt"
 	"math/big"
+	"slices"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -43,7 +44,7 @@ type Node struct {
 	// Name is the name of the node.
 	Name string `yaml:"name"`
 	// Descriptions is the list of node's descriptions. A node can have multiple descriptions if it is the result of the
-	// merging of multiple nodes.
+	// merging of multiple nodes. The list does not contain duplicates.
 	Descriptions []string `yaml:"descriptions,omitempty"`
 	// JSONTypes is the node's optional list of JSON types.
 	JSONTypes []string `yaml:"types,omitempty"`
@@ -188,9 +189,21 @@ func (n *Node) mergeSubSchema(subSchema *jsonschema.Schema, requirements []*Enum
 	return nil
 }
 
+// mergeDescriptions returns the merge between the old and the new descriptions. Descriptions are kept in their original
+// order in the final result. Old and new descriptions are assumed to not contain duplicates. A new description is not
+// added to the final result if it was already present in the old list.
+func mergeDescriptions(oldDescriptions []string, newDescriptions ...string) []string {
+	for _, newDescription := range newDescriptions {
+		if !slices.Contains(oldDescriptions, newDescription) {
+			oldDescriptions = append(oldDescriptions, newDescription)
+		}
+	}
+	return oldDescriptions
+}
+
 // mergeNode merges the provided node into the current node.
 func (n *Node) mergeNode(node *Node) {
-	n.Descriptions = append(n.Descriptions, node.Descriptions...)
+	n.Descriptions = mergeDescriptions(n.Descriptions, node.Descriptions...)
 	n.JSONTypes = append(n.JSONTypes, node.JSONTypes...)
 	n.Required = n.Required || node.Required
 	n.Minimum = getMax(n.Minimum, node.Minimum)
@@ -396,7 +409,7 @@ func newNode(schema *jsonschema.Schema, name string, required bool) *Node {
 
 // getDescriptions returns the merged nested and non-nested lists of descriptions. This includes the description
 // directly available under the provided schema, or the descriptions accessible from "ref", "items" and "items.ref"
-// schemas.
+// schemas. The returned descriptions are deduplicated.
 func getDescriptions(schema *jsonschema.Schema) []string {
 	var descriptions []string
 	if description := schema.Description; description != "" {
@@ -404,11 +417,11 @@ func getDescriptions(schema *jsonschema.Schema) []string {
 	}
 	if ref := schema.Ref; ref != nil {
 		if description := ref.Description; description != "" {
-			descriptions = append(descriptions, description)
+			descriptions = mergeDescriptions(descriptions, description)
 		}
 	}
 	if items2020 := schema.Items2020; items2020 != nil {
-		descriptions = append(descriptions, getDescriptions(items2020)...)
+		descriptions = mergeDescriptions(descriptions, getDescriptions(items2020)...)
 	}
 	return descriptions
 }
