@@ -13,6 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package test provides the implementation of the "test" command. This command lets users run tests and verify their
-// outcomes by providing a YAML description of them containing their expected outcomes.
-package test
+// Package alertretriever defines a Config object that allows to store the configuration for an HTTP alert retriever and
+// build it.
+package alertretriever

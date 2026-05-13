@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (C) 2025 The Falco Authors
+// Copyright (C) 2026 The Falco Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,8 +31,8 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/thediveo/enumflag"
 
+	"github.com/falcosecurity/event-generator/cmd/internal/alertretriever"
 	"github.com/falcosecurity/event-generator/cmd/suite/config"
-	"github.com/falcosecurity/event-generator/pkg/alert/retriever/grpcretriever"
 	"github.com/falcosecurity/event-generator/pkg/baggage"
 	containerbuilder "github.com/falcosecurity/event-generator/pkg/container/builder"
 	processbuilder "github.com/falcosecurity/event-generator/pkg/process/builder"
@@ -62,7 +62,7 @@ const (
 const (
 	longDescriptionPrefaceTemplate = `%s.
 It is possible to provide the YAML description in multiple ways. The order of evaluation is the following:
-1) If the --%s=<file_path> flag is provided the description is read from the file at <file_path>
+1) If --%s=<file_path> and/or --%s=<dir_path> flags are/is provided, the description is read from the file at <file_path>
 2) If the --%s=<description> flag is provided, the description is read from the <description> string
 3) Otherwise, it is read from standard input`
 	longDescriptionHeading = "Run test(s) specified via a YAML description and verify that they produce the expected outcomes"
@@ -73,7 +73,7 @@ It is possible to provide the YAML description in multiple ways. The order of ev
 
 var (
 	longDescriptionPreface = fmt.Sprintf(longDescriptionPrefaceTemplate, longDescriptionHeading,
-		config.DescriptionFileFlagName, config.DescriptionFlagName)
+		config.DescriptionFileFlagName, config.DescriptionDirFlagName, config.DescriptionFlagName)
 	longDescription = fmt.Sprintf("%s\n\n%s", longDescriptionPreface, warningMessage)
 )
 
@@ -100,13 +100,7 @@ type CommandWrapper struct {
 	*config.Config
 	Command                 *cobra.Command
 	skipOutcomeVerification bool
-	unixSocketPath          string
-	hostname                string
-	port                    uint16
-	certFile                string
-	keyFile                 string
-	caRootFile              string
-	pollingTimeout          time.Duration
+	AlertRetrieverConfig    alertretriever.Config
 	reportFormat            reportFormat
 }
 
@@ -142,21 +136,8 @@ func (cw *CommandWrapper) initFlags(c *cobra.Command) {
 	flags := c.Flags()
 
 	flags.BoolVar(&cw.skipOutcomeVerification, "skip-outcome-verification", false,
-		"Skip verification of the expected outcome. If this option is enabled, grpc- flags are ignored")
-	flags.StringVar(&cw.unixSocketPath, "grpc-unix-socket", "",
-		"The unix socket path of the local Falco instance (use only if you want to connect to Falco through a "+
-			"unix socket)")
-	flags.StringVar(&cw.hostname, "grpc-hostname", "localhost",
-		"The Falco gRPC server hostname")
-	flags.Uint16Var(&cw.port, "grpc-port", 5060, "The Falco gRPC server port")
-	flags.StringVar(&cw.certFile, "grpc-cert", "/etc/falco/certs/client.crt",
-		"The path of the client certificate to be used for mutual TLS against the Falco gRPC server")
-	flags.StringVar(&cw.keyFile, "grpc-key", "/etc/falco/certs/client.key",
-		"The path of the client private key to be used for mutual TLS against the Falco gRPC server")
-	flags.StringVar(&cw.caRootFile, "grpc-ca", "/etc/falco/certs/ca.crt",
-		"The path of the CA root certificate used for Falco gRPC server's certificate validation")
-	flags.DurationVar(&cw.pollingTimeout, "grpc-poll-timeout", 100*time.Millisecond,
-		"The frequency of the watch operation on the gRPC Falco Outputs API stream")
+		"Skip verification of the expected outcome. If this option is enabled, http- flags are ignored")
+	cw.AlertRetrieverConfig.InitCommandFlags(c)
 	flags.Var(
 		enumflag.New(&cw.reportFormat, "report-format", reportFormats, enumflag.EnumCaseInsensitive),
 		"report-format", "The format of the test suites report; can be 'text', 'json' or 'yaml'")
@@ -502,21 +483,12 @@ func (cw *CommandWrapper) createRunnerBuilder() (runner.Builder, error) {
 
 // createTester creates a new tester.
 func (cw *CommandWrapper) createTester(logger logr.Logger) (tester.Tester, error) {
-	gRPCRetrieverOptions := []grpcretriever.Option{
-		grpcretriever.WithUnixSocketPath(cw.unixSocketPath),
-		grpcretriever.WithHostname(cw.hostname),
-		grpcretriever.WithPort(cw.port),
-		grpcretriever.WithCertFile(cw.certFile),
-		grpcretriever.WithKeyFile(cw.keyFile),
-		grpcretriever.WithCARootFile(cw.caRootFile),
-		grpcretriever.WithPollingTimeout(cw.pollingTimeout),
-	}
-	grpcRetriever, err := grpcretriever.New(logger.WithName("alert-retriever"), gRPCRetrieverOptions...)
+	httpRetriever, err := cw.AlertRetrieverConfig.Build(logger.WithName("alert-retriever"))
 	if err != nil {
-		return nil, fmt.Errorf("error creating gRPC retriever: %w", err)
+		return nil, fmt.Errorf("error creating HTTP retriever: %w", err)
 	}
 
-	t := testerimpl.New(grpcRetriever, cw.TestIDEnvKey, testIDIgnorePrefix)
+	t := testerimpl.New(httpRetriever, cw.TestIDEnvKey, testIDIgnorePrefix)
 	return t, nil
 }
 

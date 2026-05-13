@@ -6,7 +6,6 @@ require (
 	github.com/creasty/defaults v1.8.0
 	github.com/docker/docker v28.0.0+incompatible
 	github.com/dustin/go-humanize v1.0.1
-	github.com/falcosecurity/client-go v0.6.1
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zapr v1.3.0
 	github.com/go-playground/locales v0.14.1
