@@ -419,7 +419,7 @@ func pullImage(ctx context.Context, client *dockerclient.Client, imageName strin
 		}
 		return nil
 	default:
-		panic(fmt.Sprintf("unknown image pull policy %q", policy))
+		panic(fmt.Sprintf("unknown image pull policy %d", policy))
 	}
 }
 
