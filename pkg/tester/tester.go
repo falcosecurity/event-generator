@@ -52,7 +52,7 @@ func New(alertCh <-chan *alert.Alert, options ...Option) (*Tester, error) {
 	return t, nil
 }
 
-// startAlertsCaching starts caching the alertsCache received through the provided channel.
+// startAlertsCaching starts caching the alert received through the provided channel.
 func (t *Tester) startAlertsCaching(alertCh <-chan *alert.Alert) {
 	for alrt := range alertCh {
 		t.cacheAlert(alrt)
