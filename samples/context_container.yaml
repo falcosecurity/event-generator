@@ -1,0 +1,17 @@
+tests:
+  - name: test_context_container
+    description: "Demonstrates running the test process chain inside a container"
+    runner: HostRunner
+    context:
+      container:
+        image: event-generator-test
+        name: event-generator-test-container
+        env:
+          GREETING: hello
+    steps:
+      - type: syscall
+        name: w1
+        syscall: write
+        args:
+          fd: 1
+          buffer: "hello from inside the container"

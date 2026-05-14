@@ -1,0 +1,80 @@
+tests:
+  - name: test_resources_clientserver_tcp4
+    description: "Demonstrates the `clientServer` resource over TCP/IPv4. For connection-oriented protocols the client is automatically connected to the server, so a plain `write` on the exposed `client.fd` sends data to the server."
+    runner: HostRunner
+    resources:
+      - type: clientServer
+        name: cs1
+        l4Proto: tcp4
+        address: 127.0.0.1:9999
+    steps:
+      - type: syscall
+        name: w1
+        syscall: write
+        args:
+          fd: "${cs1.client.fd}"
+          buffer: "client to server over tcp4"
+  - name: test_resources_clientserver_tcp6
+    description: "Demonstrates the `clientServer` resource over TCP/IPv6"
+    runner: HostRunner
+    resources:
+      - type: clientServer
+        name: cs1
+        l4Proto: tcp6
+        address: "[::1]:9999"
+    steps:
+      - type: syscall
+        name: w1
+        syscall: write
+        args:
+          fd: "${cs1.client.fd}"
+          buffer: "client to server over tcp6"
+  - name: test_resources_clientserver_udp4
+    description: "Demonstrates the `clientServer` resource over UDP/IPv4. UDP sockets are not auto-connected, so the destination must be supplied via `sendto`."
+    runner: HostRunner
+    resources:
+      - type: clientServer
+        name: cs1
+        l4Proto: udp4
+        address: 127.0.0.1:9999
+    steps:
+      - type: syscall
+        name: s1
+        syscall: sendto
+        args:
+          fd: "${cs1.client.fd}"
+          buf: "client to server over udp4"
+          flags: 0
+          destAddr: 127.0.0.1:9999
+  - name: test_resources_clientserver_udp6
+    description: "Demonstrates the `clientServer` resource over UDP/IPv6"
+    runner: HostRunner
+    resources:
+      - type: clientServer
+        name: cs1
+        l4Proto: udp6
+        address: "[::1]:9999"
+    steps:
+      - type: syscall
+        name: s1
+        syscall: sendto
+        args:
+          fd: "${cs1.client.fd}"
+          buf: "client to server over udp6"
+          flags: 0
+          destAddr: "[::1]:9999"
+  - name: test_resources_clientserver_unix
+    description: "Demonstrates the `clientServer` resource over Unix sockets. The `address` must be the empty string; the runtime picks the socket path internally."
+    runner: HostRunner
+    resources:
+      - type: clientServer
+        name: cs1
+        l4Proto: unix
+        address: ""
+    steps:
+      - type: syscall
+        name: w1
+        syscall: write
+        args:
+          fd: "${cs1.client.fd}"
+          buffer: "client to server over unix"

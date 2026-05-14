@@ -1,0 +1,17 @@
+tests:
+  - name: test_context_processes
+    description: "Demonstrates a 3-process chain with users on the ancestors and capabilities on the leaf"
+    runner: HostRunner
+    context:
+      processes:
+        - user: parent_user
+        - user: middle_user
+        - user: root
+          capabilities: "cap_net_admin,cap_chown=ep"
+    steps:
+      - type: syscall
+        name: w1
+        syscall: write
+        args:
+          fd: 1
+          buffer: "hello from the leaf process"

@@ -1,0 +1,17 @@
+tests:
+  - name: test_resources_process
+    description: "Demonstrates the `process` resource: spawns a process with a custom executable path, command-line arguments and process name, and exposes its PID for binding"
+    runner: HostRunner
+    resources:
+      - type: process
+        name: target
+        exePath: /tmp/eg_target_proc
+        args: "arg1 arg2"
+        procName: my_target_process
+    steps:
+      - type: syscall
+        name: k1
+        syscall: kill
+        args:
+          pid: "${target.pid}"
+          sig: SIGKILL

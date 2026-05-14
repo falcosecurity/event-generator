@@ -1,0 +1,90 @@
+tests:
+  - name: test_resources_fd_file
+    description: "Demonstrates the `fd` resource with subtype `file`, exposing the file descriptor as `f1.fd`"
+    runner: HostRunner
+    resources:
+      - type: fd
+        name: f1
+        subtype: file
+        filePath: /tmp/eg_test_file
+    steps:
+      - type: syscall
+        name: w1
+        syscall: write
+        args:
+          fd: "${f1.fd}"
+          buffer: "hello file"
+  - name: test_resources_fd_directory
+    description: "Demonstrates the `fd` resource with subtype `directory`. Missing directories in `dirPath` are created on the fly and removed when the resource is released."
+    runner: HostRunner
+    resources:
+      - type: fd
+        name: d1
+        subtype: directory
+        dirPath: /tmp/eg_test_dir/nested
+    steps:
+      - type: syscall
+        name: o1
+        syscall: openat
+        args:
+          dirFd: "${d1.fd}"
+          pathname: ./entry
+          flags: O_CREAT|O_WRONLY
+          mode: 0644
+  - name: test_resources_fd_pipe
+    description: "Demonstrates the `fd` resource with subtype `pipe`, exposing both ends as `p1.readFd` and `p1.writeFd`"
+    runner: HostRunner
+    resources:
+      - type: fd
+        name: p1
+        subtype: pipe
+    steps:
+      - type: syscall
+        name: w1
+        syscall: write
+        args:
+          fd: "${p1.writeFd}"
+          buffer: "hello pipe"
+  - name: test_resources_fd_event
+    description: "Demonstrates the `fd` resource with subtype `event` (eventfd)"
+    runner: HostRunner
+    resources:
+      - type: fd
+        name: e1
+        subtype: event
+  - name: test_resources_fd_signalfd
+    description: "Demonstrates the `fd` resource with subtype `signalfd`"
+    runner: HostRunner
+    resources:
+      - type: fd
+        name: sf1
+        subtype: signalfd
+  - name: test_resources_fd_eventpoll
+    description: "Demonstrates the `fd` resource with subtype `eventpoll` (epoll instance)"
+    runner: HostRunner
+    resources:
+      - type: fd
+        name: ep1
+        subtype: eventpoll
+  - name: test_resources_fd_inotify
+    description: "Demonstrates the `fd` resource with subtype `inotify`"
+    runner: HostRunner
+    resources:
+      - type: fd
+        name: in1
+        subtype: inotify
+  - name: test_resources_fd_memfd
+    description: "Demonstrates the `fd` resource with subtype `memfd`"
+    runner: HostRunner
+    resources:
+      - type: fd
+        name: m1
+        subtype: memfd
+        fileName: eg_test_memfd
+    steps:
+      - type: syscall
+        name: w1
+        syscall: write
+        args:
+          fd: "${m1.fd}"
+          buffer: "hello memfd"
