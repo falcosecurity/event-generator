@@ -1,4 +1,4 @@
-FROM golang:1.23.1-bookworm AS builder
+FROM golang:1.26-bookworm AS builder
 
 LABEL maintainer="cncf-falco-dev@lists.cncf.io"
 
