@@ -29,11 +29,22 @@ import (
 )
 
 // Loader loads tests descriptions.
-type Loader struct{}
+type Loader struct {
+	// reservedEnvKeyPrefixes contains environment variable prefixes that are not allowed to be used in places accepting
+	// environment variables.
+	reservedEnvKeyPrefixes []string
+	// reservedEnvKeys contains environment variable that are not allowed to be used in places accepting environment
+	// variables.
+	reservedEnvKeys []string
+}
 
-// New creates a new Loader.
-func New() *Loader {
-	return &Loader{}
+// New creates a new Loader. The provided reservedEnvKeyPrefixes and reservedEnvKeys are lists of environment variable
+// prefixes and environment variables that are not allowed to be used in any place accepting environment variables.
+func New(reservedEnvKeyPrefixes, reservedEnvKeys []string) *Loader {
+	return &Loader{
+		reservedEnvKeyPrefixes: reservedEnvKeyPrefixes,
+		reservedEnvKeys:        reservedEnvKeys,
+	}
 }
 
 // Load loads the description from the provided reader.
@@ -62,7 +73,7 @@ func (l *Loader) Load(r io.Reader) (*Description, error) {
 		return nil, fmt.Errorf("error decoding description: %w", err)
 	}
 
-	if err := desc.validate(); err != nil {
+	if err := desc.validate(l.reservedEnvKeyPrefixes, l.reservedEnvKeys); err != nil {
 		return nil, fmt.Errorf("error validating description: %w", err)
 	}
 
@@ -341,7 +352,7 @@ func (c *Description) Write(w io.Writer) error {
 }
 
 // validate validates the current description.
-func (c *Description) validate() error {
+func (c *Description) validate(reservedEnvKeyPrefixes, reservedEnvKeys []string) error {
 	for testIndex := range c.Tests {
 		test := &c.Tests[testIndex]
 		if err := test.validateNameUniqueness(); err != nil {
@@ -349,8 +360,12 @@ func (c *Description) validate() error {
 				testIndex, err)
 		}
 
-		if err := test.validateContext(); err != nil {
+		if err := test.validateContext(reservedEnvKeyPrefixes, reservedEnvKeys); err != nil {
 			return fmt.Errorf("error validating test context: %w", err)
+		}
+
+		if err := test.validateResources(reservedEnvKeyPrefixes, reservedEnvKeys); err != nil {
+			return fmt.Errorf("error validating test resources: %w", err)
 		}
 	}
 
@@ -424,21 +439,73 @@ func (t *Test) validateNameUniqueness() error {
 	return nil
 }
 
-// validateContext validates that names used for test resources and steps are unique.
-func (t *Test) validateContext() error {
+// validateContext ensures that the Test's Context is valid.
+func (t *Test) validateContext(reservedEnvKeyPrefixes, reservedEnvKeys []string) error {
 	if t.Context == nil {
 		return nil
 	}
 
+	// Ensure that environment variables to be propagated to the optional container are valid.
+	if container := t.Context.Container; container != nil {
+		if err := validateEnv(container.Env, reservedEnvKeyPrefixes, reservedEnvKeys); err != nil {
+			return fmt.Errorf("error validating container environment variables: %w", err)
+		}
+	}
+
 	processes := t.Context.Processes
+
+	// Ensure that environment variables to be propagated to each process in the process chain are valid.
+	for processIndex, process := range processes {
+		if err := validateEnv(process.Env, reservedEnvKeyPrefixes, reservedEnvKeys); err != nil {
+			return fmt.Errorf("error validating environment variables of process at index %d: %w", processIndex, err)
+		}
+	}
+
 	processesLen := len(processes)
 	if processesLen <= 1 {
 		return nil
 	}
 
+	// Ensure non-leaf nodes does not specify capabilities.
 	for processIndex, process := range processes[:processesLen-1] {
 		if process.Capabilities != nil && *process.Capabilities != "" {
 			return fmt.Errorf("process at index %d specifies capabilities but is not the leaf process", processIndex)
+		}
+	}
+	return nil
+}
+
+// validateEnv ensures that any specified environment variable is not reserved and has not a reserved prefix.
+func validateEnv(env map[string]string, reservedEnvKeyPrefixes, reservedEnvKeys []string) error {
+	for key := range env {
+		for _, prefix := range reservedEnvKeyPrefixes {
+			if strings.HasPrefix(key, prefix) {
+				return fmt.Errorf("environment variable %q is reserved: matches the reserved prefix %q", key, prefix)
+			}
+		}
+		for _, reserved := range reservedEnvKeys {
+			if key == reserved {
+				return fmt.Errorf("environment variable %q is reserved", key)
+			}
+		}
+	}
+	return nil
+}
+
+// validateResources ensures that all Test's Resources are valid.
+func (t *Test) validateResources(reservedEnvKeyPrefixes, reservedEnvKeys []string) error {
+	for resourceIndex, resource := range t.Resources {
+		// For process resources, ensures that any specified environment variable is valid.
+		if resource.Type != TestResourceTypeProcess {
+			continue
+		}
+		spec, ok := resource.Spec.(*TestResourceProcessSpec)
+		if !ok {
+			continue
+		}
+		if err := validateEnv(spec.Env, reservedEnvKeyPrefixes, reservedEnvKeys); err != nil {
+			return fmt.Errorf("error validating environment variables of process resource at index %d: %w",
+				resourceIndex, err)
 		}
 	}
 	return nil
