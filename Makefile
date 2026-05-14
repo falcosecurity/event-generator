@@ -16,6 +16,8 @@ SHELL=/bin/bash -o pipefail
 
 GO ?= go
 DOCKER ?= docker
+HELM ?= helm
+HELM_DOCS ?= helm-docs
 
 COMMIT_NO := $(shell git rev-parse HEAD 2> /dev/null || true)
 GIT_COMMIT := $(if $(shell git status --porcelain --untracked-files=no),${COMMIT_NO}-dirty,${COMMIT_NO})
@@ -39,6 +41,7 @@ TEST_FLAGS ?= -v -race
 main ?= .
 output ?= event-generator
 docgen ?= evtgen-docgen
+chart ?= chart/event-generator
 
 .PHONY: build
 build: prepare ${output}
@@ -73,6 +76,25 @@ docs: ${docgen}
 	$(RM) -R docs/*
 	@mkdir -p docs
 	${PWD}/${docgen}
+
+.PHONY: chart-lint
+chart-lint:
+	$(HELM) lint ${chart}
+
+.PHONY: chart-template
+chart-template:
+	$(HELM) template event-generator ${chart} --namespace event-generator
+
+.PHONY: chart-docs
+chart-docs:
+	$(HELM_DOCS) -c ./${chart} -t ./README.gotmpl -o ./README.md
+
+.PHONY: chart-docs-check
+chart-docs-check: chart-docs
+	git diff --exit-code -- ${chart}/README.md
+
+.PHONY: chart-check
+chart-check: chart-lint chart-template chart-docs-check
 
 .PHONY: image
 image:
