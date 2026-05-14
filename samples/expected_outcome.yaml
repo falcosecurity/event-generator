@@ -1,0 +1,37 @@
+tests:
+  - name: test_expected_outcome_strict
+    rule: "Read sensitive file untrusted"
+    description: "Demonstrates a strict `expectedOutcome`: matches a specific source and priority"
+    runner: HostRunner
+    resources:
+      - type: fd
+        name: f1
+        subtype: file
+        filePath: /etc/shadow
+    steps:
+      - type: syscall
+        name: r1
+        syscall: read
+        args:
+          fd: "${f1.fd}"
+          len: 16
+    expectedOutcome:
+      source: syscall
+      priority: WARNING
+  - name: test_expected_outcome_loose
+    rule: "Read sensitive file untrusted"
+    description: "Demonstrates the loose `expectedOutcome: {}` form: matches any alert produced for the rule"
+    runner: HostRunner
+    resources:
+      - type: fd
+        name: f2
+        subtype: file
+        filePath: /etc/shadow
+    steps:
+      - type: syscall
+        name: r2
+        syscall: read
+        args:
+          fd: "${f2.fd}"
+          len: 16
+    expectedOutcome: {}

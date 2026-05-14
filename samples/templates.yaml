@@ -1,0 +1,18 @@
+tests:
+  - name: test_templates
+    description: "Demonstrates template instantiation via vector and matrix case strategies"
+    runner: HostRunner
+    steps:
+      - type: syscall
+        name: w1
+        syscall: write
+        args:
+          fd: 1
+          buffer: "%{ item.message }"
+    cases:
+      - strategy: vector
+        values:
+          message: hello
+      - strategy: matrix
+        values:
+          message: ["one", "two", "three"]

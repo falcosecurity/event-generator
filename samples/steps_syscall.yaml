@@ -1,6 +1,6 @@
 tests:
-  - name: test_syscalls_connect
-    description: "Testing connect system call"
+  - name: test_steps_syscall_connect
+    description: "Demonstrates the `connect` syscall"
     runner: HostRunner
     resources:
       - type: clientServer
@@ -21,8 +21,8 @@ tests:
         args:
           fd: "${s1.ret}"
           address: 11.11.11.11:80
-  - name: test_syscalls_dup
-    description: "Testing dup system call"
+  - name: test_steps_syscall_dup
+    description: "Demonstrates the `dup` syscall"
     runner: HostRunner
     steps:
       - type: syscall
@@ -30,8 +30,8 @@ tests:
         syscall: dup
         args:
           oldFd: 1
-  - name: test_syscalls_dup2
-    description: "Testing dup2 system call"
+  - name: test_steps_syscall_dup2
+    description: "Demonstrates the `dup2` syscall"
     runner: HostRunner
     steps:
       - type: syscall
@@ -40,8 +40,8 @@ tests:
         args:
           oldFd: 1
           newFd: 100
-  - name: test_syscalls_dup3
-    description: "Testing dup3 system call"
+  - name: test_steps_syscall_dup3
+    description: "Demonstrates the `dup3` syscall"
     runner: HostRunner
     steps:
       - type: syscall
@@ -51,8 +51,8 @@ tests:
           oldFd: 1
           newFd: 101
           flags: 0
-  - name: test_syscalls_kill
-    description: "Testing kill system call"
+  - name: test_steps_syscall_kill
+    description: "Demonstrates the `kill` syscall"
     runner: HostRunner
     resources:
       - type: process
@@ -64,8 +64,8 @@ tests:
         args:
           pid: "${p1.pid}"
           sig: SIGKILL
-  - name: test_syscalls_link
-    description: "Testing link system call"
+  - name: test_steps_syscall_link
+    description: "Demonstrates the `link` syscall"
     runner: HostRunner
     resources:
       - type: fd
@@ -79,8 +79,8 @@ tests:
         args:
           oldPath: "/tmp/file"
           newPath: "/tmp/link"
-  - name: test_syscalls_linkat
-    description: "Testing linkat system call"
+  - name: test_steps_syscall_linkat
+    description: "Demonstrates the `linkat` syscall"
     runner: HostRunner
     resources:
       - type: fd
@@ -101,8 +101,8 @@ tests:
           newDirFd: "${d1.fd}"
           newPath: ./link
           flags: AT_SYMLINK_FOLLOW
-  - name: test_syscalls_open
-    description: "Testing open system call"
+  - name: test_steps_syscall_open
+    description: "Demonstrates the `open` syscall"
     runner: HostRunner
     steps:
       - type: syscall
@@ -112,8 +112,8 @@ tests:
           pathname: /dev/random
           flags: O_RDONLY
           mode: 0
-  - name: test_syscalls_openat
-    description: "Testing openat system call"
+  - name: test_steps_syscall_openat
+    description: "Demonstrates the `openat` syscall"
     runner: HostRunner
     resources:
       - type: fd
@@ -129,8 +129,8 @@ tests:
           pathname: ./random
           flags: O_RDONLY
           mode: 0
-  - name: test_syscalls_openat2
-    description: "Testing openat2 system call"
+  - name: test_steps_syscall_openat2
+    description: "Demonstrates the `openat2` syscall"
     runner: HostRunner
     resources:
       - type: fd
@@ -148,8 +148,8 @@ tests:
             flags: O_RDONLY
             mode: 0
             resolve: RESOLVE_NO_MAGICLINKS
-  - name: test_syscalls_read
-    description: "Testing read system call"
+  - name: test_steps_syscall_read
+    description: "Demonstrates the `read` syscall"
     runner: HostRunner
     resources:
       - type: fd
@@ -164,8 +164,8 @@ tests:
           fd: "${f1.fd}"
           "buffer": "-----"
           len: 3
-  - name: test_syscalls_socket
-    description: "Testing socket system call"
+  - name: test_steps_syscall_socket
+    description: "Demonstrates the `socket` syscall"
     runner: HostRunner
     steps:
       - type: syscall
@@ -175,8 +175,8 @@ tests:
           domain: AF_INET
           type: SOCK_STREAM
           protocol: 0
-  - name: test_syscalls_symlink
-    description: "Testing symlink system call"
+  - name: test_steps_syscall_symlink
+    description: "Demonstrates the `symlink` syscall"
     runner: HostRunner
     resources:
       - type: fd
@@ -190,8 +190,8 @@ tests:
         args:
           target: /tmp/file
           linkPath: /tmp/symlink
-  - name: test_syscalls_symlinkat
-    description: "Testing symlinkat system call"
+  - name: test_steps_syscall_symlinkat
+    description: "Demonstrates the `symlinkat` syscall"
     runner: HostRunner
     resources:
       - type: fd
@@ -210,8 +210,8 @@ tests:
           target: /tmp/file
           newDirFd: "${d1.fd}"
           linkPath: ./symlink
-  - name: test_syscalls_write
-    description: "Testing write system call"
+  - name: test_steps_syscall_write
+    description: "Demonstrates the `write` syscall"
     runner: HostRunner
     steps:
       - type: syscall

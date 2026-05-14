@@ -1,0 +1,15 @@
+tests:
+  - name: test_scripts
+    description: "Demonstrates `before` and `after` bash scripts running on the leaf process"
+    runner: HostRunner
+    before: |
+      echo "setting up the test"
+    after: |
+      echo "tearing down the test"
+    steps:
+      - type: syscall
+        name: w1
+        syscall: write
+        args:
+          fd: 1
+          buffer: "test action"
