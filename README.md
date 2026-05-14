@@ -21,6 +21,7 @@ Generate a variety of suspect actions that are detected by Falco rulesets.
 | before `v0.11` |  Previous versions of the `event-generator` might be compatible Falco versions up to 0.36, however, we do not guarantee it. |
 | `v0.11` | Requires Falco 0.37.0 or newer. `k8saudit` is maintained on a best-effort basis. |
 | `v0.12` | Requires Falco 0.38.0 or newer. Events collection has been aligned with the `stable` Falco ruleset. |
+| `v0.13` | Requires Falco 0.44.0 or newer. Introduces the `suite` command, which consumes declarative YAML test descriptions and may replace the traditional commands in future versions. See [New suite command](#-new-suite-command). |
 
 ## Usage
 
@@ -288,6 +289,72 @@ A common way for benchmarking a local Falco instance is by running the following
 ```shell
 sudo event-generator bench "ChangeThreadNamespace|ReadSensitiveFileUntrusted" --all --loop --sleep 10ms --pid $(pidof -s falco)
 ```
+
+## 📣 New suite command
+
+Since `v0.13`, the `event-generator` ships a new top-level [`suite`](./docs/event-generator_suite.md) command that
+consumes test scenarios described in YAML files. While the traditional `run`, `test` and `bench` sub-commands execute
+actions coded in Go, the new `suite` sub-commands consume YAML descriptions, so a new scenario can be added without
+writing any Go code.
+
+Tests are grouped into *test suites* by the Falco rule they target, and reports are emitted per suite. Three
+sub-commands are available:
+
+* [`event-generator suite run`](./docs/event-generator_suite_run.md) performs the actions declared in the description,
+  without verifying any outcome.
+* [`event-generator suite test`](./docs/event-generator_suite_test.md) performs the same actions and verifies that the
+  running Falco instance produced the expected alerts.
+* [`event-generator suite explain`](./docs/event-generator_suite_explain.md) documents the YAML description language by
+  following the property hierarchies in the schema.
+
+The example below exercises a containerised process chain, a `clientServer` resource, a step that binds to a value
+exposed by the resource, an expected Falco outcome and template cases that expand into multiple concrete tests:
+
+```yaml
+tests:
+  - name: "Drop and execute new binary in container"
+    rule: "Drop and execute new binary in container"
+    description: "Testing reverse shell rule"
+    runner: HostRunner
+    context:
+      container:
+        image: image-name
+        name: container-name
+      processes:
+        - args: "arg1 arg2"
+          name: "proc0"
+          exe: "arg0"
+          user: user1
+        - user: user2
+        - user: root
+          capabilities: "cap_net_admin,cap_net_bind_service,cap_chown=ep"
+    resources:
+      - type: clientServer
+        name: cs1
+        l4Proto: "%{item.l4Proto}"
+        address: "%{item.address}"
+    steps:
+      - type: syscall
+        name: d1
+        syscall: dup2
+        args:
+          oldFd: "${cs1.client.fd}"
+          newFd: 0
+    expectedOutcome:
+      source: "syscall"
+    cases:
+      - strategy: matrix
+        values:
+          l4Proto: ["tcp4", "udp4"]
+          address: ["11.0.0.1:80"]
+      - strategy: vector
+        values:
+          l4Proto: "unix"
+          address: ""
+```
+
+The full YAML language is documented in the [YAML description reference](./docs/event-generator_suite_yaml.md). Working
+examples covering each feature are available under [`samples/`](./samples).
 
 ## FAQ
 
