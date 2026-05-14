@@ -415,7 +415,8 @@ func getDescriptions(schema *jsonschema.Schema) []string {
 	if description := schema.Description; description != "" {
 		descriptions = []string{description}
 	}
-	if ref := schema.Ref; ref != nil {
+	// note: in alignment with `extractNode()`, do not merge description from field binding schema.
+	if ref := schema.Ref; ref != nil && ref.ID != bindingSchemaURL {
 		if description := ref.Description; description != "" {
 			descriptions = mergeDescriptions(descriptions, description)
 		}
