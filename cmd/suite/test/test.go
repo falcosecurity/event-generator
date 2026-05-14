@@ -179,8 +179,10 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	isRootProcess := cw.TestID == ""
 	verifyExpectedOutcome := isRootProcess && !cw.skipOutcomeVerification
 
+	reservedEnvKeyPrefixes := []string{envKeyFromFlagName(cw.EnvKeysPrefix, "")}
+	reservedEnvKeys := []string{cw.SuiteEnvKey}
 	testSuites, err := loadTestSuites(logger, !verifyExpectedOutcome, cw.TestsDescriptionFiles, cw.TestsDescriptionDirs,
-		cw.TestsDescription)
+		cw.TestsDescription, reservedEnvKeyPrefixes, reservedEnvKeys)
 	if err != nil {
 		if noRuleNameErr := (*suite.NoRuleNameError)(nil); errors.As(err, &noRuleNameErr) {
 			logger = logger.WithValues("testName", noRuleNameErr.TestName, "testSourceName",
@@ -365,8 +367,9 @@ func formatTestCase(testCase loader.TestCase) string {
 //
 // The parameter canLoadTestsWithNoRuleName is used to allow/disallow loading of tests with absent or empty rule names.
 func loadTestSuites(logger logr.Logger, canLoadTestsWithNoRuleName bool, descriptionFilePaths,
-	descriptionDirPaths []string, description string) ([]*suite.Suite, error) {
-	descLoader := loader.New()
+	descriptionDirPaths []string, description string,
+	reservedEnvKeyPrefixes, reservedEnvKeys []string) ([]*suite.Suite, error) {
+	descLoader := loader.New(reservedEnvKeyPrefixes, reservedEnvKeys)
 	testSuiteLoader := suiteloader.New(descLoader, canLoadTestsWithNoRuleName)
 
 	// Load from the specified files or directories.
