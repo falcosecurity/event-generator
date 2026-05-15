@@ -65,7 +65,7 @@ func convertFieldBindings(fieldBindings []*loader.TestStepFieldBinding) []*step.
 	for i, fieldBinding := range fieldBindings {
 		bindings[i] = &step.FieldBinding{
 			LocalField: fieldBinding.LocalField,
-			SrcName:    fieldBinding.SrcStep,
+			SrcName:    fieldBinding.SrcName,
 			SrcField:   fieldBinding.SrcField,
 		}
 	}

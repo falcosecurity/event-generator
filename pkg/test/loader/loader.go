@@ -242,7 +242,7 @@ func decodeTestStep(fromType, toType reflect.Type, from any) (any, error) {
 	case TestStepTypeSyscall:
 		var syscallSpec TestStepSyscallSpec
 		if err := decode(from, &syscallSpec, decodeTestStepSyscallName); err != nil {
-			return nil, fmt.Errorf("error decoding syscaòò test step spec: %w", err)
+			return nil, fmt.Errorf("error decoding syscall test step spec: %w", err)
 		}
 
 		spec = &syscallSpec
@@ -277,7 +277,7 @@ func getFieldBindings(containingArgName string, args map[string]any) []*TestStep
 			}
 
 			bindings = append(bindings, &TestStepFieldBinding{
-				SrcStep:    match[1],
+				SrcName:    match[1],
 				SrcField:   match[2],
 				LocalField: argsPrefix + arg,
 			})
@@ -366,6 +366,10 @@ func (c *Description) validate(reservedEnvKeyPrefixes, reservedEnvKeys []string)
 
 		if err := test.validateResources(reservedEnvKeyPrefixes, reservedEnvKeys); err != nil {
 			return fmt.Errorf("error validating test resources: %w", err)
+		}
+
+		if err := test.validateSteps(); err != nil {
+			return fmt.Errorf("error validating test steps: %w", err)
 		}
 	}
 
@@ -509,6 +513,48 @@ func (t *Test) validateResources(reservedEnvKeyPrefixes, reservedEnvKeys []strin
 		}
 	}
 	return nil
+}
+
+// validateSteps ensures that all Test's Steps are valid.
+func (t *Test) validateSteps() error {
+	for stepIndex := range t.Steps {
+		if err := t.validateStepFieldBindings(stepIndex); err != nil {
+			return fmt.Errorf("error validating step field bindings: %w", err)
+		}
+	}
+	return nil
+}
+
+// validateStepFieldBindings ensures that field bindings of the step at index stepIndex are valid.
+func (t *Test) validateStepFieldBindings(stepIndex int) error {
+	for _, fieldBinding := range t.Steps[stepIndex].FieldBindings {
+		if err := t.validateStepFieldBinding(fieldBinding, stepIndex); err != nil {
+			return fmt.Errorf("error validating step field binding: %w", err)
+		}
+	}
+	return nil
+}
+
+// validateStepFieldBinding ensures that the provided field binding, belonging to step at index stepIndex, correctly
+// refers to a resource or a preceding step.
+func (t *Test) validateStepFieldBinding(fieldBinding *TestStepFieldBinding, stepIndex int) error {
+	srcName := fieldBinding.SrcName
+
+	// Check if field binding refers to a resource.
+	for _, resource := range t.Resources {
+		if srcName == resource.Name {
+			return nil
+		}
+	}
+
+	// Check if field binding refers to a preceding step.
+	for i := 0; i < stepIndex; i++ {
+		if srcName == t.Steps[i].Name {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("no resource/preceding step with name %q found", srcName)
 }
 
 // TestRunnerType is the type of test runner.
@@ -715,7 +761,7 @@ func (s TestStep) MarshalYAML() (any, error) {
 				fieldContainer = value.(map[string]any)
 			}
 			fieldContainer[localFieldSegments[len(localFieldSegments)-1]] = fmt.Sprintf("${%s.%s}",
-				fieldBinding.SrcStep, fieldBinding.SrcField)
+				fieldBinding.SrcName, fieldBinding.SrcField)
 		}
 
 		return struct {
@@ -787,7 +833,7 @@ const (
 // TestStepFieldBinding contains the information to perform the binding of a field belonging to a source step.
 type TestStepFieldBinding struct {
 	LocalField string
-	SrcStep    string
+	SrcName    string
 	SrcField   string
 }
 
