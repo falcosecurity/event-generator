@@ -136,8 +136,8 @@ sudo event-generator suite test --description-dir ./samples --skip-outcome-verif
 
 The event-generator is distributed as the
 [`falcosecurity/event-generator`](https://hub.docker.com/r/falcosecurity/event-generator) Docker image, so `suite test`
-can be invoked inside a container instead of installing the binary on the host. The command performs real system calls
-and modifies system state, so the container must be started with `--privileged`.
+can be invoked inside a container instead of installing the binary on the host. The command could perform complex
+actions that require a wide range of capabilities, so the container must be started with `--privileged`.
 
 Falco must also be able to reach the alert-collection HTTP server hosted by the event-generator inside the container.
 Publish the container's port to the host's loopback interface only (`-p 127.0.0.1:8080:8080`) and bind the server to

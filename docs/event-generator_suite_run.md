@@ -99,8 +99,8 @@ cat ./samples/steps_syscall.yaml | sudo event-generator suite run
 
 The event-generator is distributed as the
 [`falcosecurity/event-generator`](https://hub.docker.com/r/falcosecurity/event-generator) Docker image, so `suite run`
-can be invoked inside a container instead of installing the binary on the host. The command performs real system calls
-and modifies system state, so the container must be started with `--privileged`.
+can be invoked inside a container instead of installing the binary on the host. The command could perform complex
+actions that require a wide range of capabilities, so the container must be started with `--privileged`.
 
 Feed the description through standard input:
 
