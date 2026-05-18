@@ -231,11 +231,11 @@ The above command loops forever, creating resources in the `falco-eg-sandbox` na
 
 Since `v0.4.0`, this tool introduces a convenient integration test suite for Falco rules. The `event-generator test` command can run actions and test them against a running Falco instance.
 
-> This feature requires Falco 0.24.0 or newer. Before using the command below, you need [Falco installed](https://falco.org/docs/installation/) and running with the [gRPC Output](https://falco.org/docs/grpc/) enabled.
+> Before using the command below, you need [Falco installed](https://falco.org/docs/installation/) and running with its HTTP Output enabled and pointing at the event-generator's HTTP server.
 
 #### Test locally (`syscall` only)
 
-Run the following command to test `syscall` actions on a local Falco instance (connects via Unix socket to `/run/falco/falco.sock` by default):
+Run the following command to test `syscall` actions on a local Falco instance. The `test` command hosts an HTTP server at `localhost:8080` by default, which Falco posts alerts to:
 
 ```shell
 sudo ./event-generator test syscall
@@ -272,8 +272,6 @@ Note that to test `k8saudit` events, you need _Kubernetes Audit Log_ functionali
 
 Since `v0.5.0`, the `event-generator` can also be used for benchmarking a running instance of Falco. The command `event-generator bench` generates a high number of Event Per Second (EPS) to show you events throughput allowed by your Falco installation.
 
-Be aware that before Falco 0.37 a rate-limiter for notifications that affects the gRPC Outputs APIs was present. You probably need to increase the `outputs.rate` and `outputs.max_burst` values [within the Falco configuration](https://github.com/falcosecurity/falco/blob/e2bf87d207a32401da271835e15dadf957f68e8c/falco.yaml#L90-L104), otherwise EPS will be rate-limited by the throttling mechanism. 
-
 ### Run a benchmark
 
 Before starting a benchmark, the most important thing to understand is that the `--sleep` option controls the number of EPS (default to `250ms`): reducing this value will increase the EPS. Furthermore, if the `--loop` option is set, the sleeping duration is automatically halved on each round. The `--pid` option can be used to monitor the Falco process. 
@@ -284,7 +282,7 @@ Please, keep in mind that not all actions can be used for benchmarking since som
 
 **Benchmark example**
 
-A common way for benchmarking a local Falco instance is by running the following command (that connects via Unix socket to `/run/falco/falco.sock` by default):
+A common way for benchmarking a local Falco instance is by running the following command (`bench` hosts an HTTP server at `localhost:8080` by default, which Falco posts alerts to):
 
 ```shell
 sudo event-generator bench "ChangeThreadNamespace|ReadSensitiveFileUntrusted" --all --loop --sleep 10ms --pid $(pidof -s falco)
