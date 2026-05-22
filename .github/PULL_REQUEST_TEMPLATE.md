@@ -20,6 +20,10 @@
 
 > /kind feature
 
+> If this PR prepares a chart release, uncomment:
+
+> /kind chart-release
+
 <!--
 Please remove the leading whitespace before the `/kind <>` you uncommented.
 -->
