@@ -20,7 +20,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
-	"github.com/thediveo/enumflag"
+	"github.com/thediveo/enumflag/v2"
 
 	"github.com/falcosecurity/event-generator/pkg/alert"
 	"github.com/falcosecurity/event-generator/pkg/alert/retriever/httpretriever"
