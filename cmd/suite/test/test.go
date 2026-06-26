@@ -29,7 +29,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"github.com/thediveo/enumflag"
+	"github.com/thediveo/enumflag/v2"
 
 	"github.com/falcosecurity/event-generator/cmd/internal/alertretriever"
 	"github.com/falcosecurity/event-generator/cmd/suite/config"
