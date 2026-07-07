@@ -17,7 +17,7 @@ tests:
           len: 16
     expectedOutcome:
       source: syscall
-      priority: WARNING
+      priority: warning
   - name: test_expected_outcome_loose
     rule: "Read sensitive file untrusted"
     description: "Demonstrates the loose `expectedOutcome: {}` form: matches any alert produced for the rule"
