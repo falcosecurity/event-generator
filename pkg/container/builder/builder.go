@@ -251,7 +251,7 @@ func (c *dockerContainer) Start(ctx context.Context) (err error) {
 
 	// Retrieve base image.
 	baseImageName := c.baseImageName
-	if err := pullImage(ctx, client, baseImageName, c.baseImagePullPolicy); err != nil {
+	if err := c.pullImage(ctx, client, baseImageName, c.baseImagePullPolicy); err != nil {
 		return fmt.Errorf("error pulling base image %q: %w", baseImageName, err)
 	}
 	logger.V(1).Info("Pulled base image", "imageName", baseImageName)
@@ -383,12 +383,13 @@ func (c *dockerContainer) teardown(ctx context.Context, mustStopContainer bool) 
 
 var errImageNotFoundLocally = fmt.Errorf("image not found locally")
 
-// pullImage pulls the image with the provided image name, leveraging the provided docker client and using the provided
-// image pull policy.
-func pullImage(ctx context.Context, client *dockerclient.Client, imageName string, policy ImagePullPolicy) error {
+// pullImage pulls the image with the provided image name, leveraging the provided docker client and respecting the
+// provided image pull policy.
+func (c *dockerContainer) pullImage(ctx context.Context, client *dockerclient.Client, imageName string,
+	policy ImagePullPolicy) error {
 	switch policy {
 	case ImagePullPolicyAlways:
-		if err := pullRemoteImage(ctx, client, imageName); err != nil {
+		if err := c.pullRemoteImage(ctx, client, imageName); err != nil {
 			return fmt.Errorf("error pulling from remote: %w", err)
 		}
 		return nil
@@ -414,7 +415,7 @@ func pullImage(ctx context.Context, client *dockerclient.Client, imageName strin
 		}
 
 		// Otherwise, try to pull it from remote.
-		if err := pullRemoteImage(ctx, client, imageName); err != nil {
+		if err := c.pullRemoteImage(ctx, client, imageName); err != nil {
 			return fmt.Errorf("error pulling from remote: %w", err)
 		}
 		return nil
@@ -425,7 +426,8 @@ func pullImage(ctx context.Context, client *dockerclient.Client, imageName strin
 
 // pullRemoteImage requests docker to pull the image with the provided image name from the remote registry, leveraging
 // the provided docker client.
-func pullRemoteImage(ctx context.Context, client *dockerclient.Client, imageName string) error {
+func (c *dockerContainer) pullRemoteImage(ctx context.Context, client *dockerclient.Client, imageName string) error {
+	c.logger.V(1).Info("Pulling image from remote registry", "imageName", imageName)
 	reader, err := client.ImagePull(ctx, imageName, dockerimage.PullOptions{})
 	if err != nil {
 		return err
