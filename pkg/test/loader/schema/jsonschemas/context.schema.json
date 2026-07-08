@@ -7,7 +7,7 @@
   "properties": {
     "container": {
       "description": "The container context containing information regarding the container that will run a test",
-      "type": "object",
+      "type": ["object", "null"],
       "properties": {
         "image": {
           "description": "The name the base event-generator image must be tagged with before being used to spawn the container",
