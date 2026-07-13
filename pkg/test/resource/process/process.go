@@ -47,12 +47,13 @@ var processCommand = "cat"
 
 // New creates a new process resource.
 func New(logger logr.Logger, resourceName string, processBuilder process.Builder, simExePath, name, arg0, args string,
-	env []string) resource.Resource {
+	env []string, isFileLess bool) resource.Resource {
 	processBuilder.SetSimExePath(simExePath)
 	processBuilder.SetName(name)
 	processBuilder.SetArg0(arg0)
 	processBuilder.SetArgs(args)
 	processBuilder.SetEnv(env)
+	processBuilder.SetFileLess(isFileLess)
 	proc := processBuilder.Build(context.Background(), logger, processCommand)
 
 	p := &procRes{

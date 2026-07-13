@@ -160,6 +160,7 @@ func buildFD(logger logr.Logger, resourceName string,
 func buildProcess(logger logr.Logger, resourceName string, processBuilder process.Builder,
 	procSpec *loader.TestResourceProcessSpec) resource.Resource {
 	var simExePath, name, arg0, args string
+	var isFileLess bool
 	if procSpec.ExePath != nil {
 		simExePath = *procSpec.ExePath
 	}
@@ -172,8 +173,11 @@ func buildProcess(logger logr.Logger, resourceName string, processBuilder proces
 	if procSpec.Args != nil {
 		args = *procSpec.Args
 	}
+	if procSpec.FileLess != nil {
+		isFileLess = *procSpec.FileLess
+	}
 	procEnv := buildProcEnv(procSpec.Env)
-	return processresource.New(logger, resourceName, processBuilder, simExePath, name, arg0, args, procEnv)
+	return processresource.New(logger, resourceName, processBuilder, simExePath, name, arg0, args, procEnv, isFileLess)
 }
 
 func buildProcEnv(userEnv map[string]string) []string {

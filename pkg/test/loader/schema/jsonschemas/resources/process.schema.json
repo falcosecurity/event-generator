@@ -39,6 +39,11 @@
         "minLength": 1
       }
     },
+    "fileLess": {
+      "description": "A boolean value allowing to mark the process as fileless. If set to true, the process executable is placed in the memory associated with a newly created memfd file, and the execution starts from there instead of starting from the file system. If true, fields other than 'exe', 'args' and 'env' are not supported",
+      "type": "boolean",
+      "default": false
+    },
     "x-metadata": {
       "not": {},
       "type": "object",
@@ -51,5 +56,21 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["fileLess"],
+        "properties": {
+          "fileLess": { "const": true }
+        }
+      },
+      "then": {
+        "properties": {
+          "exePath": false,
+          "procName": false
+        }
+      }
+    }
+  ]
 }

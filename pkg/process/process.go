@@ -24,7 +24,7 @@ import (
 // Builder allows to build a new process.
 type Builder interface {
 	// SetSimExePath sets the "simulated" executable path. This sets the executable path accessible through
-	// `readlink -f /proc/<pid/exepath` for the started process. The underlying implementation ensures the existence of
+	// `readlink -f /proc/<pid>/exe` for the started process. The underlying implementation ensures the existence of
 	// each segment of the provided path, by possibly creating some of them. Path segments contextually created are
 	// automatically removed after the process resources are released. If unset or empty, it is randomly generated.
 	SetSimExePath(simExePath string)
@@ -46,6 +46,15 @@ type Builder interface {
 	// SetCapabilities sets the capabilities that must be set on the process executable file. The syntax follows the
 	// conventions specified by cap_from_text(3). If unset or empty, it defaults to 'all=iep'.
 	SetCapabilities(capabilities string)
+	// SetFileLess sets the process as "fileless" or not. If set to true, the process executable is placed in the memory
+	// associated with a newly created memfd file, and the execution starts from there instead of starting from the file
+	// system. resulting in-memory executable is a memfd file created just before the process execution is started.
+	// If true, only settings associated with the following APIs are taken into account:
+	// - SetArg0
+	// - SetArgs
+	// - SetEnv
+	// If unset, it defaults to false.
+	SetFileLess(isFileLess bool)
 	// Build builds the process, setting the logger managing its lifecycle and the command that it is going to run.
 	// The provided context can be used at any time to cancel the process execution after it is started.
 	// After calling Build, the Builder process-related configuration is cleared and the Builder can be reused to build

@@ -45,6 +45,7 @@ type builder struct {
 	env          []string
 	username     string
 	capabilities string
+	isFileLess   bool
 }
 
 // Verify that builder implements process.Builder interface.
@@ -84,6 +85,10 @@ func (b *builder) SetCapabilities(capabilities string) {
 	b.capabilities = capabilities
 }
 
+func (b *builder) SetFileLess(isFileLess bool) {
+	b.isFileLess = isFileLess
+}
+
 var (
 	// defaultSimExePathPrefix defines the prefix used to generate a random simulated executable path.
 	defaultSimExePathPrefix = filepath.Join(os.TempDir(), "event-generator")
@@ -93,6 +98,27 @@ var (
 
 func (b *builder) Build(ctx context.Context, logger logr.Logger, command string) process.Process {
 	defer b.reset()
+
+	if b.isFileLess {
+		// Setup process command. The command to run is now set to "", and is later set in osProcess.Start() to
+		// /proc/<pid>/fd/<fd> (this is also the value set in osProcess.Start() for argv[0] is b.arg0 is now empty).
+		cmd := exec.CommandContext(ctx, "", splitArgs(b.args)...) //nolint:gosec // Disable G204
+		cmd.Args[0] = b.arg0
+		cmd.Env = b.env
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		proc := &osProcess{
+			logger:       logger,
+			command:      command,
+			simExePath:   "",
+			username:     b.username,
+			capabilities: "",
+			cmd:          cmd,
+			isFileLess:   true,
+			started:      false,
+		}
+		return proc
+	}
 
 	// If the user doesn't provide an executable path, we must generate a random path.
 	var simExePath string
@@ -145,6 +171,7 @@ func (b *builder) Build(ctx context.Context, logger logr.Logger, command string)
 		username:     b.username,
 		capabilities: capabilities,
 		cmd:          cmd,
+		isFileLess:   false,
 		started:      false,
 	}
 
@@ -160,6 +187,7 @@ func (b *builder) reset() {
 	b.env = nil
 	b.username = ""
 	b.capabilities = ""
+	b.isFileLess = false
 }
 
 // splittingArgsRegex allows to split space-separated arguments, keeping together space-separated words under the same
@@ -195,6 +223,7 @@ type osProcess struct {
 	simExePath   string
 	username     string
 	capabilities string
+	isFileLess   bool
 
 	// cmd is the underlying command object.
 	cmd *exec.Cmd
@@ -206,6 +235,9 @@ type osProcess struct {
 	// simulated executable path, that has been created. If no directories have been created, it is empty. If non-empty,
 	// this is the directory that must be deleted upon process resources release.
 	firstCreatedSimExePathDir string
+	// memFDFile is the memfd file storing the executable in fileless mode. It is only populated in case isFileLess is
+	// true; it is nil otherwise. If non-nil, this file must be closed upon process resources release.
+	memFDFile *os.File
 }
 
 // Verify that osProcess implements process.Process interface.
@@ -225,6 +257,31 @@ func (p *osProcess) Start() (err error) {
 	commandPath, err := exec.LookPath(p.command)
 	if err != nil && !errors.Is(err, exec.ErrDot) {
 		return fmt.Errorf("error retrieving command path: %w", err)
+	}
+
+	if p.isFileLess {
+		// Create a memfd file with the content of the command executable.
+		memFDFile, err := createMemFDFile(commandPath)
+		if err != nil {
+			return fmt.Errorf("error creating fileless executable (memfd file): %w", err)
+		}
+		defer p.closeFileIfErr(memFDFile, &err)
+		memFDFilePath := memFDFile.Name()
+		p.logger.V(1).Info("Created fileless executable (memfd file)", "path", memFDFilePath)
+
+		// Set the command path to the memfd file name (which is in the form /proc/<pid>/fd/<fd>). Set argv[0] to the
+		// same value if this latter is empty and then, start the process.
+		p.cmd.Path = memFDFilePath
+		if p.cmd.Args[0] == "" {
+			p.cmd.Args[0] = memFDFilePath
+		}
+		if err := p.cmd.Start(); err != nil {
+			return err
+		}
+
+		p.started = true
+		p.memFDFile = memFDFile
+		return nil
 	}
 
 	// Determine if the process must be run by the current user/group or not. If a user different from the current one
@@ -330,6 +387,49 @@ func (p *osProcess) Start() (err error) {
 	p.userCreated = userCreated
 	p.firstCreatedSimExePathDir = firstCreatedSimExePathDir
 	return nil
+}
+
+// createMemFDFile creates a memfd file storing the content of the executable at the provided path.
+func createMemFDFile(exePath string) (file *os.File, err error) {
+	srcFile, err := os.Open(exePath) //nolint:gosec // Disable G304
+	if err != nil {
+		return nil, fmt.Errorf("error opening source file: %w", err)
+	}
+	defer func() {
+		if e := srcFile.Close(); e != nil {
+			e := fmt.Errorf("error closing source file: %w", e)
+			if err != nil {
+				err = fmt.Errorf("%w; %w", err, e)
+			} else {
+				err = e
+			}
+		}
+	}()
+
+	fd, err := unix.MemfdCreate("event-generator", unix.MFD_CLOEXEC)
+	if err != nil {
+		return nil, fmt.Errorf("error creating memfd file: %w", err)
+	}
+
+	dstFile := os.NewFile(uintptr(fd), fmt.Sprintf("/proc/%d/fd/%d", os.Getpid(), fd))
+	if _, err := io.Copy(dstFile, srcFile); err != nil {
+		if e := dstFile.Close(); e != nil {
+			return nil, fmt.Errorf("error copying data: %w; error closing memfd file: %w", err, e)
+		}
+		return nil, fmt.Errorf("error copying data: %w", err)
+	}
+
+	return dstFile, nil
+}
+
+// closeFileIfErr closes the file if the provided error pointer points to an error.
+func (p *osProcess) closeFileIfErr(file *os.File, err *error) { //nolint:gocritic // Disable ptrToRefParam
+	if *err != nil {
+		logger := p.logger.WithValues("fd", int(file.Fd()), "path", file.Name())
+		if err := file.Close(); err != nil {
+			logger.Error(err, "Error closing file")
+		}
+	}
 }
 
 // findOrCreateUser finds or creates the user with the provided username. It returns information about the user.
@@ -501,7 +601,24 @@ func (p *osProcess) releaseResources() {
 	defer func() {
 		p.started = false
 		p.userCreated = false
+		p.firstCreatedSimExePathDir = ""
+		p.memFDFile = nil
 	}()
+
+	if p.isFileLess {
+		if memFDFile := p.memFDFile; memFDFile != nil {
+			fd := int(memFDFile.Fd())
+			logger := p.logger.WithValues("fd", fd, "path", memFDFile.Name())
+			if err := p.memFDFile.Close(); err != nil {
+				logger.Error(err, "Error closing memfd file")
+			} else {
+				logger.V(1).Info("Closed memfd file")
+			}
+		}
+
+		// No other resources need to be released in fileless mode.
+		return
+	}
 
 	username := p.username
 	if p.userCreated {

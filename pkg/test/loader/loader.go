@@ -727,6 +727,10 @@ type TestResourceProcessSpec struct {
 	Name *string `yaml:"procName,omitempty" mapstructure:"procName"`
 	// Env is the set of environment variables that must be provided to the process (in addition to the default ones).
 	Env map[string]string `yaml:"env,omitempty" mapstructure:"env"`
+	// FileLess allows to specify if the process must be fileless or not. If set to true, the process executable is
+	// placed in the memory associated with a newly created memfd file, and the execution starts from there instead of
+	// starting from the file system. If true, fields other than Exe, Args and Env are not supported.
+	FileLess *bool `yaml:"fileLess,omitempty" mapstructure:"fileLess"`
 }
 
 // TestStep describes a test step.
