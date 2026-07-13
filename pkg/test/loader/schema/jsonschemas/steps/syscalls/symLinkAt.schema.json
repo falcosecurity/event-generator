@@ -23,10 +23,8 @@
           "type": [
             "string"
           ],
-          "$ref": "binding.schema.json",
-          "examples": [
-            "/path/to/dir"
-          ]
+          "default": "File descriptor referring to the current working directory (i.e: AT_FDCWD)",
+          "$ref": "binding.schema.json"
         },
         "linkPath": {
           "description": "The file path of the symbolic link that is requested to be created",
@@ -41,7 +39,6 @@
       },
       "required": [
         "target",
-        "newDirFd",
         "linkPath"
       ]
     },

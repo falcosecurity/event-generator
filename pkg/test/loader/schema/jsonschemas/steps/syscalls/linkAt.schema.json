@@ -13,10 +13,8 @@
           "type": [
             "string"
           ],
-          "$ref": "binding.schema.json",
-          "examples": [
-            "/path/to/old/dir"
-          ]
+          "default": "File descriptor referring to the current working directory (i.e: AT_FDCWD)",
+          "$ref": "binding.schema.json"
         },
         "oldPath": {
           "description": "The file path referring to the existing file that must be linked. If it is relative, it is interpreted relative to the directory referred to by 'oldDirFd'",
@@ -33,10 +31,8 @@
           "type": [
             "string"
           ],
-          "$ref": "binding.schema.json",
-          "examples": [
-            "/path/to/new/dir"
-          ]
+          "default": "File descriptor referring to the current working directory (i.e: AT_FDCWD)",
+          "$ref": "binding.schema.json"
         },
         "newPath": {
           "description": "The file path of the link that is requested to be created. If it is relative, it is interpreted relative to the directory referred to by 'newDirFd'",
@@ -62,9 +58,7 @@
         }
       },
       "required": [
-        "oldDirFd",
         "oldPath",
-        "newDirFd",
         "newPath"
       ]
     },
