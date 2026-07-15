@@ -195,6 +195,54 @@ func (b *builder) Build() container.Container {
 	return cont
 }
 
+// containerWaiter waits for the container to terminate and being removed. Moreover, it allows to retrieve its exit
+// code.
+type containerWaiter struct {
+	// responseCh is the response channel returned by dockerclient.Client.ContainerWait.
+	responseCh <-chan dockercontainer.WaitResponse
+	// errCh is the error channel returned by dockerclient.Client.ContainerWait.
+	errCh <-chan error
+	// cancel cancels the ongoing wait operation.
+	cancel context.CancelFunc
+}
+
+// newContainerWaiter creates a new waiter for the container having the provided ID. The client is used to issue the
+// wait request.
+func newContainerWaiter(ctx context.Context, client *dockerclient.Client, containerID string) *containerWaiter {
+	waiter := &containerWaiter{}
+	waitCtx, waitCancel := context.WithCancel(ctx)
+	waiter.cancel = waitCancel
+	waiter.responseCh, waiter.errCh = client.ContainerWait(waitCtx, containerID,
+		dockercontainer.WaitConditionRemoved)
+	return waiter
+}
+
+// teardown cancels container wait operation.
+func (cw *containerWaiter) teardown() {
+	if cw.cancel != nil {
+		cw.cancel()
+		cw.cancel = nil
+		cw.responseCh = nil
+		cw.errCh = nil
+	}
+}
+
+// wait waits for the container to terminate and being removed and returns its exit code.
+func (cw *containerWaiter) wait(ctx context.Context) (int64, error) {
+	select {
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	case err := <-cw.errCh:
+		return 0, fmt.Errorf("error waiting for container: %w", err)
+	case response := <-cw.responseCh:
+		if exitErr := response.Error; exitErr != nil {
+			return 0, fmt.Errorf("error waiting for process: %s", exitErr.Message)
+		}
+
+		return response.StatusCode, nil
+	}
+}
+
 // dockerContainer is an implementation of a docker container.Container.
 type dockerContainer struct {
 	logger              logr.Logger
@@ -221,6 +269,8 @@ type dockerContainer struct {
 	// streamsCopyFinishedCh is a channel that is closed when the corresponding goroutine finishes to copy the container
 	// stdout/stderr streams to the current process corresponding streams.
 	streamsCopyFinishedCh chan struct{}
+	// waiter waits for the container to terminate and being removed. Moreover, it allows to retrieve its exit code.
+	waiter *containerWaiter
 }
 
 var (
@@ -284,7 +334,9 @@ func (c *dockerContainer) Start(ctx context.Context) (err error) {
 	c.containerAttachOpHijackedResponse = &hijackedResponse
 	logger.V(1).Info("Attached container to read stdout/stderr streams")
 
-	// Start the container.
+	// Create a waiter and then start the container.
+	// note: this specific order prevents a race-condition between the wait operation and the container removal.
+	c.waiter = newContainerWaiter(ctx, client, containerID)
 	if err := client.ContainerStart(ctx, containerID, dockercontainer.StartOptions{}); err != nil {
 		hijackedResponse.Close()
 		return fmt.Errorf("error starting container: %w", err)
@@ -336,6 +388,12 @@ func (c *dockerContainer) teardown(ctx context.Context, mustStopContainer bool) 
 	}
 
 	logger := c.logger
+
+	// Teardown the container waiter, if any.
+	if c.waiter != nil {
+		c.waiter.teardown()
+		c.waiter = nil
+	}
 
 	// Close the response hijacking stdout/stderr container streams which were supposed to be copied to the current
 	// process corresponding streams.
@@ -470,24 +528,18 @@ func (c *dockerContainer) Wait(ctx context.Context) error {
 
 	defer c.teardown(ctx, false)
 
-	// Wait for the container to exit and get the exit status.
-	responseCh, errCh := c.client.ContainerWait(ctx, c.containerID, dockercontainer.WaitConditionNotRunning)
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case err := <-errCh: // The returned error is always different from nil
-		return fmt.Errorf("error waiting for container: %w", err)
-	case response := <-responseCh:
-		if exitErr := response.Error; exitErr != nil {
-			return fmt.Errorf("error waiting for process: %s", exitErr.Message)
-		}
-
-		// The container is automatically removed by docker: just let the user know it.
-		defer c.logger.V(1).Info("Removed container", "containerID", c.containerID)
-		if exitCode := response.StatusCode; exitCode != 0 {
-			return fmt.Errorf("container exited with non-zero exit code (%d)", exitCode)
-		}
-
-		return nil
+	// Wait for the container to terminate and being removed and get the exit code.
+	exitCode, err := c.waiter.wait(ctx)
+	if err != nil {
+		return err
 	}
+
+	// The container is automatically removed by docker: just let the user know it.
+	defer c.logger.V(1).Info("Removed container", "containerID", c.containerID)
+
+	if exitCode != 0 {
+		return fmt.Errorf("container exited with non-zero exit code (%d)", exitCode)
+	}
+
+	return nil
 }
