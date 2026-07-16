@@ -132,7 +132,12 @@ func (t *testerImpl) findUID(alrt *alert.Alert) *uuid.UUID {
 		return nil
 	}
 
-	// Parse the contained test UID.
+	// Make sure the contained test UID is not truncated.
+	if len(procEnv) < uuidV4Len {
+		return nil
+	}
+
+	// Parse the test UID.
 	uid, err := uuid.Parse(procEnv[:uuidV4Len])
 	if err != nil {
 		return nil

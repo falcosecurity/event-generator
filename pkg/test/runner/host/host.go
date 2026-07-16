@@ -178,7 +178,7 @@ func (r *hostRunner) delegateToContainer(ctx context.Context, logger logr.Logger
 		bag.ContainerName = *containerName
 	}
 
-	containerEnv, err := r.buildEnv(testID, testDesc, containerContext.Env, false, bag)
+	containerEnv, err := r.buildEnv(testID, containerContext.Env, testDesc, false, bag)
 	if err != nil {
 		return fmt.Errorf("error building container environment variables set: %w", err)
 	}
@@ -207,41 +207,43 @@ func popContainer(testContext *loader.TestContext) *loader.ContainerContext {
 
 // buildEnv builds the environment variable set for a given process, leveraging the provided test data and the
 // additional user-provided environment variables and the baggage.
-func (r *hostRunner) buildEnv(testID string, testDesc *loader.Test, userEnv map[string]string,
+func (r *hostRunner) buildEnv(testID string, userEnv map[string]string, testDesc *loader.Test,
 	isLastProcess bool, bag *baggage.Baggage) ([]string, error) {
-	env := r.Environ
+	const additionalEnvVars = 3 // testID + description + baggage.
+	env := make([]string, 0, len(userEnv)+len(r.Environ)+additionalEnvVars)
 
-	// Add the user-provided environment variable.
+	// Add the test ID environment variable.
+	if isLastProcess {
+		testID = r.stripTestIDIgnorePrefix(testID)
+	}
+	env = append(env, buildEnvVar(r.TestIDEnvKey, testID))
+
+	// Add the user-provided environment variables.
 	for key, value := range userEnv {
 		env = append(env, fmt.Sprintf("%s=%s", key, value))
 	}
 
-	// Set test description environment variable to the serialized test description.
+	// Add the test description environment variable building it from the serialized test description.
 	description, err := marshalTestDescription(testDesc)
 	if err != nil {
 		return nil, fmt.Errorf("error serializing new test description: %w", err)
 	}
-	descriptionEnvVar := buildEnvVar(r.TestDescriptionEnvKey, description)
+	env = append(env, buildEnvVar(r.TestDescriptionEnvKey, description))
 
-	// Set test ID environment variable.
-	if isLastProcess {
-		testID = r.getTestUID(testID)
-	}
-	testIDEnvVar := buildEnvVar(r.TestIDEnvKey, testID)
-
-	// Set baggage environment variable.
+	// Add the baggage environment variable.
 	baggageValue, err := marshalBaggage(bag)
 	if err != nil {
 		return nil, fmt.Errorf("error serializing baggage: %w", err)
 	}
-	baggageEnvVar := buildEnvVar(r.BaggageEnvKey, baggageValue)
+	env = append(env, buildEnvVar(r.BaggageEnvKey, baggageValue))
 
-	// Override test description file and directory environment variables to avoid conflicts with the test description
-	// environment variable.
-	descriptionFileEnvVar := buildEnvVar(r.TestDescriptionFileEnvKey, "")
-	descriptionDirEnvVar := buildEnvVar(r.TestDescriptionDirEnvKey, "")
+	// Add the process environment, but exclude the environment variables that we overrode.
+	for _, envVar := range r.Environ {
+		if envKey, _, found := strings.Cut(envVar, "="); !found || !r.mustOverrideEnv(envKey) {
+			env = append(env, envVar)
+		}
+	}
 
-	env = append(env, descriptionEnvVar, testIDEnvVar, baggageEnvVar, descriptionFileEnvVar, descriptionDirEnvVar)
 	return env, nil
 }
 
@@ -261,8 +263,9 @@ func buildEnvVar(envKey, envValue string) string {
 	return fmt.Sprintf("%s=%s", envKey, envValue)
 }
 
-// getTestUID extracts the test UID from the test ID by removing the ignore prefix.
-func (r *hostRunner) getTestUID(testID string) string {
+// stripTestIDIgnorePrefix strips the ignore prefix from the provided test ID and returns it. The returned value is
+// indeed the test UID.
+func (r *hostRunner) stripTestIDIgnorePrefix(testID string) string {
 	return strings.TrimPrefix(testID, r.TestIDIgnorePrefix)
 }
 
@@ -276,6 +279,17 @@ func marshalBaggage(bag *baggage.Baggage) (string, error) {
 	return sb.String(), nil
 }
 
+// mustOverrideEnv returns true if the value associated to provided environment variable key is overridden by the runner
+// upon run delegation.
+func (r *hostRunner) mustOverrideEnv(key string) bool {
+	switch key {
+	case r.TestIDEnvKey, r.TestDescriptionEnvKey, r.BaggageEnvKey, r.TestDescriptionFileEnvKey, r.TestDescriptionDirEnvKey:
+		return true
+	default:
+		return false
+	}
+}
+
 // delegateToProcess delegates the execution of the test to a process, created and tuned as per test specification.
 func (r *hostRunner) delegateToProcess(ctx context.Context, logger logr.Logger, testID string,
 	testDesc *loader.Test) error {
@@ -286,7 +300,7 @@ func (r *hostRunner) delegateToProcess(ctx context.Context, logger logr.Logger, 
 	bag := r.Baggage
 	bag.ProcIndex++
 
-	procEnv, err := r.buildEnv(testID, testDesc, firstProcess.Env, isLastProcess, bag)
+	procEnv, err := r.buildEnv(testID, firstProcess.Env, testDesc, isLastProcess, bag)
 	if err != nil {
 		return fmt.Errorf("error building process environment variables set: %w", err)
 	}
