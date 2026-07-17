@@ -25,6 +25,7 @@ import (
 
 	"github.com/falcosecurity/event-generator/pkg/baggage"
 	"github.com/falcosecurity/event-generator/pkg/container"
+	"github.com/falcosecurity/event-generator/pkg/envvar"
 	"github.com/falcosecurity/event-generator/pkg/process"
 	"github.com/falcosecurity/event-generator/pkg/test"
 	"github.com/falcosecurity/event-generator/pkg/test/loader"
@@ -216,11 +217,11 @@ func (r *hostRunner) buildEnv(testID string, userEnv map[string]string, testDesc
 	if isLastProcess {
 		testID = r.stripTestIDIgnorePrefix(testID)
 	}
-	env = append(env, buildEnvVar(r.TestIDEnvKey, testID))
+	env = append(env, envvar.EnvVar(r.TestIDEnvKey, testID))
 
 	// Add the user-provided environment variables.
 	for key, value := range userEnv {
-		env = append(env, fmt.Sprintf("%s=%s", key, value))
+		env = append(env, envvar.EnvVar(key, value))
 	}
 
 	// Add the test description environment variable building it from the serialized test description.
@@ -228,18 +229,18 @@ func (r *hostRunner) buildEnv(testID string, userEnv map[string]string, testDesc
 	if err != nil {
 		return nil, fmt.Errorf("error serializing new test description: %w", err)
 	}
-	env = append(env, buildEnvVar(r.TestDescriptionEnvKey, description))
+	env = append(env, envvar.EnvVar(r.TestDescriptionEnvKey, description))
 
 	// Add the baggage environment variable.
 	baggageValue, err := marshalBaggage(bag)
 	if err != nil {
 		return nil, fmt.Errorf("error serializing baggage: %w", err)
 	}
-	env = append(env, buildEnvVar(r.BaggageEnvKey, baggageValue))
+	env = append(env, envvar.EnvVar(r.BaggageEnvKey, baggageValue))
 
 	// Add the process environment, but exclude the environment variables that we overrode.
 	for _, envVar := range r.Environ {
-		if envKey, _, found := strings.Cut(envVar, "="); !found || !r.mustOverrideEnv(envKey) {
+		if envKey, _, found := envvar.KeyAndVal(envVar); !found || !r.mustOverrideEnv(envKey) {
 			env = append(env, envVar)
 		}
 	}
@@ -256,11 +257,6 @@ func marshalTestDescription(testDesc *loader.Test) (string, error) {
 	}
 
 	return sb.String(), nil
-}
-
-// buildEnvVar creates an environment variable string in the form "<envKey>=<envValue>".
-func buildEnvVar(envKey, envValue string) string {
-	return fmt.Sprintf("%s=%s", envKey, envValue)
 }
 
 // stripTestIDIgnorePrefix strips the ignore prefix from the provided test ID and returns it. The returned value is

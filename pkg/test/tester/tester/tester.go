@@ -24,6 +24,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/falcosecurity/event-generator/pkg/alert"
+	"github.com/falcosecurity/event-generator/pkg/envvar"
 	"github.com/falcosecurity/event-generator/pkg/test/loader"
 	"github.com/falcosecurity/event-generator/pkg/test/tester"
 )
@@ -45,7 +46,7 @@ var _ tester.Tester = (*testerImpl)(nil)
 
 // New creates a new tester.
 func New(alertRetriever alert.Retriever, testIDEnvKey, testIDIgnorePrefix string) tester.Tester {
-	testIDEnvVarPrefix := testIDEnvKey + "="
+	testIDEnvVarPrefix := envvar.EnvVar(testIDEnvKey, "")
 	testIDEnvVarPrefixLen := len(testIDEnvVarPrefix)
 	t := &testerImpl{
 		alertRetriever:        alertRetriever,

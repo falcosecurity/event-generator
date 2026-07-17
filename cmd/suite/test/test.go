@@ -35,6 +35,7 @@ import (
 	"github.com/falcosecurity/event-generator/cmd/suite/config"
 	"github.com/falcosecurity/event-generator/pkg/baggage"
 	containerbuilder "github.com/falcosecurity/event-generator/pkg/container/builder"
+	"github.com/falcosecurity/event-generator/pkg/envvar"
 	processbuilder "github.com/falcosecurity/event-generator/pkg/process/builder"
 	"github.com/falcosecurity/event-generator/pkg/test"
 	testbuilder "github.com/falcosecurity/event-generator/pkg/test/builder"
@@ -143,13 +144,6 @@ func (cw *CommandWrapper) initFlags(c *cobra.Command) {
 		"report-format", "The format of the test suites report; can be 'text', 'json' or 'yaml'")
 }
 
-// envKeyFromFlagName converts the provided flag name into the corresponding environment variable key.
-func envKeyFromFlagName(envKeysPrefix, flagName string) string {
-	s := fmt.Sprintf("%s_%s", envKeysPrefix, strings.ToUpper(flagName))
-	s = strings.ToUpper(s)
-	return strings.ReplaceAll(s, "-", "_")
-}
-
 // run runs the provided command with the provided arguments.
 func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	ctx := cmd.Context()
@@ -179,7 +173,7 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	isRootProcess := cw.TestID == ""
 	verifyExpectedOutcome := isRootProcess && !cw.skipOutcomeVerification
 
-	reservedEnvKeyPrefixes := []string{envKeyFromFlagName(cw.EnvKeysPrefix, "")}
+	reservedEnvKeyPrefixes := []string{envvar.KeyFromFlagName(cw.EnvKeysPrefix, "")}
 	reservedEnvKeys := []string{cw.SuiteEnvKey}
 	testSuites, err := loadTestSuites(logger, !verifyExpectedOutcome, cw.TestsDescriptionFiles, cw.TestsDescriptionDirs,
 		cw.TestsDescription, reservedEnvKeyPrefixes, reservedEnvKeys)
@@ -570,7 +564,7 @@ func sendTestReport(ctx context.Context, reportCh chan<- *tester.Report, report 
 func (cw *CommandWrapper) buildRunnerEnviron(cmd *cobra.Command) []string {
 	environ := os.Environ()
 	environ = cw.appendFlags(environ, cmd.PersistentFlags(), cmd.Flags())
-	environ = append(environ, fmt.Sprintf("%s=1", cw.SuiteEnvKey))
+	environ = append(environ, envvar.EnvVar(cw.SuiteEnvKey, "1"))
 	return environ
 }
 
@@ -578,8 +572,8 @@ func (cw *CommandWrapper) buildRunnerEnviron(cmd *cobra.Command) []string {
 // append function.
 func (cw *CommandWrapper) appendFlags(environ []string, flagSets ...*pflag.FlagSet) []string {
 	appendFlag := func(flag *pflag.Flag) {
-		keyName := envKeyFromFlagName(cw.EnvKeysPrefix, flag.Name)
-		environ = append(environ, fmt.Sprintf("%s=%s", keyName, flag.Value.String()))
+		envKey := envvar.KeyFromFlagName(cw.EnvKeysPrefix, flag.Name)
+		environ = append(environ, envvar.EnvVar(envKey, flag.Value.String()))
 	}
 	for _, flagSet := range flagSets {
 		flagSet.VisitAll(appendFlag)

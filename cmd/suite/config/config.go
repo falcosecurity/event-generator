@@ -16,14 +16,13 @@
 package config
 
 import (
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/thediveo/enumflag/v2"
 
 	"github.com/falcosecurity/event-generator/pkg/container/builder"
+	"github.com/falcosecurity/event-generator/pkg/envvar"
 )
 
 const (
@@ -107,12 +106,12 @@ func New(suiteEnvKey, envKeysPrefix string) *Config {
 	commonConf := &Config{
 		SuiteEnvKey:           suiteEnvKey,
 		EnvKeysPrefix:         envKeysPrefix,
-		DescriptionFileEnvKey: envKeyFromFlagName(envKeysPrefix, DescriptionFileFlagName),
-		DescriptionDirEnvKey:  envKeyFromFlagName(envKeysPrefix, DescriptionDirFlagName),
-		DescriptionEnvKey:     envKeyFromFlagName(envKeysPrefix, DescriptionFlagName),
-		TestIDEnvKey:          envKeyFromFlagName(envKeysPrefix, TestIDFlagName),
-		BaggageEnvKey:         envKeyFromFlagName(envKeysPrefix, BaggageFlagName),
-		TimeoutEnvKey:         envKeyFromFlagName(envKeysPrefix, TimeoutFlagName),
+		DescriptionFileEnvKey: envvar.KeyFromFlagName(envKeysPrefix, DescriptionFileFlagName),
+		DescriptionDirEnvKey:  envvar.KeyFromFlagName(envKeysPrefix, DescriptionDirFlagName),
+		DescriptionEnvKey:     envvar.KeyFromFlagName(envKeysPrefix, DescriptionFlagName),
+		TestIDEnvKey:          envvar.KeyFromFlagName(envKeysPrefix, TestIDFlagName),
+		BaggageEnvKey:         envvar.KeyFromFlagName(envKeysPrefix, BaggageFlagName),
+		TimeoutEnvKey:         envvar.KeyFromFlagName(envKeysPrefix, TimeoutFlagName),
 	}
 	return commonConf
 }
@@ -158,11 +157,4 @@ func (c *Config) InitCommandFlags(cmd *cobra.Command) {
 			"logging purposes and to potentially generate the child process/container baggage")
 	_ = flags.MarkHidden(TestIDFlagName)
 	_ = flags.MarkHidden(BaggageFlagName)
-}
-
-// envKeyFromFlagName converts the provided flag name into the corresponding environment variable key.
-func envKeyFromFlagName(envKeysPrefix, flagName string) string {
-	s := fmt.Sprintf("%s_%s", envKeysPrefix, strings.ToUpper(flagName))
-	s = strings.ToUpper(s)
-	return strings.ReplaceAll(s, "-", "_")
 }

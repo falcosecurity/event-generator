@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-logr/logr"
 
+	"github.com/falcosecurity/event-generator/pkg/envvar"
 	"github.com/falcosecurity/event-generator/pkg/process"
 	"github.com/falcosecurity/event-generator/pkg/test/loader"
 	"github.com/falcosecurity/event-generator/pkg/test/resource"
@@ -185,7 +186,7 @@ func buildProcEnv(userEnv map[string]string) []string {
 
 	// Add the user-provided environment variable.
 	for key, value := range userEnv {
-		env = append(env, fmt.Sprintf("%s=%s", key, value))
+		env = append(env, envvar.EnvVar(key, value))
 	}
 	return env
 }
