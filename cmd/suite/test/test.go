@@ -63,8 +63,8 @@ const (
 const (
 	longDescriptionPrefaceTemplate = `%s.
 It is possible to provide the YAML description in multiple ways. The order of evaluation is the following:
-1) If --%s=<file_path> and/or --%s=<dir_path> flags are/is provided, the description is read from the file at <file_path>
-2) If the --%s=<description> flag is provided, the description is read from the <description> string
+1) If --%s=<file_path> and/or --%s=<dir_path> flags are/is provided, it is read from the file(s) at <file_path> and/or contained in <dir_path>
+2) If the --%s=<description> flag is provided, it is read from the <description> string
 3) Otherwise, it is read from standard input`
 	longDescriptionHeading = "Run test(s) specified via a YAML description and verify that they produce the expected outcomes"
 	warningMessage         = `Warning:
