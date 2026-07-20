@@ -63,6 +63,8 @@ type CommandWrapper struct {
 	// testsDescription is the YAML tests description. If testsDescriptionFiles or testsDescriptionDirs are provided,
 	// this is empty.
 	testsDescription string
+	// printTestsCount indicates if the user just want the tool to out-put the total number of tests.
+	printTestsCount bool
 }
 
 // New creates a new render command.
@@ -98,6 +100,7 @@ func (cw *CommandWrapper) initCommandFlags() {
 		"The YAML-formatted tests description string specifying the tests to be rendered")
 	cmd.MarkFlagsMutuallyExclusive(config.DescriptionFileFlagName, config.DescriptionFlagName)
 	cmd.MarkFlagsMutuallyExclusive(config.DescriptionDirFlagName, config.DescriptionFlagName)
+	flags.BoolVar(&cw.printTestsCount, "count", false, "Prints the total number of tests and exit")
 }
 
 func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
@@ -112,16 +115,26 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	// Note: keep the following in sync with the corresponding code in "test" package.
 	reservedEnvKeyPrefixes := []string{envvar.KeyFromFlagName(cw.envKeysPrefix, "")}
 	reservedEnvKeys := []string{cw.suiteEnvKey}
-	testDescs, err := loadTests(logger, cw.testsDescriptionFiles, cw.testsDescriptionDirs, cw.testsDescription,
+	testsDescs, err := loadTests(logger, cw.testsDescriptionFiles, cw.testsDescriptionDirs, cw.testsDescription,
 		reservedEnvKeyPrefixes, reservedEnvKeys)
 	if err != nil {
 		logger.Error(err, "Error loading tests")
 		os.Exit(1)
 	}
 
+	// If the user requested the tests count, just print it and return.
+	if cw.printTestsCount {
+		testsCount := 0
+		for _, testDesc := range testsDescs {
+			testsCount += len(testDesc.desc.Tests)
+		}
+		fmt.Println(testsCount)
+		return
+	}
+
 	w := os.Stdout
-	for _, testDesc := range testDescs {
-		source := testDesc.source
+	for _, testsDesc := range testsDescs {
+		source := testsDesc.source
 		logger := logger.WithValues("source", source)
 		header := fmt.Sprintf("---\n# source: %s\n", source)
 		if _, err := w.WriteString(header); err != nil {
@@ -129,7 +142,7 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 			os.Exit(1)
 		}
 
-		if err := testDesc.desc.Write(w); err != nil {
+		if err := testsDesc.desc.Write(w); err != nil {
 			logger.Error(err, "Error writing tests description")
 			os.Exit(1)
 		}
