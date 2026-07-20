@@ -20,6 +20,7 @@ import (
 
 	"github.com/falcosecurity/event-generator/cmd/suite/config"
 	"github.com/falcosecurity/event-generator/cmd/suite/explain"
+	"github.com/falcosecurity/event-generator/cmd/suite/render"
 	"github.com/falcosecurity/event-generator/cmd/suite/run"
 	"github.com/falcosecurity/event-generator/cmd/suite/test"
 	"github.com/falcosecurity/event-generator/cmd/suite/verify"
@@ -40,9 +41,11 @@ func New(suiteEnvKey, envKeysPrefix string) *cobra.Command {
 	testCmd := test.New(commonConf, false).Command
 	explainCmd := explain.New().Command
 	verifyCmd := verify.New(suiteEnvKey, envKeysPrefix).Command
+	renderCmd := render.New(suiteEnvKey, envKeysPrefix).Command
 	c.AddCommand(runCmd)
 	c.AddCommand(testCmd)
 	c.AddCommand(explainCmd)
 	c.AddCommand(verifyCmd)
+	c.AddCommand(renderCmd)
 	return c
 }

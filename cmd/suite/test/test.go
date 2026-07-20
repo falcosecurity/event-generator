@@ -173,7 +173,7 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	isRootProcess := cw.TestID == ""
 	verifyExpectedOutcome := isRootProcess && !cw.skipOutcomeVerification
 
-	// Note: keep the following in sync with the corresponding code in "verify" package.
+	// Note: keep the following in sync with the corresponding code in "verify" and "render" package.
 	reservedEnvKeyPrefixes := []string{envvar.KeyFromFlagName(cw.EnvKeysPrefix, "")}
 	reservedEnvKeys := []string{cw.SuiteEnvKey}
 	testSuites, err := LoadSuites(logger, !verifyExpectedOutcome, cw.TestsDescriptionFiles, cw.TestsDescriptionDirs,
