@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (C) 2025 The Falco Authors
+// Copyright (C) 2026 The Falco Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"github.com/falcosecurity/event-generator/cmd/suite/explain"
 	"github.com/falcosecurity/event-generator/cmd/suite/run"
 	"github.com/falcosecurity/event-generator/cmd/suite/test"
+	"github.com/falcosecurity/event-generator/cmd/suite/verify"
 )
 
 // New creates a new suite command.
@@ -38,8 +39,10 @@ func New(suiteEnvKey, envKeysPrefix string) *cobra.Command {
 	runCmd := run.New(commonConf)
 	testCmd := test.New(commonConf, false).Command
 	explainCmd := explain.New().Command
+	verifyCmd := verify.New(suiteEnvKey, envKeysPrefix).Command
 	c.AddCommand(runCmd)
 	c.AddCommand(testCmd)
 	c.AddCommand(explainCmd)
+	c.AddCommand(verifyCmd)
 	return c
 }

@@ -173,9 +173,10 @@ func (cw *CommandWrapper) run(cmd *cobra.Command, _ []string) {
 	isRootProcess := cw.TestID == ""
 	verifyExpectedOutcome := isRootProcess && !cw.skipOutcomeVerification
 
+	// Note: keep the following in sync with the corresponding code in "verify" package.
 	reservedEnvKeyPrefixes := []string{envvar.KeyFromFlagName(cw.EnvKeysPrefix, "")}
 	reservedEnvKeys := []string{cw.SuiteEnvKey}
-	testSuites, err := loadTestSuites(logger, !verifyExpectedOutcome, cw.TestsDescriptionFiles, cw.TestsDescriptionDirs,
+	testSuites, err := LoadSuites(logger, !verifyExpectedOutcome, cw.TestsDescriptionFiles, cw.TestsDescriptionDirs,
 		cw.TestsDescription, reservedEnvKeyPrefixes, reservedEnvKeys)
 	if err != nil {
 		if noRuleNameErr := (*suite.NoRuleNameError)(nil); errors.As(err, &noRuleNameErr) {
@@ -353,16 +354,15 @@ func formatTestCase(testCase loader.TestCase) string {
 	return s
 }
 
-// loadTestSuites loads the test suites from a different source, depending on the content of the provided values:
+// LoadSuites loads the test suites from a different source, depending on the content of the provided values:
 //   - if the provided descriptionFilePaths or descriptionDirPaths are not empty, the test suites are loaded both from
 //     the specified files (if any) and from the YAML files (if any) in the specified directories (if any);
 //   - if the provided description is not empty, the test suites are loaded from its content;
 //   - otherwise, they are loaded from standard input.
 //
 // The parameter canLoadTestsWithNoRuleName is used to allow/disallow loading of tests with absent or empty rule names.
-func loadTestSuites(logger logr.Logger, canLoadTestsWithNoRuleName bool, descriptionFilePaths,
-	descriptionDirPaths []string, description string,
-	reservedEnvKeyPrefixes, reservedEnvKeys []string) ([]*suite.Suite, error) {
+func LoadSuites(logger logr.Logger, canLoadTestsWithNoRuleName bool, descriptionFilePaths, descriptionDirPaths []string,
+	description string, reservedEnvKeyPrefixes, reservedEnvKeys []string) ([]*suite.Suite, error) {
 	descLoader := loader.New(reservedEnvKeyPrefixes, reservedEnvKeys)
 	testSuiteLoader := suiteloader.New(descLoader, canLoadTestsWithNoRuleName)
 
