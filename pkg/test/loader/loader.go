@@ -397,7 +397,7 @@ type Test struct {
 	// SourceIndex is the position of the test in the source from which it has been loaded. All tests generated from
 	// the same test template, shares the same source position (which is equal to the test template position in the
 	// source).
-	SourceIndex int
+	SourceIndex int `yaml:"-" mapstructure:"-"`
 }
 
 // validateNameUniqueness validates that names used for test resources and steps are unique.
