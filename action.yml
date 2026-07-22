@@ -1,0 +1,143 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 The Falco Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: "event-generator suite test"
+description: >-
+  Run 'event-generator suite test' over a folder of YAML test descriptions against an already-running Falco, and expose
+  the suite report plus the expected passing-test count so the caller can verify the outcome. The caller owns Falco's
+  lifecycle and must configure it as described in
+  https://github.com/falcosecurity/event-generator/blob/main/docs/event-generator_suite_test.md#falco-configuration.
+  The event-generator binary and the container base image are built from this action's own checked-out source, so
+  pinning the action to a commit SHA pins the whole toolchain.
+
+inputs:
+  tests-dir:
+    description: "Folder of YAML test descriptions to run, resolved relative to github.workspace (the caller's checked-out repository)."
+    required: false
+    default: "e2e_tests/evtgen_suite"
+  http-address:
+    description: >-
+      host:port the event-generator alert retriever binds to. The caller's Falco must send JSON-encoded alerts to this
+      endpoint, so alerts reach the retriever and can be correlated back to tests.
+    required: false
+    default: "localhost:8080"
+  report-format:
+    description: "Suite report format: 'text', 'json' or 'yaml'."
+    required: false
+    default: "json"
+  timeout:
+    description: "Maximum duration of the whole suite test run, as a Go duration (e.g. 10m)."
+    required: false
+    default: "10m"
+  event-generator-image:
+    description: >-
+      Optional event-generator container image, used both as --container-base-image (for tests that declare
+      context.container) and as the source of the host-side binary that runs the suite (extracted from it), so both
+      use the same build. When empty, the image is built from this action's checked-out source so it matches the pinned
+      action SHA.
+    required: false
+    default: ""
+  sudo:
+    description: "sudo command. Set to empty on runners where sudo is unavailable or unnecessary."
+    required: false
+    default: "sudo"
+
+outputs:
+  report:
+    description: "Absolute path to the suite test report file."
+    value: ${{ steps.run.outputs.report }}
+  expected-tests:
+    description: "Number of tests that are expected to pass."
+    value: ${{ steps.expected.outputs.count }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve and validate tests directory
+      id: resolve
+      shell: bash
+      env:
+        TESTS_DIR: ${{ inputs.tests-dir }}
+      run: |
+        DIR="${GITHUB_WORKSPACE}/${TESTS_DIR}"
+        [ -d "$DIR" ] || { echo "::error::tests-dir not found: ${DIR}"; exit 1; }
+        echo "dir=${DIR}" >> "$GITHUB_OUTPUT"
+
+    - name: Obtain event-generator image and extract binary
+      id: build
+      shell: bash
+      env:
+        EVENT_GENERATOR_IMAGE: ${{ inputs.event-generator-image }}
+      run: |
+        IMG="$EVENT_GENERATOR_IMAGE"
+        # Build the image locally or use the one specified by the user, if any.
+        if [ -z "$IMG" ]; then
+          IMG='event-generator:suite-test-ci'
+          echo "Building ${IMG} from ${GITHUB_ACTION_PATH}"
+          docker build -t "$IMG" "$GITHUB_ACTION_PATH"
+        else
+          echo "Using provided event-generator image ${IMG}"
+          docker pull "$IMG"
+        fi
+        # Extract the binary from the image.
+        CID="$(docker create "$IMG")"
+        BIN="${RUNNER_TEMP}/event-generator"
+        docker cp "${CID}:/bin/event-generator" "$BIN"
+        docker rm "$CID" >/dev/null
+        chmod +x "$BIN"
+        echo "image=${IMG}" >> "$GITHUB_OUTPUT"
+        echo "bin=${BIN}" >> "$GITHUB_OUTPUT"
+
+    - name: Compute expected passing tests
+      id: expected
+      shell: bash
+      env:
+        BIN: ${{ steps.build.outputs.bin }}
+        DIR: ${{ steps.resolve.outputs.dir }}
+      run: |
+        COUNT="$("$BIN" suite render --description-dir "$DIR" --count)"
+        echo "count=${COUNT}" >> "$GITHUB_OUTPUT"
+        echo "Expected passing tests across ${DIR}: ${COUNT}"
+
+    - name: Run suite test
+      id: run
+      shell: bash
+      env:
+        SUDO: ${{ inputs.sudo }}
+        BIN: ${{ steps.build.outputs.bin }}
+        DIR: ${{ steps.resolve.outputs.dir }}
+        HTTP_ADDRESS: ${{ inputs.http-address }}
+        IMAGE: ${{ steps.build.outputs.image }}
+        REPORT_FORMAT: ${{ inputs.report-format }}
+        TIMEOUT: ${{ inputs.timeout }}
+      run: |
+        REPORT="${RUNNER_TEMP}/event-generator-report"
+        : > "$REPORT"
+        echo "report=${REPORT}" >> "$GITHUB_OUTPUT"
+        # '|| EC=$?' prevents the step from aborting on a non-zero exit code.
+        EC=0
+        $SUDO "$BIN" suite test \
+          --description-dir "$DIR" \
+          --http-server-address "$HTTP_ADDRESS" \
+          --container-base-image "$IMAGE" \
+          --container-image-pull-policy never \
+          --report-format "$REPORT_FORMAT" \
+          --timeout "$TIMEOUT" \
+          >"$REPORT" || EC=$?
+        echo "event-generator suite test exit code: ${EC}"
+        if [ "$EC" -eq 0 ]; then
+          echo '----- event-generator report -----'
+          cat "$REPORT" || true
+        fi
