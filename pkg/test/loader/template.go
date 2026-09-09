@@ -291,7 +291,10 @@ func combine(combValue *combinationValue, combs []combination) []combination {
 
 	newCombs := make([]combination, 0, len(combs))
 	for _, comb := range combs {
-		newComb := comb
+		// Copy rather than append to comb directly: the caller reuses combs for every value of the current key, so
+		// appending in place would let siblings share a backing array once comb has spare capacity.
+		newComb := make(combination, len(comb), len(comb)+1)
+		copy(newComb, comb)
 		newComb = append(newComb, combValue)
 		newCombs = append(newCombs, newComb)
 	}
