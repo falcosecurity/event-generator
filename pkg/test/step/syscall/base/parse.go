@@ -109,8 +109,13 @@ func parseSocketAddress(value any) (unix.Sockaddr, error) {
 		return nil, errPortOutOfRange
 	}
 
+	var zoneID uint32
 	if zoneIndex := strings.IndexRune(host, '%'); zoneIndex != -1 {
-		host = host[zoneIndex+1:]
+		zone := host[zoneIndex+1:]
+		host = host[:zoneIndex]
+		if zoneID, err = parseZoneID(zone); err != nil {
+			return nil, fmt.Errorf("cannot parse %q zone: %w", zone, err)
+		}
 	}
 
 	addr := net.ParseIP(host)
@@ -120,8 +125,9 @@ func parseSocketAddress(value any) (unix.Sockaddr, error) {
 
 	if isIPv6 := strings.ContainsRune(host, ':'); isIPv6 {
 		sockaddr := &unix.SockaddrInet6{
-			Port: int(portNumber),
-			Addr: [16]byte(addr),
+			Port:   int(portNumber),
+			ZoneId: zoneID,
+			Addr:   [16]byte(addr),
 		}
 		return sockaddr, nil
 	}
@@ -131,6 +137,21 @@ func parseSocketAddress(value any) (unix.Sockaddr, error) {
 		Addr: [4]byte(addr.To4()),
 	}
 	return sockaddr, nil
+}
+
+// parseZoneID returns the interface index identified by the provided IPv6 zone, which can be either a numeric index or
+// an interface name.
+func parseZoneID(zone string) (uint32, error) {
+	if zoneID, err := strconv.ParseUint(zone, 10, 32); err == nil {
+		return uint32(zoneID), nil
+	}
+
+	iface, err := net.InterfaceByName(zone)
+	if err != nil {
+		return 0, err
+	}
+
+	return uint32(iface.Index), nil //nolint:gosec // Disable G115
 }
 
 func parseSingleValue(value any, valuesMap map[string]int) (int, error) {
